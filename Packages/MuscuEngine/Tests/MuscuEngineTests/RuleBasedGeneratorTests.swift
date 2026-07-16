@@ -170,4 +170,18 @@ struct RuleBasedGeneratorTests {
         let program2 = try generator.generate(makeInput())
         #expect(program1 == program2)
     }
+
+    @Test
+    func testAllRecommendedSplitsGenerateWithoutCrashing() throws {
+        let catalog = try ExerciseCatalog.load()
+        let generator = RuleBasedGenerator(catalog: catalog)
+
+        for daysPerWeek in 2...6 {
+            let program = try generator.generate(makeInput(daysPerWeek: daysPerWeek))
+            #expect(program.sessions.count == daysPerWeek)
+            for session in program.sessions {
+                #expect(session.exercises.count > 0, "Session \(session.name) should have exercises")
+            }
+        }
+    }
 }

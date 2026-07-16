@@ -86,6 +86,10 @@ public struct RuleBasedGenerator: ProgramGenerator {
     // MARK: - Etapes 3-5 : construction d'une session
 
     private func buildSession(blueprint: SessionBlueprint, input: GeneratorInput, countRange: (min: Int, max: Int)) -> DraftSession {
+        guard !blueprint.slots.isEmpty else {
+            return DraftSession(name: blueprint.name, warmupEnabled: true, exercises: [])
+        }
+
         var slots = blueprint.slots
         let targetCount = min(max(slots.count, countRange.min), countRange.max)
 
