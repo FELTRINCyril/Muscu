@@ -14,7 +14,7 @@ struct RootTabView: View {
                     Label("Programmes", systemImage: "list.bullet.rectangle")
                 }
 
-            PlaceholderView(title: "Exercices")
+            ExercisesView()
                 .tabItem {
                     Label("Exercices", systemImage: "dumbbell.fill")
                 }
@@ -48,5 +48,7 @@ private struct PlaceholderView: View {
 
 #Preview {
     RootTabView()
+        .environment(CatalogStore())
+        .modelContainer(for: CustomExercise.self, inMemory: true)
         .preferredColorScheme(.dark)
 }

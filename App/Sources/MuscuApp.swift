@@ -11,10 +11,13 @@ struct MuscuApp: App {
         }
     }()
 
+    @State private var catalogStore = CatalogStore()
+
     var body: some Scene {
         WindowGroup {
             RootTabView()
                 .preferredColorScheme(.dark)
+                .environment(catalogStore)
         }
         .modelContainer(container)
     }
