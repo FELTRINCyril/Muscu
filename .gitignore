@@ -4,3 +4,5 @@ xcuserdata/
 .build/
 DerivedData/
 .swiftpm/
+Scripts/exercises_source.json
+.superpowers/
