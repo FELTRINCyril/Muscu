@@ -7,8 +7,8 @@ struct SessionEditorView: View {
     @Bindable var session: ProgramSession
 
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.editMode) private var editMode
 
+    @State private var editMode: EditMode = .inactive
     @State private var showingPicker = false
     @State private var editingExercise: PrescribedExercise?
 
@@ -51,6 +51,7 @@ struct SessionEditorView: View {
                 }
             }
         }
+        .environment(\.editMode, $editMode)
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(Theme.background)
@@ -58,7 +59,7 @@ struct SessionEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button(isEditing ? "Terminé" : "Modifier") {
+                Button(editMode.isEditing ? "Terminé" : "Modifier") {
                     withAnimation { toggleEditing() }
                 }
             }
@@ -122,12 +123,8 @@ struct SessionEditorView: View {
         }
     }
 
-    private var isEditing: Bool {
-        editMode?.wrappedValue.isEditing ?? false
-    }
-
     private func toggleEditing() {
-        editMode?.wrappedValue = isEditing ? .inactive : .active
+        editMode = editMode.isEditing ? .inactive : .active
     }
 }
 

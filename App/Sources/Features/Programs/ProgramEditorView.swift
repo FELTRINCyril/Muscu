@@ -6,7 +6,8 @@ struct ProgramEditorView: View {
     @Bindable var program: Program
 
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.editMode) private var editMode
+
+    @State private var editMode: EditMode = .inactive
 
     private var sortedSessions: [ProgramSession] {
         program.sessions.sorted { $0.orderIndex < $1.orderIndex }
@@ -53,6 +54,7 @@ struct ProgramEditorView: View {
                 }
             }
         }
+        .environment(\.editMode, $editMode)
         .listStyle(.insetGrouped)
         .scrollContentBackground(.hidden)
         .background(Theme.background)
@@ -60,7 +62,7 @@ struct ProgramEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button(isEditing ? "Terminé" : "Modifier") {
+                Button(editMode.isEditing ? "Terminé" : "Modifier") {
                     withAnimation { toggleEditing() }
                 }
             }
@@ -128,12 +130,8 @@ struct ProgramEditorView: View {
         }
     }
 
-    private var isEditing: Bool {
-        editMode?.wrappedValue.isEditing ?? false
-    }
-
     private func toggleEditing() {
-        editMode?.wrappedValue = isEditing ? .inactive : .active
+        editMode = editMode.isEditing ? .inactive : .active
     }
 }
 
