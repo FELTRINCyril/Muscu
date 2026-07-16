@@ -1,0 +1,25 @@
+name: Muscu
+options:
+  bundleIdPrefix: com.cyril
+  deploymentTarget:
+    iOS: "18.0"
+packages:
+  MuscuEngine:
+    path: Packages/MuscuEngine
+targets:
+  Muscu:
+    type: application
+    platform: iOS
+    sources: [App/Sources, App/Resources]
+    dependencies:
+      - package: MuscuEngine
+    settings:
+      base:
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "6.0"
+        PRODUCT_NAME: Muscu

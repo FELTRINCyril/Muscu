@@ -17,7 +17,7 @@ public struct ExerciseCatalog: Sendable {
         guard let url = Bundle.module.url(
             forResource: "exercises_fr",
             withExtension: "json",
-            subdirectory: "Resources"
+            subdirectory: "CatalogData"
         ) else {
             throw ExerciseCatalogError.resourceNotFound
         }
