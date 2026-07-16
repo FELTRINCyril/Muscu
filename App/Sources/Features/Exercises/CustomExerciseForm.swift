@@ -46,8 +46,8 @@ struct CustomExerciseForm: View {
                     }
                 }
 
-                Section("Materiel") {
-                    Picker("Materiel", selection: $equipment) {
+                Section("Matériel") {
+                    Picker("Matériel", selection: $equipment) {
                         Text("Aucun").tag("")
                         ForEach(catalogStore.equipments, id: \.self) { key in
                             Text(FrenchLabels.equipment(key)).tag(key)

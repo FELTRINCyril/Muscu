@@ -69,13 +69,13 @@ struct ExercisesView: View {
                     Button(FrenchLabels.muscle(muscle)) { filterMuscle = muscle }
                 }
             }
-            Menu("Materiel") {
+            Menu("Matériel") {
                 Button("Tous") { filterEquipment = nil }
                 ForEach(catalogStore.equipments, id: \.self) { equipment in
                     Button(FrenchLabels.equipment(equipment)) { filterEquipment = equipment }
                 }
             }
-            Menu("Categorie") {
+            Menu("Catégorie") {
                 Button("Toutes") { filterCategory = nil }
                 ForEach(catalogStore.categories, id: \.self) { category in
                     Button(FrenchLabels.category(category)) { filterCategory = category }

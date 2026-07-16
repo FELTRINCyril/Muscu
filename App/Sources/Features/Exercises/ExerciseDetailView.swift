@@ -77,7 +77,7 @@ struct ExerciseDetailView: View {
 
     private var videoButton: some View {
         Link(destination: videoSearchURL) {
-            Label("Voir en video", systemImage: "play.rectangle.fill")
+            Label("Voir en vidéo", systemImage: "play.rectangle.fill")
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
                 .padding()
