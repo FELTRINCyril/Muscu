@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xcodebuild *)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild *)",
+      "Bash(DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcrun *)",
+      "Bash(xcrun simctl *)",
+      "Bash(xcrun *)",
+      "Bash(xcodegen)",
+      "Bash(xcodegen generate)",
+      "Bash(xcodegen *)",
+      "Bash(swift test)",
+      "Bash(swift test *)",
+      "Bash(swift build)",
+      "Bash(swift build *)",
+      "Bash(swift package *)",
+      "Bash(open -a Simulator)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git mv *)",
+      "Bash(git push)",
+      "Bash(git push *)",
+      "Bash(mkdir -p *)",
+      "Bash(chmod +x *)",
+      "Bash(plutil *)",
+      "Bash(log show *)"
+    ]
+  }
+}
