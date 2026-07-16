@@ -8,8 +8,8 @@ struct ProgramsView: View {
 
     @State private var path = NavigationPath()
     @State private var showingAddChoice = false
-    @State private var showingTemplatePlaceholder = false
-    @State private var showingGeneratorPlaceholder = false
+    @State private var showingTemplatePicker = false
+    @State private var showingGeneratorWizard = false
     @State private var programPendingDelete: Program?
 
     var body: some View {
@@ -88,8 +88,8 @@ struct ProgramsView: View {
             }
             .confirmationDialog("Nouveau programme", isPresented: $showingAddChoice, titleVisibility: .visible) {
                 Button("De zéro") { createFromScratch() }
-                Button("Depuis un modèle") { showingTemplatePlaceholder = true }
-                Button("Générateur") { showingGeneratorPlaceholder = true }
+                Button("Depuis un modèle") { showingTemplatePicker = true }
+                Button("Générateur") { showingGeneratorWizard = true }
                 Button("Annuler", role: .cancel) {}
             }
             .confirmationDialog(
@@ -110,11 +110,11 @@ struct ProgramsView: View {
                     programPendingDelete = nil
                 }
             }
-            .sheet(isPresented: $showingTemplatePlaceholder) {
-                ComingSoonView(title: "Depuis un modèle")
+            .sheet(isPresented: $showingTemplatePicker) {
+                TemplatePickerView(onSaved: { showingTemplatePicker = false })
             }
-            .sheet(isPresented: $showingGeneratorPlaceholder) {
-                ComingSoonView(title: "Générateur")
+            .sheet(isPresented: $showingGeneratorWizard) {
+                GeneratorWizardView(onSaved: { showingGeneratorWizard = false })
             }
         }
     }
@@ -198,33 +198,9 @@ private struct ActiveBadge: View {
     }
 }
 
-// Feuille temporaire pour les parcours "Depuis un modele" et "Generateur",
-// implementes en Task 16.
-private struct ComingSoonView: View {
-    let title: String
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ContentUnavailableView(
-                "Bientôt disponible",
-                systemImage: "hourglass",
-                description: Text("\"\(title)\" arrive dans une prochaine mise à jour.")
-            )
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Fermer") { dismiss() }
-                }
-            }
-        }
-    }
-}
-
 #Preview {
     ProgramsView()
+        .environment(CatalogStore())
         .modelContainer(for: Program.self, inMemory: true)
         .preferredColorScheme(.dark)
 }

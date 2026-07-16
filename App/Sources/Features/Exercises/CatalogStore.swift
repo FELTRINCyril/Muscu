@@ -12,7 +12,9 @@ final class CatalogStore {
     let equipments: [String]
     let categories: [String]
 
-    private let catalog: ExerciseCatalog
+    // Expose le catalogue brut pour les consommateurs qui ont besoin du type
+    // MuscuEngine complet (ex: RuleBasedGenerator), plutot que des tableaux derives.
+    let catalog: ExerciseCatalog
 
     init() {
         let loaded: ExerciseCatalog
