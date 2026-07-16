@@ -9,7 +9,7 @@ struct RootTabView: View {
                     Label("Accueil", systemImage: "house.fill")
                 }
 
-            PlaceholderView(title: "Programmes")
+            ProgramsView()
                 .tabItem {
                     Label("Programmes", systemImage: "list.bullet.rectangle")
                 }
