@@ -33,26 +33,13 @@ struct RootTabView: View {
                 }
                 .tag(3)
 
-            PlaceholderView(title: "Réglages")
+            SettingsView()
                 .tabItem {
                     Label("Réglages", systemImage: "gearshape.fill")
                 }
                 .tag(4)
         }
         .tint(Theme.accent)
-    }
-}
-
-private struct PlaceholderView: View {
-    let title: String
-
-    var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-            Text(title)
-                .font(.title2)
-                .foregroundStyle(.white)
-        }
     }
 }
 
