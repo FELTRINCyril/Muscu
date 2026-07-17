@@ -403,6 +403,14 @@ final class WorkoutState {
     func logWarmupSet(_ warmupSet: WarmupSet, rampIndex: Int) {
         guard let target = warmupTargetExercise(),
               let targetIndex = exercises.firstIndex(where: { $0.id == target.id }) else { return }
+        // Idempotent : un kill+resume en pleine echauffement restaure
+        // checkedRamps depuis loggedSets (cf. WarmupView.onAppear), mais on
+        // se protege ici aussi contre un double-log du meme palier (meme
+        // orderIndex+setIndex+isWarmup), source de doublons dans l'historique.
+        let alreadyLogged = loggedSets.contains {
+            $0.isWarmup && $0.orderIndex == targetIndex && $0.setIndex == rampIndex
+        }
+        guard !alreadyLogged else { return }
         insertCompletedSet(
             exerciseId: target.exerciseId,
             displayName: target.displayName,

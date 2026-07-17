@@ -48,9 +48,25 @@ struct WarmupView: View {
             }
         }
         .onAppear {
-            guard cardioEndDate == nil else { return }
-            cardioEndDate = Date.now.addingTimeInterval(Double(Warmup.cardioMinutes * 60))
+            if cardioEndDate == nil {
+                cardioEndDate = Date.now.addingTimeInterval(Double(Warmup.cardioMinutes * 60))
+            }
+            restoreCheckedRamps()
         }
+    }
+
+    // Reconstruit checkedRamps depuis les series deja persistees : necessaire
+    // apres un kill+resume en pleine echauffement, sinon ce @State frais
+    // repart a vide (toutes les cases redeviennent decochees) alors que
+    // logWarmupSet a deja loggee ces paliers - source de doublons a la
+    // reprise si on retapait sur une case deja validee.
+    private func restoreCheckedRamps() {
+        guard let target = state.warmupTargetExercise(),
+              let targetIndex = state.exercises.firstIndex(where: { $0.id == target.id }) else { return }
+        let loggedRampIndexes = state.loggedSets
+            .filter { $0.isWarmup && $0.orderIndex == targetIndex }
+            .map(\.setIndex)
+        checkedRamps = Set(loggedRampIndexes)
     }
 
     private var allRampsChecked: Bool {

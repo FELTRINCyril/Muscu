@@ -60,6 +60,15 @@ struct IntervalRunnerView: View {
     private var runningBody: some View {
         TimelineView(.periodic(from: .now, by: 0.2)) { _ in
             VStack(spacing: 32) {
+                VStack(spacing: 4) {
+                    Text(exercise.displayName)
+                        .font(.title3.weight(.semibold))
+                    Text(WorkoutState.objectiveLabel(for: exercise))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 8)
+
                 Spacer()
 
                 if let segment = controller.currentSegment {
@@ -67,7 +76,7 @@ struct IntervalRunnerView: View {
                         .font(.system(size: 44, weight: .black))
                         .foregroundStyle(segment.kind == .work ? Theme.accent : .blue)
 
-                    Text(formattedTime(controller.remaining))
+                    Text(formattedTime(controller.isPaused ? Int(controller.pausedRemaining.rounded(.up)) : controller.remaining))
                         .font(Theme.timerFont)
                         .monospacedDigit()
                         .foregroundStyle(.white)
@@ -102,8 +111,13 @@ struct IntervalRunnerView: View {
     private var repsEntryBody: some View {
         VStack(spacing: 24) {
             Spacer()
-            Text(exercise.displayName)
-                .font(.title3.weight(.semibold))
+            VStack(spacing: 4) {
+                Text(exercise.displayName)
+                    .font(.title3.weight(.semibold))
+                Text(WorkoutState.objectiveLabel(for: exercise))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
             Text("Bloc terminé")
                 .font(.headline)
                 .foregroundStyle(Theme.accent)
@@ -170,7 +184,7 @@ final class IntervalController {
     private(set) var index = 0
     private(set) var segmentEndDate: Date?
     private(set) var isPaused = false
-    private var pausedRemaining: TimeInterval = 0
+    private(set) var pausedRemaining: TimeInterval = 0
     private var expiryTask: Task<Void, Never>?
 
     var onSegmentStart: ((IntervalSegment) -> Void)?
