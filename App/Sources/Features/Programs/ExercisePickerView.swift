@@ -9,9 +9,16 @@ struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
 
     let onPick: (CatalogExercise) -> Void
+    var initialMuscleFilter: String? = nil
 
     @State private var searchText = ""
     @State private var filterMuscle: String?
+
+    init(initialMuscleFilter: String? = nil, onPick: @escaping (CatalogExercise) -> Void) {
+        self.onPick = onPick
+        self.initialMuscleFilter = initialMuscleFilter
+        _filterMuscle = State(initialValue: initialMuscleFilter)
+    }
 
     var body: some View {
         NavigationStack {

@@ -38,6 +38,12 @@ final class CatalogStore {
         catalog.search(query)
     }
 
+    // Recherche par identifiant, utile pour retrouver l'exercice complet
+    // (image, muscles) a partir d'un exerciseId stocke sur une prescription.
+    func exercise(id: String) -> CatalogExercise? {
+        all.first { $0.id == id }
+    }
+
     func filter(muscle: String?, equipment: String?, category: String?) -> [CatalogExercise] {
         catalog.filter(muscle: muscle, equipment: equipment, category: category)
     }
