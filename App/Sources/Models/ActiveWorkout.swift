@@ -12,6 +12,12 @@ final class ActiveWorkout {
     var exerciseIndex: Int = 0
     var setIndex: Int = 0
 
+    // Phase de la seance ("warmup" ou "running", cf. RunnerPhase dans
+    // WorkoutState.swift). Champ optionnel-par-defaut : les ActiveWorkout
+    // deja persistees avant l'ajout de l'echauffement n'etaient jamais en
+    // phase d'echauffement, "running" est donc un defaut correct pour elles.
+    var phaseRaw: String = "running"
+
     // Snapshot JSON (encodage de [RunExercise], cf. WorkoutState.swift) des
     // exercices de la seance en cours, tels que mutes en memoire par
     // addSet/removeSet/replaceExercise. Sans ce snapshot, un kill+resume de
@@ -31,6 +37,7 @@ final class ActiveWorkout {
         programSessionId: UUID,
         exerciseIndex: Int = 0,
         setIndex: Int = 0,
+        phaseRaw: String = "running",
         runExercisesData: Data? = nil,
         loggedSets: [CompletedSet] = []
     ) {
@@ -39,6 +46,7 @@ final class ActiveWorkout {
         self.programSessionId = programSessionId
         self.exerciseIndex = exerciseIndex
         self.setIndex = setIndex
+        self.phaseRaw = phaseRaw
         self.runExercisesData = runExercisesData
         self.loggedSets = loggedSets
     }

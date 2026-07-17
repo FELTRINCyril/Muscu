@@ -22,7 +22,7 @@ struct WorkoutSummaryView: View {
                     HStack(spacing: 12) {
                         StatCard(title: "Durée", value: formattedDuration)
                         StatCard(title: "Tonnage", value: "\(WorkoutState.formatWeight(totalTonnage)) kg")
-                        StatCard(title: "Séries", value: "\(state.loggedSets.count)")
+                        StatCard(title: "Séries", value: "\(workingSets.count)")
                     }
 
                     VStack(alignment: .leading, spacing: 16) {
@@ -51,8 +51,15 @@ struct WorkoutSummaryView: View {
         .background(Theme.background)
     }
 
+    // Les series d'echauffement (isWarmup) sont loggees pour l'historique
+    // mais ne comptent ni dans le tonnage ni dans le nombre de series de
+    // travail affiches ici (ce ne sont pas des series de travail).
+    private var workingSets: [CompletedSet] {
+        state.loggedSets.filter { !$0.isWarmup }
+    }
+
     private var totalTonnage: Double {
-        state.loggedSets.reduce(0) { $0 + $1.weight * Double($1.reps) }
+        workingSets.reduce(0) { $0 + $1.weight * Double($1.reps) }
     }
 
     private var formattedDuration: String {
@@ -69,7 +76,7 @@ struct WorkoutSummaryView: View {
     }
 
     private var groupedByExercise: [ExerciseGroup] {
-        let grouped = Dictionary(grouping: state.loggedSets, by: \.orderIndex)
+        let grouped = Dictionary(grouping: workingSets, by: \.orderIndex)
         return grouped.keys.sorted().compactMap { orderIndex in
             guard let sets = grouped[orderIndex], let displayName = sets.first?.displayName else { return nil }
             return ExerciseGroup(

@@ -17,7 +17,9 @@ struct WorkoutRunnerView: View {
 
     var body: some View {
         Group {
-            if state.isSessionComplete {
+            if state.phase == .warmup {
+                WarmupView(state: state)
+            } else if state.isSessionComplete {
                 WorkoutSummaryView(state: state, onFinish: { dismiss() })
             } else {
                 runningBody
@@ -88,8 +90,15 @@ struct WorkoutRunnerView: View {
         switch exercise.format {
         case .classic:
             ClassicExerciseCard(state: state, exercise: exercise, showingOneRepMaxPrompt: $showingOneRepMaxPrompt)
-        case .pyramid, .intervals, .amrap:
-            UnsupportedFormatCard(onSkip: { state.skipExercise() })
+        case .pyramid:
+            PyramidRunnerView(state: state, exercise: exercise)
+                .id(exercise.id)
+        case .intervals:
+            IntervalRunnerView(state: state, exercise: exercise)
+                .id(exercise.id)
+        case .amrap:
+            AmrapRunnerView(state: state, exercise: exercise)
+                .id(exercise.id)
         }
     }
 
@@ -206,27 +215,6 @@ private struct ClassicExerciseCard: View {
 
     private var prefillReps: Int {
         exercise.repsUpper > 0 ? exercise.repsUpper : exercise.repsLower
-    }
-}
-
-// MARK: - Formats non geres dans cette tache
-
-private struct UnsupportedFormatCard: View {
-    let onSkip: () -> Void
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            Text("Format géré à la tâche suivante")
-                .font(.title3.weight(.semibold))
-                .multilineTextAlignment(.center)
-            Button("Passer cet exercice", action: onSkip)
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
-            Spacer()
-        }
-        .padding()
-        .frame(maxWidth: .infinity)
     }
 }
 
