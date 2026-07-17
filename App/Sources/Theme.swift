@@ -10,4 +10,7 @@ enum Theme {
 
     // Gris fonce, fond des cartes/panneaux.
     static let card = Color(red: 0.13, green: 0.13, blue: 0.15)
+
+    // Police geante monospace pour le decompte du chrono de repos.
+    static let timerFont = Font.system(size: 88, weight: .bold, design: .monospaced)
 }
