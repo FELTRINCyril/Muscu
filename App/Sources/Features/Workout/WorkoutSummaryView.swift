@@ -1,11 +1,20 @@
 import SwiftUI
+import SwiftData
 
 // Recap de fin de seance : duree, tonnage, nb de series, detail par exercice.
-// La detection des records battus est le hook laisse pour la Task 20 : cet
-// ecran ne calcule et n'affiche rien a ce sujet pour l'instant.
+// Au moment de "Terminer", la seance est basculee dans l'historique puis les
+// records eventuellement battus (RecordDetection) sont proposes un par un :
+// jamais de mise a jour silencieuse d'un ExerciseRecord.
 struct WorkoutSummaryView: View {
     let state: WorkoutState
     let onFinish: () -> Void
+
+    @State private var hasFinished = false
+    @State private var pendingSuggestions: [RecordDetection.RecordSuggestion] = []
+    // Une fois la seance terminee, state.loggedSets se vide (l'ActiveWorkout
+    // est supprimee, cf. WorkoutState.finish) : on garde les series de la
+    // CompletedSession fraichement creee pour continuer a afficher le recap.
+    @State private var finishedSets: [CompletedSet]?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -25,6 +34,18 @@ struct WorkoutSummaryView: View {
                         StatCard(title: "Séries", value: "\(workingSets.count)")
                     }
 
+                    if hasFinished && !pendingSuggestions.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(pendingSuggestions) { suggestion in
+                                RecordSuggestionCard(
+                                    suggestion: suggestion,
+                                    onSave: { save(suggestion) },
+                                    onDismiss: { discard(suggestion) }
+                                )
+                            }
+                        }
+                    }
+
                     VStack(alignment: .leading, spacing: 16) {
                         ForEach(groupedByExercise, id: \.orderIndex) { group in
                             ExerciseSummaryCard(displayName: group.displayName, sets: group.sets)
@@ -35,10 +56,13 @@ struct WorkoutSummaryView: View {
             }
 
             Button {
-                _ = state.finish()
-                onFinish()
+                if hasFinished {
+                    onFinish()
+                } else {
+                    finishSession()
+                }
             } label: {
-                Text("Terminer")
+                Text(hasFinished ? "Fermer" : "Terminer")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
@@ -51,11 +75,49 @@ struct WorkoutSummaryView: View {
         .background(Theme.background)
     }
 
+    // MARK: - Records
+
+    private func finishSession() {
+        let completedSession = state.finish()
+        finishedSets = completedSession.sets
+        let records = (try? state.modelContext.fetch(FetchDescriptor<ExerciseRecord>())) ?? []
+        pendingSuggestions = RecordDetection.check(session: completedSession, records: records)
+        hasFinished = true
+    }
+
+    private func save(_ suggestion: RecordDetection.RecordSuggestion) {
+        let record = fetchRecord(exerciseId: suggestion.exerciseId)
+            ?? ExerciseRecord(exerciseId: suggestion.exerciseId, displayName: suggestion.displayName)
+
+        switch suggestion.kind {
+        case .oneRepMax(let new, _):
+            record.oneRepMax = new
+        case .maxReps(let new, _):
+            record.maxReps = new
+        }
+        record.updatedAt = .now
+
+        if record.modelContext == nil {
+            state.modelContext.insert(record)
+        }
+        try? state.modelContext.save()
+        discard(suggestion)
+    }
+
+    private func discard(_ suggestion: RecordDetection.RecordSuggestion) {
+        pendingSuggestions.removeAll { $0.id == suggestion.id }
+    }
+
+    private func fetchRecord(exerciseId: String) -> ExerciseRecord? {
+        let descriptor = FetchDescriptor<ExerciseRecord>(predicate: #Predicate { $0.exerciseId == exerciseId })
+        return try? state.modelContext.fetch(descriptor).first
+    }
+
     // Les series d'echauffement (isWarmup) sont loggees pour l'historique
     // mais ne comptent ni dans le tonnage ni dans le nombre de series de
     // travail affiches ici (ce ne sont pas des series de travail).
     private var workingSets: [CompletedSet] {
-        state.loggedSets.filter { !$0.isWarmup }
+        (finishedSets ?? state.loggedSets).filter { !$0.isWarmup }
     }
 
     private var totalTonnage: Double {
@@ -126,5 +188,53 @@ private struct ExerciseSummaryCard: View {
         .padding()
         .background(Theme.card)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+private struct RecordSuggestionCard: View {
+    let suggestion: RecordDetection.RecordSuggestion
+    let onSave: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "trophy.fill")
+                    .foregroundStyle(Theme.accent)
+                Text("Nouveau record !")
+                    .font(.subheadline.weight(.semibold))
+            }
+            Text(suggestion.displayName)
+                .font(.subheadline)
+            Text(detailLabel)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                Button("Ignorer", role: .cancel) { onDismiss() }
+                    .buttonStyle(.bordered)
+                Spacer()
+                Button("Enregistrer") { onSave() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.accent)
+            }
+        }
+        .padding()
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var detailLabel: String {
+        switch suggestion.kind {
+        case .oneRepMax(let new, let old):
+            if let old {
+                return "\(WorkoutState.formatWeight(old)) kg -> \(WorkoutState.formatWeight(new)) kg"
+            }
+            return "1RM estimé : \(WorkoutState.formatWeight(new)) kg"
+        case .maxReps(let new, let old):
+            if let old {
+                return "\(old) -> \(new) répétitions"
+            }
+            return "\(new) répétitions"
+        }
     }
 }

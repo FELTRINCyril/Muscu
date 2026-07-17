@@ -20,7 +20,7 @@ struct RootTabView: View {
                     Label("Exercices", systemImage: "dumbbell.fill")
                 }
 
-            PlaceholderView(title: "Progression")
+            ProgressTabView()
                 .tabItem {
                     Label("Progression", systemImage: "chart.line.uptrend.xyaxis")
                 }
