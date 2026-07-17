@@ -183,24 +183,29 @@ enum ExportImport {
         }
 
         // Etape 3 : insertion, uniquement une fois tout valide.
-        for programDTO in envelope.programs {
-            let program = model(from: programDTO)
-            context.insert(program)
-        }
-        for sessionDTO in envelope.sessions {
-            let session = model(from: sessionDTO)
-            context.insert(session)
-        }
-        for recordDTO in envelope.records {
-            let record = model(from: recordDTO)
-            context.insert(record)
-        }
-        for customExerciseDTO in envelope.customExercises {
-            let customExercise = model(from: customExerciseDTO)
-            context.insert(customExercise)
-        }
+        do {
+            for programDTO in envelope.programs {
+                let program = model(from: programDTO)
+                context.insert(program)
+            }
+            for sessionDTO in envelope.sessions {
+                let session = model(from: sessionDTO)
+                context.insert(session)
+            }
+            for recordDTO in envelope.records {
+                let record = model(from: recordDTO)
+                context.insert(record)
+            }
+            for customExerciseDTO in envelope.customExercises {
+                let customExercise = model(from: customExerciseDTO)
+                context.insert(customExercise)
+            }
 
-        try context.save()
+            try context.save()
+        } catch {
+            context.rollback()
+            throw error
+        }
 
         return ImportSummary(
             programsCount: envelope.programs.count,

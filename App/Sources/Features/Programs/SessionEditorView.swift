@@ -78,6 +78,7 @@ struct SessionEditorView: View {
     }
 
     private func addExercise(from catalogExercise: CatalogExercise) {
+        let defaultRest = UserDefaults.standard.object(forKey: "defaultRestSeconds") != nil ? UserDefaults.standard.integer(forKey: "defaultRestSeconds") : 90
         let exercise = PrescribedExercise(
             exerciseId: catalogExercise.id,
             displayName: catalogExercise.nameFr,
@@ -85,7 +86,7 @@ struct SessionEditorView: View {
             sets: 3,
             repsLower: 8,
             repsUpper: 12,
-            restSeconds: 90
+            restSeconds: defaultRest
         )
         exercise.session = session
         session.exercises.append(exercise)

@@ -203,12 +203,13 @@ struct PrescriptionEditorView: View {
     // (steppers/pickers avec bornes invalides) quand on bascule de format ou
     // qu'on ouvre l'editeur sur un exercice tout juste cree.
     private func applyDefaults(for format: SetFormat) {
+        let defaultRest = UserDefaults.standard.object(forKey: "defaultRestSeconds") != nil ? UserDefaults.standard.integer(forKey: "defaultRestSeconds") : 90
         switch format {
         case .classic:
             if exercise.sets == 0 { exercise.sets = 3 }
             if exercise.repsLower == 0 { exercise.repsLower = 8 }
             if exercise.repsUpper == 0 { exercise.repsUpper = exercise.repsLower }
-            if exercise.restSeconds == 0 { exercise.restSeconds = 90 }
+            if exercise.restSeconds == 0 { exercise.restSeconds = defaultRest }
         case .pyramid:
             if exercise.pyramidMinRest == 0 { exercise.pyramidMinRest = 30 }
             if exercise.pyramidMaxRest == 0 { exercise.pyramidMaxRest = 120 }
