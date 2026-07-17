@@ -5,7 +5,7 @@ import MuscuEngine
 // Copie en memoire d'une PrescribedExercise pour la duree de la seance :
 // remplacer/ajuster le nombre de series pendant la seance ne doit jamais
 // muter le programme source (cf. replaceExercise/addSet/removeSet).
-struct RunExercise: Identifiable {
+struct RunExercise: Identifiable, Codable {
     var id: UUID
     var exerciseId: String
     var displayName: String
@@ -78,17 +78,45 @@ final class WorkoutState {
         restTimer: RestTimer,
         restoring activeWorkout: ActiveWorkout
     ) {
+        // Priorite au snapshot des mutations en memoire (addSet/removeSet/
+        // replaceExercise) persiste sur l'ActiveWorkout : sans lui, un
+        // kill+resume reconstruirait les exercices depuis la ProgramSession
+        // source et perdrait ces mutations, desynchronisant les indices deja
+        // persistes du contenu reel de la seance. A defaut (ancienne
+        // ActiveWorkout sans snapshot, ou decodage impossible), on retombe
+        // sur la reconstruction depuis le programme.
+        let restoredExercises: [RunExercise]
+        if let data = activeWorkout.runExercisesData,
+           let decoded = try? JSONDecoder().decode([RunExercise].self, from: data),
+           !decoded.isEmpty {
+            restoredExercises = decoded
+        } else {
+            restoredExercises = programSession.exercises
+                .sorted { $0.orderIndex < $1.orderIndex }
+                .map(RunExercise.init)
+        }
+
+        // Reclampage defensif : les indices persistes doivent rester valides
+        // meme si l'ActiveWorkout est desynchronisee (snapshot absent + le
+        // programme source a change depuis, corruption, etc.).
+        let clampedExerciseIndex = min(max(activeWorkout.exerciseIndex, 0), restoredExercises.count)
+        let clampedSetIndex: Int
+        if clampedExerciseIndex < restoredExercises.count {
+            let setsCount = restoredExercises[clampedExerciseIndex].sets
+            clampedSetIndex = min(max(activeWorkout.setIndex, 0), max(setsCount - 1, 0))
+        } else {
+            clampedSetIndex = 0
+        }
+
         self.programSession = programSession
         self.modelContext = modelContext
         self.catalogStore = catalogStore
         self.restTimer = restTimer
-        self.exercises = programSession.exercises
-            .sorted { $0.orderIndex < $1.orderIndex }
-            .map(RunExercise.init)
         self.startedAt = activeWorkout.startedAt
-        self.currentExerciseIndex = activeWorkout.exerciseIndex
-        self.currentSetIndex = activeWorkout.setIndex
         self.activeWorkout = activeWorkout
+        self.exercises = restoredExercises
+        self.currentExerciseIndex = clampedExerciseIndex
+        self.currentSetIndex = clampedSetIndex
     }
 
     // MARK: - Reprise
@@ -147,7 +175,9 @@ final class WorkoutState {
     // poids logge pour cet exercice.
     func suggestedWeight(for exercise: RunExercise) -> Double? {
         if let percent = exercise.percentOneRepMax {
-            guard let oneRepMax = fetchRecord(exerciseId: exercise.exerciseId)?.oneRepMax else {
+            // oneRepMax <= 0 (jamais renseigne, valeur par defaut) compte
+            // comme "pas de record" : pas de charge calculable.
+            guard let oneRepMax = fetchRecord(exerciseId: exercise.exerciseId)?.oneRepMax, oneRepMax > 0 else {
                 return nil
             }
             return OneRepMax.workingLoad(oneRepMax: oneRepMax, percent: percent)
@@ -157,11 +187,8 @@ final class WorkoutState {
 
     func needsOneRepMax(for exercise: RunExercise) -> Bool {
         guard let percent = exercise.percentOneRepMax, percent > 0 else { return false }
-        return fetchRecord(exerciseId: exercise.exerciseId)?.oneRepMax == nil
-    }
-
-    func estimateOneRepMax(weight: Double, reps: Int) -> Double {
-        OneRepMax.epley(weight: weight, reps: reps)
+        let oneRepMax = fetchRecord(exerciseId: exercise.exerciseId)?.oneRepMax
+        return oneRepMax == nil || oneRepMax! <= 0
     }
 
     // Enregistre (ou met a jour) le 1RM connu pour cet exercice, saisi
@@ -240,18 +267,40 @@ final class WorkoutState {
         guard currentExerciseIndex < exercises.count else { return }
         exercises[currentExerciseIndex].exerciseId = catalogExercise.id
         exercises[currentExerciseIndex].displayName = catalogExercise.nameFr
+        persistExercisesSnapshot()
     }
 
     func addSet() {
         guard currentExerciseIndex < exercises.count else { return }
         exercises[currentExerciseIndex].sets += 1
+        persistExercisesSnapshot()
     }
 
+    // "Retirer une série" ne doit jamais faire descendre le nombre de series
+    // en dessous du nombre de series deja loggees pour l'exercice courant
+    // (currentSetIndex, qui avance sequentiellement depuis 0 via logSet),
+    // ni en dessous de 1 : sinon currentSetIndex se retrouverait clampe sur
+    // une serie deja loggee, et le prochain logSet persisterait un setIndex
+    // DUPLIQUE pour cet exercice. Si la serie retiree etait justement celle
+    // en attente de saisie (sets devient == nombre de series loggees), on
+    // avance vers l'exercice suivant - meme cheminement que si sa derniere
+    // serie venait d'etre loggee (pas de timer de repos si ca termine la
+    // seance).
     func removeSet() {
         guard currentExerciseIndex < exercises.count else { return }
-        exercises[currentExerciseIndex].sets = max(1, exercises[currentExerciseIndex].sets - 1)
+        let exercise = exercises[currentExerciseIndex]
+        let loggedCount = currentSetIndex
+        let minSets = max(1, loggedCount)
+        exercises[currentExerciseIndex].sets = max(minSets, exercise.sets - 1)
+        persistExercisesSnapshot()
+
         if currentSetIndex >= exercises[currentExerciseIndex].sets {
-            currentSetIndex = exercises[currentExerciseIndex].sets - 1
+            currentExerciseIndex += 1
+            currentSetIndex = 0
+            persistProgressIfStarted()
+            if !isSessionComplete {
+                restTimer.start(seconds: exercise.restSeconds)
+            }
         }
     }
 
@@ -300,12 +349,24 @@ final class WorkoutState {
         try? modelContext.save()
     }
 
+    // Persiste un snapshot JSON de `exercises` sur l'ActiveWorkout courante,
+    // pour survivre a un kill+resume (cf. commentaire sur
+    // ActiveWorkout.runExercisesData). No-op tant que l'ActiveWorkout n'a pas
+    // encore ete creee (rien n'est de toute facon persiste avant le premier
+    // logSet).
+    private func persistExercisesSnapshot() {
+        guard let workout = activeWorkout else { return }
+        workout.runExercisesData = try? JSONEncoder().encode(exercises)
+        try? modelContext.save()
+    }
+
     private func createActiveWorkout() -> ActiveWorkout {
         let workout = ActiveWorkout(
             startedAt: startedAt,
             programSessionId: programSession.id,
             exerciseIndex: currentExerciseIndex,
-            setIndex: currentSetIndex
+            setIndex: currentSetIndex,
+            runExercisesData: try? JSONEncoder().encode(exercises)
         )
         modelContext.insert(workout)
         activeWorkout = workout
@@ -341,6 +402,7 @@ final class WorkoutState {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "fr_FR")
         formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = false
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 1
         return formatter.string(from: NSNumber(value: weight)) ?? String(format: "%.1f", weight)

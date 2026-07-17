@@ -12,6 +12,16 @@ final class ActiveWorkout {
     var exerciseIndex: Int = 0
     var setIndex: Int = 0
 
+    // Snapshot JSON (encodage de [RunExercise], cf. WorkoutState.swift) des
+    // exercices de la seance en cours, tels que mutes en memoire par
+    // addSet/removeSet/replaceExercise. Sans ce snapshot, un kill+resume de
+    // l'app reconstruirait les exercices depuis la ProgramSession source et
+    // perdrait ces mutations, desynchronisant exerciseIndex/setIndex (deja
+    // persistes) du contenu reel de la seance. Champ optionnel : les
+    // ActiveWorkout deja persistees avant son ajout se contentent de nil et
+    // retombent sur la reconstruction depuis le programme (cf. `resume`).
+    var runExercisesData: Data?
+
     @Relationship(deleteRule: .cascade, inverse: \CompletedSet.activeWorkout)
     var loggedSets: [CompletedSet] = []
 
@@ -21,6 +31,7 @@ final class ActiveWorkout {
         programSessionId: UUID,
         exerciseIndex: Int = 0,
         setIndex: Int = 0,
+        runExercisesData: Data? = nil,
         loggedSets: [CompletedSet] = []
     ) {
         self.id = id
@@ -28,6 +39,7 @@ final class ActiveWorkout {
         self.programSessionId = programSessionId
         self.exerciseIndex = exerciseIndex
         self.setIndex = setIndex
+        self.runExercisesData = runExercisesData
         self.loggedSets = loggedSets
     }
 }

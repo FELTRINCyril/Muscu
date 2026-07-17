@@ -1,6 +1,6 @@
 import Foundation
 
-enum SetFormat: String {
+enum SetFormat: String, Codable {
     case classic
     case pyramid
     case intervals

@@ -55,8 +55,8 @@ struct WorkoutRunnerView: View {
                     }
                 }
                 ToolbarItem(placement: .principal) {
-                    if let exercise = state.currentExercise {
-                        Text(progressLabel(exercise))
+                    if state.currentExercise != nil {
+                        Text(progressLabel)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -125,7 +125,7 @@ struct WorkoutRunnerView: View {
         return catalogStore.exercise(id: exercise.exerciseId)?.primaryMuscles.first
     }
 
-    private func progressLabel(_ exercise: RunExercise) -> String {
+    private var progressLabel: String {
         "Exercice \(state.currentExerciseIndex + 1)/\(state.exercises.count)"
     }
 }
@@ -179,7 +179,7 @@ private struct ClassicExerciseCard: View {
                         state.logSet(weight: weight, reps: reps)
                     }
                 )
-                .id("\(exercise.id)-\(state.currentSetIndex)")
+                .id("\(exercise.id)-\(exercise.exerciseId)-\(state.currentSetIndex)")
             }
             .padding()
         }
