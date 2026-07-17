@@ -192,9 +192,24 @@ enum ExportImport {
                 let session = model(from: sessionDTO)
                 context.insert(session)
             }
+            // Fusion par exerciseId plutot qu'insertion aveugle : un import
+            // repete (ou une base contenant deja des records) ne doit jamais
+            // creer un second ExerciseRecord pour le meme exerciseId (cf.
+            // RecordDetection qui suppose au plus un record par exercice).
+            // On garde le max nil-safe de chaque valeur et le updatedAt le
+            // plus recent.
+            let existingRecords = try context.fetch(FetchDescriptor<ExerciseRecord>())
+            var recordsByExerciseId = Dictionary(existingRecords.map { ($0.exerciseId, $0) }, uniquingKeysWith: { first, _ in first })
             for recordDTO in envelope.records {
-                let record = model(from: recordDTO)
-                context.insert(record)
+                if let existing = recordsByExerciseId[recordDTO.exerciseId] {
+                    existing.oneRepMax = Self.maxNilSafe(existing.oneRepMax, recordDTO.oneRepMax)
+                    existing.maxReps = Self.maxNilSafe(existing.maxReps, recordDTO.maxReps)
+                    existing.updatedAt = max(existing.updatedAt, recordDTO.updatedAt)
+                } else {
+                    let record = model(from: recordDTO)
+                    context.insert(record)
+                    recordsByExerciseId[recordDTO.exerciseId] = record
+                }
             }
             for customExerciseDTO in envelope.customExercises {
                 let customExercise = model(from: customExerciseDTO)
@@ -213,6 +228,17 @@ enum ExportImport {
             recordsCount: envelope.records.count,
             customExercisesCount: envelope.customExercises.count
         )
+    }
+
+    // MARK: - Fusion nil-safe
+
+    private static func maxNilSafe<T: Comparable>(_ lhs: T?, _ rhs: T?) -> T? {
+        switch (lhs, rhs) {
+        case (nil, nil): return nil
+        case (let value, nil): return value
+        case (nil, let value): return value
+        case (let a?, let b?): return max(a, b)
+        }
     }
 
     // MARK: - Mapping modele -> DTO

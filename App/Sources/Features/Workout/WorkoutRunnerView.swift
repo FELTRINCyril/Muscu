@@ -78,8 +78,8 @@ struct WorkoutRunnerView: View {
                 Button("Annuler", role: .cancel) {}
             }
             .sheet(isPresented: $showingPicker) {
-                ExercisePickerView(initialMuscleFilter: currentPrimaryMuscle) { catalogExercise in
-                    state.replaceExercise(with: catalogExercise)
+                ExercisePickerView(initialMuscleFilter: currentPrimaryMuscle) { id, displayName in
+                    state.replaceExercise(exerciseId: id, displayName: displayName)
                 }
             }
         }

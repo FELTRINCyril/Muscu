@@ -483,11 +483,12 @@ final class WorkoutState {
     }
 
     // Remplace l'exercice courant pour cette seance uniquement : ne touche
-    // jamais a la PrescribedExercise du programme.
-    func replaceExercise(with catalogExercise: CatalogExercise) {
+    // jamais a la PrescribedExercise du programme. exerciseId peut designer
+    // un exercice du catalogue ou un CustomExercise (son UUID en String).
+    func replaceExercise(exerciseId: String, displayName: String) {
         guard currentExerciseIndex < exercises.count else { return }
-        exercises[currentExerciseIndex].exerciseId = catalogExercise.id
-        exercises[currentExerciseIndex].displayName = catalogExercise.nameFr
+        exercises[currentExerciseIndex].exerciseId = exerciseId
+        exercises[currentExerciseIndex].displayName = displayName
         persistExercisesSnapshot()
     }
 

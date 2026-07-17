@@ -316,7 +316,7 @@ struct HomeView: View {
 
     // RelativeDateTimeFormatter arrondit les ecarts de quelques secondes de
     // facon ambigue ("dans 0 seconde" pour un record tout juste enregistre) :
-    // en dessous d'une minute, on affiche explicitement "à l'instant".
+    // en dessous d'une minute, on affiche explicitement "a l'instant".
     private static func relativeDate(_ date: Date) -> String {
         guard abs(date.timeIntervalSinceNow) >= 60 else { return "À l'instant" }
         let formatter = RelativeDateTimeFormatter()

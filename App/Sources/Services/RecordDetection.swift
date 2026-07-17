@@ -32,7 +32,10 @@ enum RecordDetection {
         let workingSets = session.sets.filter { !$0.isWarmup }
         guard !workingSets.isEmpty else { return [] }
 
-        let recordsByExerciseId = Dictionary(uniqueKeysWithValues: records.map { ($0.exerciseId, $0) })
+        // uniquingKeysWith plutot que uniqueKeysWithValues : des doublons
+        // d'exerciseId sont creables via import (fusion additive), ne pas
+        // trapper dessus - on garde arbitrairement le premier.
+        let recordsByExerciseId = Dictionary(records.map { ($0.exerciseId, $0) }, uniquingKeysWith: { first, _ in first })
         let grouped = Dictionary(grouping: workingSets, by: \.exerciseId)
 
         var suggestions: [RecordSuggestion] = []

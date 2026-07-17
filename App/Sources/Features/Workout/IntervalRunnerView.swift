@@ -1,6 +1,4 @@
 import SwiftUI
-import AudioToolbox
-import UIKit
 import MuscuEngine
 
 // Deroule automatique d'un bloc d'intervalles : alterne EFFORT/REPOS plein
@@ -42,8 +40,8 @@ struct IntervalRunnerView: View {
     private func start() {
         guard controller.onFinished == nil else { return }
         controller.onSegmentStart = { segment in
-            AudioServicesPlaySystemSound(segment.kind == .work ? 1013 : 1016)
-            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+            FeedbackSettings.playSound(segment.kind == .work ? 1013 : 1016)
+            FeedbackSettings.impact(.heavy)
         }
         controller.onFinished = { showingRepsEntry = true }
         controller.start()

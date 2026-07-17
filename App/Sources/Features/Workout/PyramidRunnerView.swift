@@ -3,7 +3,7 @@ import MuscuEngine
 
 // Deroule d'un exercice au format pyramide : sequence complete affichee en
 // chips (paliers passes/en cours/a venir), palier courant en gros avec un
-// nombre de reps ajustable, aperçu du repos adaptatif avant meme de valider.
+// nombre de reps ajustable, apercu du repos adaptatif avant meme de valider.
 struct PyramidRunnerView: View {
     let state: WorkoutState
     let exercise: RunExercise
@@ -119,7 +119,7 @@ struct PyramidRunnerView: View {
 }
 
 // Palier courant : reps geantes, stepper ajustable +-1 autour de la cible,
-// aperçu en direct du repos adaptatif qui suivra la validation.
+// apercu en direct du repos adaptatif qui suivra la validation.
 private struct PyramidStepControl: View {
     let targetReps: Int
     let maxReps: Int

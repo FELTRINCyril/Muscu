@@ -1,6 +1,4 @@
 import SwiftUI
-import AudioToolbox
-import UIKit
 import MuscuEngine
 
 // Deroule d'un bloc AMRAP : decompte de la duree prescrite (chrono absolu,
@@ -71,8 +69,8 @@ struct AmrapRunnerView: View {
     private func finish() {
         guard !isFinished else { return }
         isFinished = true
-        AudioServicesPlaySystemSound(1005)
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        FeedbackSettings.playSound(1005)
+        FeedbackSettings.notification(.success)
     }
 
     private var remaining: Int {
@@ -108,7 +106,7 @@ struct AmrapRunnerView: View {
         .onTapGesture {
             guard !isFinished else { return }
             counter += 1
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            FeedbackSettings.impact(.light)
         }
     }
 

@@ -1,7 +1,5 @@
 import Foundation
 import UserNotifications
-import AudioToolbox
-import UIKit
 
 // Chrono de repos fiable, base sur une date de fin absolue (jamais un compteur
 // decrementant) : le temps restant survit a une suspension de l'app.
@@ -77,14 +75,8 @@ final class RestTimer {
         endDate = nil
         totalSeconds = 0
 
-        if UserDefaults.standard.object(forKey: "soundEnabled") == nil
-            || UserDefaults.standard.bool(forKey: "soundEnabled") {
-            AudioServicesPlaySystemSound(1007)
-        }
-        if UserDefaults.standard.object(forKey: "hapticsEnabled") == nil
-            || UserDefaults.standard.bool(forKey: "hapticsEnabled") {
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-        }
+        FeedbackSettings.playSound(1007)
+        FeedbackSettings.notification(.success)
 
         onFinished?()
     }

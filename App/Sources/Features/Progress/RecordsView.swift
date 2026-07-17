@@ -48,13 +48,13 @@ struct RecordsView: View {
             }
         }
         .sheet(isPresented: $showingPicker) {
-            ExercisePickerView { exercise in
-                if let existing = records.first(where: { $0.exerciseId == exercise.id }) {
+            ExercisePickerView { id, displayName in
+                if let existing = records.first(where: { $0.exerciseId == id }) {
                     editingIsNew = false
                     editingRecord = existing
                 } else {
                     editingIsNew = true
-                    editingRecord = ExerciseRecord(exerciseId: exercise.id, displayName: exercise.nameFr)
+                    editingRecord = ExerciseRecord(exerciseId: id, displayName: displayName)
                 }
             }
         }

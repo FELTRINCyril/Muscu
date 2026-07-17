@@ -65,8 +65,8 @@ struct SessionEditorView: View {
             }
         }
         .sheet(isPresented: $showingPicker) {
-            ExercisePickerView { catalogExercise in
-                addExercise(from: catalogExercise)
+            ExercisePickerView { id, displayName in
+                addExercise(exerciseId: id, displayName: displayName)
             }
         }
         .sheet(item: $editingExercise) { exercise in
@@ -77,11 +77,11 @@ struct SessionEditorView: View {
         }
     }
 
-    private func addExercise(from catalogExercise: CatalogExercise) {
+    private func addExercise(exerciseId: String, displayName: String) {
         let defaultRest = UserDefaults.standard.object(forKey: "defaultRestSeconds") != nil ? UserDefaults.standard.integer(forKey: "defaultRestSeconds") : 90
         let exercise = PrescribedExercise(
-            exerciseId: catalogExercise.id,
-            displayName: catalogExercise.nameFr,
+            exerciseId: exerciseId,
+            displayName: displayName,
             orderIndex: session.exercises.count,
             sets: 3,
             repsLower: 8,

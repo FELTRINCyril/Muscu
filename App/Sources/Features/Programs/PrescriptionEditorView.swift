@@ -212,7 +212,7 @@ struct PrescriptionEditorView: View {
             if exercise.restSeconds == 0 { exercise.restSeconds = defaultRest }
         case .pyramid:
             if exercise.pyramidMinRest == 0 { exercise.pyramidMinRest = 30 }
-            if exercise.pyramidMaxRest == 0 { exercise.pyramidMaxRest = 120 }
+            if exercise.pyramidMaxRest == 0 { exercise.pyramidMaxRest = 180 }
             if exercise.pyramidReps.isEmpty {
                 exercise.pyramidReps = Pyramid.proposals(maxReps: pyramidMaxReps).first?.reps ?? []
             }
