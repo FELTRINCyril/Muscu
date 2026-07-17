@@ -190,6 +190,16 @@ struct HomeView: View {
         showingResumeAlert = true
     }
 
+    // Declencher une NOUVELLE presentation (fullScreenCover) dans le meme
+    // cycle de run loop que la fermeture de l'alerte systeme peut etre
+    // silencieusement ignoree par UIKit : l'alerte est encore en cours de
+    // transition de fermeture, et la nouvelle presentation n'a jamais lieu -
+    // "Reprendre" ne fait alors rien, et si la presentation finit par
+    // s'etablir dans un etat incoherent, "Fermer" sur le recap de fin de
+    // seance ne ferme plus rien non plus (constate et corrige, cf.
+    // .superpowers/sdd/progress.md). PresentationSync attend la fin REELLE
+    // de la transition en cours (etat UIKit, pas un delai devine) avant de
+    // presenter le runner.
     private func resumeWorkout() {
         guard let workout = pendingActiveWorkout,
               let state = WorkoutState.resume(
@@ -198,8 +208,10 @@ struct HomeView: View {
                 catalogStore: catalogStore,
                 restTimer: restTimer
               ) else { return }
-        workoutState = state
-        showingRunner = true
+        PresentationSync.afterCurrentPresentationDismissed {
+            workoutState = state
+            showingRunner = true
+        }
     }
 
     private func abandonPendingWorkout() {

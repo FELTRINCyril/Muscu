@@ -68,13 +68,19 @@ struct WorkoutRunnerView: View {
                     actionsMenu
                 }
             }
+            // dismiss() differe : le declencher dans le meme cycle de run
+            // loop que la fermeture du confirmationDialog peut, comme pour
+            // l'alerte de reprise de HomeView, laisser une presentation
+            // figee (meme classe de bug UIKit, corrigee et verifiee sur le
+            // chemin de reprise via un test UI pilotant un vrai tap - cf.
+            // PresentationSync).
             .confirmationDialog("Quitter la séance ?", isPresented: $showingExitConfirm, titleVisibility: .visible) {
                 Button("Reprendre plus tard") {
-                    dismiss()
+                    PresentationSync.afterCurrentPresentationDismissed { dismiss() }
                 }
                 Button("Abandonner", role: .destructive) {
                     state.discard()
-                    dismiss()
+                    PresentationSync.afterCurrentPresentationDismissed { dismiss() }
                 }
                 Button("Annuler", role: .cancel) {}
             }
