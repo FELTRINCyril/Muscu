@@ -15,6 +15,7 @@ struct RunExercise: Identifiable, Codable {
     var repsUpper: Int
     var restSeconds: Int
     var percentOneRepMax: Double?
+    var percentMaxReps: Double?
     var notes: String
     var orderIndex: Int
     var pyramidReps: [Int]
@@ -35,6 +36,7 @@ struct RunExercise: Identifiable, Codable {
         self.repsUpper = prescribed.repsUpper
         self.restSeconds = prescribed.restSeconds
         self.percentOneRepMax = prescribed.percentOneRepMax
+        self.percentMaxReps = prescribed.percentMaxReps
         self.notes = prescribed.notes
         self.orderIndex = prescribed.orderIndex
         self.pyramidReps = prescribed.pyramidReps
@@ -54,7 +56,7 @@ struct RunExercise: Identifiable, Codable {
     // reprise de seance.
     private enum CodingKeys: String, CodingKey {
         case id, exerciseId, displayName, format, sets, repsLower, repsUpper
-        case restSeconds, percentOneRepMax, notes, orderIndex
+        case restSeconds, percentOneRepMax, percentMaxReps, notes, orderIndex
         case pyramidReps, pyramidMinRest, pyramidMaxRest
         case intervalWork, intervalRest, intervalRounds, amrapSeconds
     }
@@ -70,6 +72,7 @@ struct RunExercise: Identifiable, Codable {
         repsUpper = try container.decode(Int.self, forKey: .repsUpper)
         restSeconds = try container.decode(Int.self, forKey: .restSeconds)
         percentOneRepMax = try container.decodeIfPresent(Double.self, forKey: .percentOneRepMax)
+        percentMaxReps = try container.decodeIfPresent(Double.self, forKey: .percentMaxReps)
         notes = try container.decode(String.self, forKey: .notes)
         orderIndex = try container.decode(Int.self, forKey: .orderIndex)
         pyramidReps = try container.decodeIfPresent([Int].self, forKey: .pyramidReps) ?? []
@@ -92,6 +95,7 @@ struct RunExercise: Identifiable, Codable {
         try container.encode(repsUpper, forKey: .repsUpper)
         try container.encode(restSeconds, forKey: .restSeconds)
         try container.encodeIfPresent(percentOneRepMax, forKey: .percentOneRepMax)
+        try container.encodeIfPresent(percentMaxReps, forKey: .percentMaxReps)
         try container.encode(notes, forKey: .notes)
         try container.encode(orderIndex, forKey: .orderIndex)
         try container.encode(pyramidReps, forKey: .pyramidReps)
@@ -286,6 +290,33 @@ final class WorkoutState {
             record.updatedAt = .now
         } else {
             let record = ExerciseRecord(exerciseId: exercise.exerciseId, displayName: exercise.displayName, oneRepMax: value)
+            modelContext.insert(record)
+        }
+        try? modelContext.save()
+    }
+
+    // % du max de reps (exercices au poids du corps) : reps cible = percent x
+    // max de reps connu, arrondi. Sans record, la vue doit demander le max de
+    // reps (cf. needsMaxReps), meme cheminement que needsOneRepMax/%1RM.
+    func suggestedReps(for exercise: RunExercise) -> Int? {
+        guard let percent = exercise.percentMaxReps else { return nil }
+        guard let maxReps = fetchRecord(exerciseId: exercise.exerciseId)?.maxReps, maxReps > 0 else { return nil }
+        return Int((percent / 100.0 * Double(maxReps)).rounded())
+    }
+
+    func needsMaxReps(for exercise: RunExercise) -> Bool {
+        guard let percent = exercise.percentMaxReps, percent > 0 else { return false }
+        let maxReps = fetchRecord(exerciseId: exercise.exerciseId)?.maxReps
+        return maxReps == nil || maxReps! <= 0
+    }
+
+    // Enregistre (ou met a jour) le max de reps connu pour cet exercice.
+    func saveMaxReps(_ value: Int, for exercise: RunExercise) {
+        if let record = fetchRecord(exerciseId: exercise.exerciseId) {
+            record.maxReps = value
+            record.updatedAt = .now
+        } else {
+            let record = ExerciseRecord(exerciseId: exercise.exerciseId, displayName: exercise.displayName, maxReps: value)
             modelContext.insert(record)
         }
         try? modelContext.save()

@@ -6,6 +6,7 @@ struct ExerciseDetailView: View {
     let exercise: CatalogExercise
 
     @State private var currentImageIndex = 0
+    @Environment(NetworkStatus.self) private var networkStatus
 
     var body: some View {
         ScrollView {
@@ -76,15 +77,32 @@ struct ExerciseDetailView: View {
     }
 
     private var videoButton: some View {
-        Link(destination: videoSearchURL) {
-            Label("Voir en vidéo", systemImage: "play.rectangle.fill")
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Theme.card)
-                .foregroundStyle(Theme.accent)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+        VStack(spacing: 4) {
+            if networkStatus.isOnline {
+                Link(destination: videoSearchURL) {
+                    videoButtonLabel
+                }
+            } else {
+                videoButtonLabel
+                    .opacity(0.4)
+            }
+
+            if !networkStatus.isOnline {
+                Text("Connexion internet requise")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
+    }
+
+    private var videoButtonLabel: some View {
+        Label("Voir en vidéo", systemImage: "play.rectangle.fill")
+            .font(.subheadline.weight(.semibold))
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Theme.card)
+            .foregroundStyle(Theme.accent)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private var videoSearchURL: URL {

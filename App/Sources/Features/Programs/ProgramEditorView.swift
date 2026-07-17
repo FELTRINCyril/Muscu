@@ -174,6 +174,7 @@ extension PrescribedExercise {
             repsUpper: repsUpper,
             restSeconds: restSeconds,
             percentOneRepMax: percentOneRepMax,
+            percentMaxReps: percentMaxReps,
             pyramidReps: pyramidReps,
             pyramidMinRest: pyramidMinRest,
             pyramidMaxRest: pyramidMaxRest,

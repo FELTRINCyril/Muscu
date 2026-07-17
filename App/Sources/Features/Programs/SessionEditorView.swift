@@ -145,6 +145,9 @@ private struct ExercisePrescriptionRow: View {
     private var summary: String {
         switch exercise.format {
         case .classic:
+            if let percentMaxReps = exercise.percentMaxReps {
+                return "\(exercise.sets) x \(Int(percentMaxReps)) % max reps - repos \(exercise.restSeconds) s"
+            }
             let reps = exercise.repsLower == exercise.repsUpper
                 ? "\(exercise.repsLower)"
                 : "\(exercise.repsLower)-\(exercise.repsUpper)"

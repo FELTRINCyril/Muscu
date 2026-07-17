@@ -68,6 +68,7 @@ final class PrescribedExercise {
     var repsUpper: Int = 0
     var restSeconds: Int = 0
     var percentOneRepMax: Double?
+    var percentMaxReps: Double?
     var pyramidReps: [Int] = []
     var pyramidMinRest: Int = 0
     var pyramidMaxRest: Int = 0
@@ -90,6 +91,7 @@ final class PrescribedExercise {
         repsUpper: Int = 0,
         restSeconds: Int = 0,
         percentOneRepMax: Double? = nil,
+        percentMaxReps: Double? = nil,
         pyramidReps: [Int] = [],
         pyramidMinRest: Int = 0,
         pyramidMaxRest: Int = 0,
@@ -109,6 +111,7 @@ final class PrescribedExercise {
         self.repsUpper = repsUpper
         self.restSeconds = restSeconds
         self.percentOneRepMax = percentOneRepMax
+        self.percentMaxReps = percentMaxReps
         self.pyramidReps = pyramidReps
         self.pyramidMinRest = pyramidMinRest
         self.pyramidMaxRest = pyramidMaxRest

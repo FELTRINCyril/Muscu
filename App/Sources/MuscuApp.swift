@@ -12,12 +12,14 @@ struct MuscuApp: App {
     }()
 
     @State private var catalogStore = CatalogStore()
+    @State private var networkStatus = NetworkStatus()
 
     var body: some Scene {
         WindowGroup {
             RootTabView()
                 .preferredColorScheme(.dark)
                 .environment(catalogStore)
+                .environment(networkStatus)
         }
         .modelContainer(container)
     }

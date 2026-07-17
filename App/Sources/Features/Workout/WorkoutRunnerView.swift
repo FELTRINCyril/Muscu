@@ -14,6 +14,7 @@ struct WorkoutRunnerView: View {
     @State private var showingExitConfirm = false
     @State private var showingPicker = false
     @State private var showingOneRepMaxPrompt = false
+    @State private var showingMaxRepsPrompt = false
 
     var body: some View {
         Group {
@@ -89,7 +90,7 @@ struct WorkoutRunnerView: View {
     private func formatBody(for exercise: RunExercise) -> some View {
         switch exercise.format {
         case .classic:
-            ClassicExerciseCard(state: state, exercise: exercise, showingOneRepMaxPrompt: $showingOneRepMaxPrompt)
+            ClassicExerciseCard(state: state, exercise: exercise, showingOneRepMaxPrompt: $showingOneRepMaxPrompt, showingMaxRepsPrompt: $showingMaxRepsPrompt)
         case .pyramid:
             PyramidRunnerView(state: state, exercise: exercise)
                 .id(exercise.id)
@@ -145,6 +146,7 @@ private struct ClassicExerciseCard: View {
     let state: WorkoutState
     let exercise: RunExercise
     @Binding var showingOneRepMaxPrompt: Bool
+    @Binding var showingMaxRepsPrompt: Bool
 
     @Environment(CatalogStore.self) private var catalogStore
 
@@ -181,6 +183,16 @@ private struct ClassicExerciseCard: View {
                     .buttonStyle(.bordered)
                 }
 
+                if state.needsMaxReps(for: exercise) {
+                    Button {
+                        showingMaxRepsPrompt = true
+                    } label: {
+                        Label("Renseigner le max de reps pour calculer l'objectif", systemImage: "exclamationmark.circle")
+                            .font(.footnote)
+                    }
+                    .buttonStyle(.bordered)
+                }
+
                 SetLoggerView(
                     initialWeight: prefillWeight,
                     initialReps: prefillReps,
@@ -197,9 +209,17 @@ private struct ClassicExerciseCard: View {
                 state.saveOneRepMax(value, for: exercise)
             }
         }
+        .sheet(isPresented: $showingMaxRepsPrompt) {
+            MaxRepsPromptView(exercise: exercise) { value in
+                state.saveMaxReps(value, for: exercise)
+            }
+        }
     }
 
     private var objectiveText: String {
+        if let percent = exercise.percentMaxReps, let targetReps = state.suggestedReps(for: exercise) {
+            return "\(exercise.sets) x \(targetReps) reps (\(Int(percent)) % du max)"
+        }
         let reps = exercise.repsLower == exercise.repsUpper
             ? "\(exercise.repsLower)"
             : "\(exercise.repsLower)-\(exercise.repsUpper)"
@@ -214,7 +234,10 @@ private struct ClassicExerciseCard: View {
     }
 
     private var prefillReps: Int {
-        exercise.repsUpper > 0 ? exercise.repsUpper : exercise.repsLower
+        if let targetReps = state.suggestedReps(for: exercise) {
+            return targetReps
+        }
+        return exercise.repsUpper > 0 ? exercise.repsUpper : exercise.repsLower
     }
 }
 
@@ -273,5 +296,39 @@ private struct OneRepMaxPromptView: View {
 
     private var estimatedOneRepMax: Double {
         OneRepMax.epley(weight: perfWeight, reps: perfReps)
+    }
+}
+
+// MARK: - Saisie du max de reps
+
+private struct MaxRepsPromptView: View {
+    let exercise: RunExercise
+    let onSave: (Int) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var maxReps: Int = 10
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Ton max de reps ?") {
+                    Stepper("\(maxReps) reps", value: $maxReps, in: 1...100)
+                }
+            }
+            .navigationTitle(exercise.displayName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Annuler") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Enregistrer") {
+                        onSave(maxReps)
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 }

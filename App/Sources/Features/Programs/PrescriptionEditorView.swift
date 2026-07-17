@@ -15,12 +15,18 @@ struct PrescriptionEditorView: View {
     @State private var pyramidMaxReps: Int = 10
 
     private enum RepsMode: String { case fixed, range }
-    private enum ChargeMode: String { case free, percent }
+    private enum ChargeMode: String { case free, percent, percentMaxReps }
 
     init(exercise: PrescribedExercise) {
         self.exercise = exercise
         _repsMode = State(initialValue: exercise.repsLower == exercise.repsUpper ? .fixed : .range)
-        _chargeMode = State(initialValue: exercise.percentOneRepMax != nil ? .percent : .free)
+        if exercise.percentMaxReps != nil {
+            _chargeMode = State(initialValue: .percentMaxReps)
+        } else if exercise.percentOneRepMax != nil {
+            _chargeMode = State(initialValue: .percent)
+        } else {
+            _chargeMode = State(initialValue: .free)
+        }
     }
 
     var body: some View {
@@ -107,11 +113,13 @@ struct PrescriptionEditorView: View {
 
             Picker("Charge", selection: $chargeMode) {
                 Text("Libre").tag(ChargeMode.free)
-                Text("%1RM").tag(ChargeMode.percent)
+                Text("% 1RM").tag(ChargeMode.percent)
+                Text("% Max reps").tag(ChargeMode.percentMaxReps)
             }
             .pickerStyle(.segmented)
             .onChange(of: chargeMode) { _, newValue in
                 exercise.percentOneRepMax = newValue == .percent ? (exercise.percentOneRepMax ?? 75) : nil
+                exercise.percentMaxReps = newValue == .percentMaxReps ? (exercise.percentMaxReps ?? 75) : nil
             }
 
             if chargeMode == .percent {
@@ -122,6 +130,19 @@ struct PrescriptionEditorView: View {
                         value: Binding(
                             get: { exercise.percentOneRepMax ?? 75 },
                             set: { exercise.percentOneRepMax = $0 }
+                        ),
+                        in: 40...95,
+                        step: 5
+                    )
+                }
+            } else if chargeMode == .percentMaxReps {
+                VStack(alignment: .leading) {
+                    Text("\(Int(exercise.percentMaxReps ?? 75)) %")
+                        .foregroundStyle(.secondary)
+                    Slider(
+                        value: Binding(
+                            get: { exercise.percentMaxReps ?? 75 },
+                            set: { exercise.percentMaxReps = $0 }
                         ),
                         in: 40...95,
                         step: 5
