@@ -122,7 +122,12 @@ enum RunnerPhase: String, Codable {
 // remplacera format par format, sans toucher a cet etat.
 @Observable
 @MainActor
-final class WorkoutState {
+final class WorkoutState: Identifiable {
+    // Identifiable pour presenter le runner via fullScreenCover(item:) :
+    // la forme isPresented + contenu conditionnel "if let" peut evaluer le
+    // contenu avant que le @State optionnel soit visible et presenter un
+    // cover vide (ecran noir constate le 20/07).
+    let id = UUID()
     let programSession: ProgramSession
     let modelContext: ModelContext
     let catalogStore: CatalogStore

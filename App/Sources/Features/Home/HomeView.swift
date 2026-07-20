@@ -25,7 +25,6 @@ struct HomeView: View {
 
     @State private var restTimer = RestTimer()
     @State private var workoutState: WorkoutState?
-    @State private var showingRunner = false
 
     @State private var pendingActiveWorkout: ActiveWorkout?
     @State private var showingResumeAlert = false
@@ -53,10 +52,8 @@ struct HomeView: View {
             Button("Abandonner", role: .destructive) { abandonPendingWorkout() }
             Button("Annuler", role: .cancel) {}
         }
-        .fullScreenCover(isPresented: $showingRunner) {
-            if let workoutState {
-                WorkoutRunnerView(state: workoutState)
-            }
+        .fullScreenCover(item: $workoutState) { state in
+            WorkoutRunnerView(state: state)
         }
     }
 
@@ -167,7 +164,6 @@ struct HomeView: View {
             catalogStore: catalogStore,
             restTimer: restTimer
         )
-        showingRunner = true
     }
 
     private func resumeCurrentWorkout() {
@@ -179,7 +175,6 @@ struct HomeView: View {
                 restTimer: restTimer
               ) else { return }
         workoutState = state
-        showingRunner = true
     }
 
     // MARK: - Alerte de reprise (identique a la Task 18)
@@ -210,7 +205,6 @@ struct HomeView: View {
               ) else { return }
         PresentationSync.afterCurrentPresentationDismissed {
             workoutState = state
-            showingRunner = true
         }
     }
 
