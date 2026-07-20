@@ -1,9 +1,12 @@
 import SwiftUI
 import SwiftData
 
-// Onglet Accueil : tableau de bord d'entree dans l'app. Trois cartes :
-// - lancement rapide (prochaine seance du programme actif, ou reprise d'une
-//   seance en cours) ;
+// Onglet Accueil : ecran d'accueil de l'app, pense comme un vrai tableau de
+// bord fitness (pas juste une carte de lancement). De haut en bas :
+// - en-tete (date du jour + salutation) ;
+// - carte hero "Seance du jour", piece centrale, avec estimation de duree et
+//   bouton de lancement/reprise ;
+// - ligne de 3 statistiques compactes (seances/semaine, serie, tonnage 7j) ;
 // - vue de la semaine (7 pastilles L->D, remplies quand une seance a ete
 //   terminee ce jour-la) ;
 // - derniers records (3 plus recents ExerciseRecord).
@@ -34,8 +37,10 @@ struct HomeView: View {
             Theme.background.ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 20) {
+                    header
                     heroCard
+                    statsRow
                     weekCard
                     if !recentRecords.isEmpty {
                         recordsCard
@@ -57,7 +62,30 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Carte de lancement
+    // MARK: - En-tete
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(Self.todayLabel)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .tracking(0.5)
+            Text(currentActiveWorkout != nil ? "Séance en cours" : "Prêt à t'entraîner ?")
+                .font(.largeTitle.bold())
+                .foregroundStyle(.white)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private static var todayLabel: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.setLocalizedDateFormatFromTemplate("EEEE d MMMM")
+        return formatter.string(from: .now)
+    }
+
+    // MARK: - Carte de lancement (hero)
 
     private var activeProgram: Program? {
         programs.first { $0.isActive }
@@ -71,21 +99,39 @@ struct HomeView: View {
     private var heroCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             if let program = activeProgram {
+                let session = nextSession(for: program)
+
+                Text("Séance du jour")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.accent)
+                    .textCase(.uppercase)
+                    .tracking(0.5)
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text(program.name)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                    if let session = nextSession(for: program) {
+                    if let session {
                         Text(session.name)
-                            .font(.title2.bold())
+                            .font(.title.bold())
                             .foregroundStyle(.white)
                     }
                 }
 
-                if currentActiveWorkout != nil {
-                    Text("Séance en cours")
-                        .font(.caption)
-                        .foregroundStyle(Theme.accent)
+                if let session {
+                    HStack(spacing: 6) {
+                        Image(systemName: "list.bullet")
+                            .foregroundStyle(.secondary)
+                        Text("\(session.exercises.count) exercice\(session.exercises.count > 1 ? "s" : "")")
+                            .foregroundStyle(.secondary)
+                        Text("-")
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "clock")
+                            .foregroundStyle(.secondary)
+                        Text("environ \(Self.estimatedMinutes(for: session)) min")
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(.footnote)
                 }
 
                 Button {
@@ -96,11 +142,14 @@ struct HomeView: View {
                     }
                 } label: {
                     Text(currentActiveWorkout != nil ? "Reprendre la séance" : "Lancer la séance")
+                        .font(.headline)
                         .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.accent)
                 .controlSize(.large)
+                .disabled(session == nil)
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Aucun programme actif")
@@ -122,10 +171,14 @@ struct HomeView: View {
                 .controlSize(.large)
             }
         }
-        .padding()
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .strokeBorder(activeProgram != nil ? Theme.accent.opacity(0.35) : Color.clear, lineWidth: 1.5)
+        )
     }
 
     // Prochaine seance : celle qui suit la derniere CompletedSession du
@@ -154,6 +207,20 @@ struct HomeView: View {
 
         let nextIndex = (lastIndex + 1) % sessions.count
         return sessions[nextIndex]
+    }
+
+    // Duree estimee de la seance : somme, par exercice, de (nb de series) x
+    // (45 s de travail estime + repos configure), arrondie au multiple de 5
+    // minutes le plus proche (minimum 5). `sets` vaut 0 pour les formats
+    // speciaux (pyramide/intervalles/AMRAP, cf. PrescribedExercise) : on
+    // compte alors au moins 1 pour ne pas les ignorer dans l'estimation.
+    private static func estimatedMinutes(for session: ProgramSession) -> Int {
+        let totalSeconds = session.exercises.reduce(0) { partial, exercise in
+            partial + max(1, exercise.sets) * (45 + exercise.restSeconds)
+        }
+        let minutes = Double(totalSeconds) / 60.0
+        let rounded = Int((minutes / 5.0).rounded()) * 5
+        return max(5, rounded)
     }
 
     private func startSession(program: Program) {
@@ -214,7 +281,7 @@ struct HomeView: View {
         try? modelContext.save()
     }
 
-    // MARK: - Vue de la semaine
+    // MARK: - Statistiques
 
     private static var mondayFirstCalendar: Calendar {
         var calendar = Calendar.current
@@ -222,16 +289,79 @@ struct HomeView: View {
         return calendar
     }
 
-    private var weekDays: [Date] {
-        let calendar = Self.mondayFirstCalendar
-        guard let interval = calendar.dateInterval(of: .weekOfYear, for: .now) else { return [] }
-        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: interval.start) }
-    }
-
     private var sessionsThisWeek: [CompletedSession] {
         let calendar = Self.mondayFirstCalendar
         guard let interval = calendar.dateInterval(of: .weekOfYear, for: .now) else { return [] }
         return completedSessions.filter { $0.date >= interval.start && $0.date < interval.end }
+    }
+
+    // Nombre de semaines consecutives (semaine courante incluse) comptant au
+    // moins une CompletedSession, en remontant tant qu'aucun "trou" n'est
+    // rencontre.
+    private var weekStreak: Int {
+        let calendar = Self.mondayFirstCalendar
+        guard var weekStart = calendar.dateInterval(of: .weekOfYear, for: .now)?.start else { return 0 }
+        var streak = 0
+        while let interval = calendar.dateInterval(of: .weekOfYear, for: weekStart) {
+            let hasSession = completedSessions.contains { $0.date >= interval.start && $0.date < interval.end }
+            guard hasSession else { break }
+            streak += 1
+            guard let previousWeek = calendar.date(byAdding: .weekOfYear, value: -1, to: weekStart) else { break }
+            weekStart = previousWeek
+        }
+        return streak
+    }
+
+    // Tonnage (poids x reps) des 7 derniers jours, series d'echauffement
+    // exclues (meme convention que le recap de fin de seance).
+    private var tonnageLast7Days: Double {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .now
+        let sets = completedSessions
+            .filter { $0.date >= cutoff }
+            .flatMap(\.sets)
+            .filter { !$0.isWarmup }
+        return sets.reduce(0) { $0 + $1.weight * Double($1.reps) }
+    }
+
+    // "850 kg" sous 1000 kg, "12,4 t" au-dela (plus lisible qu'un nombre a
+    // 5 chiffres pour une stat compacte).
+    private static func formattedTonnage(_ value: Double) -> String {
+        guard value >= 1000 else { return "\(Int(value.rounded())) kg" }
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 1
+        formatter.maximumFractionDigits = 1
+        let tons = value / 1000
+        return "\(formatter.string(from: NSNumber(value: tons)) ?? String(format: "%.1f", tons)) t"
+    }
+
+    private var statsRow: some View {
+        HStack(spacing: 12) {
+            StatTile(
+                systemImage: "figure.strengthtraining.traditional",
+                value: "\(sessionsThisWeek.count)",
+                label: "Séances\ncette semaine"
+            )
+            StatTile(
+                systemImage: "flame.fill",
+                value: "\(weekStreak)",
+                label: weekStreak > 1 ? "Semaines\nde suite" : "Semaine\nde suite"
+            )
+            StatTile(
+                systemImage: "scalemass.fill",
+                value: Self.formattedTonnage(tonnageLast7Days),
+                label: "Tonnage\n7 jours"
+            )
+        }
+    }
+
+    // MARK: - Vue de la semaine
+
+    private var weekDays: [Date] {
+        let calendar = Self.mondayFirstCalendar
+        guard let interval = calendar.dateInterval(of: .weekOfYear, for: .now) else { return [] }
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: interval.start) }
     }
 
     private func hasSession(on day: Date) -> Bool {
@@ -288,19 +418,26 @@ struct HomeView: View {
                 .font(.headline)
                 .foregroundStyle(.white)
 
-            ForEach(recentRecords) { record in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(record.displayName)
-                            .foregroundStyle(.primary)
-                        Text(Self.relativeDate(record.updatedAt))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+            VStack(spacing: 10) {
+                ForEach(recentRecords) { record in
+                    HStack(spacing: 12) {
+                        Image(systemName: "medal.fill")
+                            .foregroundStyle(Theme.accent)
+                            .font(.title3)
+                            .frame(width: 24)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(record.displayName)
+                                .foregroundStyle(.primary)
+                            Text(Self.relativeDate(record.updatedAt))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(recordLabel(for: record))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.accent)
                     }
-                    Spacer()
-                    Text(recordLabel(for: record))
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.accent)
                 }
             }
         }
@@ -328,6 +465,34 @@ struct HomeView: View {
         let formatter = RelativeDateTimeFormatter()
         formatter.locale = Locale(identifier: "fr_FR")
         return formatter.localizedString(for: date, relativeTo: .now)
+    }
+}
+
+private struct StatTile: View {
+    let systemImage: String
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .font(.subheadline)
+                .foregroundStyle(Theme.accent)
+            Text(value)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(Theme.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
