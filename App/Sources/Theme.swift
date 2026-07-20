@@ -11,6 +11,10 @@ enum Theme {
     // Gris fonce, fond des cartes/panneaux.
     static let card = Color(red: 0.13, green: 0.13, blue: 0.15)
 
-    // Police geante monospace pour le decompte du chrono de repos.
-    static let timerFont = Font.system(size: 88, weight: .bold, design: .monospaced)
+    // Police geante monospace pour le decompte du chrono de repos. Reduite
+    // de 88 a 72 : a 88, "MM:SS" (ex: "12:34") depassait la largeur
+    // disponible dans l'anneau de 260 pt et retombait sur deux lignes
+    // malgre minimumScaleFactor (le texte n'avait jamais l'occasion de se
+    // reduire suffisamment avant d'etre tronque).
+    static let timerFont = Font.system(size: 72, weight: .bold, design: .monospaced)
 }

@@ -51,10 +51,31 @@ struct WorkoutRunnerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
+                    // Le confirmationDialog est attache directement a ce
+                    // bouton (pas a la vue englobante) pour que l'OS
+                    // l'ancre visuellement sur le X, au lieu d'un popover
+                    // centre avec une fleche errante (style iOS 26 quand
+                    // aucune source precise n'est identifiable).
                     Button {
                         showingExitConfirm = true
                     } label: {
                         Image(systemName: "xmark")
+                    }
+                    // dismiss() direct : la fermeture d'un confirmationDialog
+                    // n'ouvre PAS de nouvelle presentation UIKit (contrairement
+                    // au chemin alerte -> runner de HomeView.resumeWorkout, qui
+                    // a besoin de PresentationSync) - ici on ferme seulement le
+                    // fullScreenCover qui est deja l'unique presentation active,
+                    // aucune course possible.
+                    .confirmationDialog("Quitter la séance ?", isPresented: $showingExitConfirm, titleVisibility: .visible) {
+                        Button("Reprendre plus tard") {
+                            dismiss()
+                        }
+                        Button("Abandonner", role: .destructive) {
+                            state.discard()
+                            dismiss()
+                        }
+                        Button("Annuler", role: .cancel) {}
                     }
                 }
                 ToolbarItem(placement: .principal) {
@@ -67,22 +88,6 @@ struct WorkoutRunnerView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     actionsMenu
                 }
-            }
-            // dismiss() differe : le declencher dans le meme cycle de run
-            // loop que la fermeture du confirmationDialog peut, comme pour
-            // l'alerte de reprise de HomeView, laisser une presentation
-            // figee (meme classe de bug UIKit, corrigee et verifiee sur le
-            // chemin de reprise via un test UI pilotant un vrai tap - cf.
-            // PresentationSync).
-            .confirmationDialog("Quitter la séance ?", isPresented: $showingExitConfirm, titleVisibility: .visible) {
-                Button("Reprendre plus tard") {
-                    PresentationSync.afterCurrentPresentationDismissed { dismiss() }
-                }
-                Button("Abandonner", role: .destructive) {
-                    state.discard()
-                    PresentationSync.afterCurrentPresentationDismissed { dismiss() }
-                }
-                Button("Annuler", role: .cancel) {}
             }
             .sheet(isPresented: $showingPicker) {
                 ExercisePickerView(initialMuscleFilter: currentPrimaryMuscle) { id, displayName in

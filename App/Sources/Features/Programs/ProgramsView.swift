@@ -70,10 +70,19 @@ struct ProgramsView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    // Dialog attache au bouton + lui-meme (pas a la vue
+                    // englobante) pour que l'OS l'ancre sur ce bouton au
+                    // lieu d'un popover centre avec une fleche errante.
                     Button {
                         showingAddChoice = true
                     } label: {
                         Image(systemName: "plus")
+                    }
+                    .confirmationDialog("Nouveau programme", isPresented: $showingAddChoice, titleVisibility: .visible) {
+                        Button("De zéro") { createFromScratch() }
+                        Button("Depuis un modèle") { showingTemplatePicker = true }
+                        Button("Générateur") { showingGeneratorWizard = true }
+                        Button("Annuler", role: .cancel) {}
                     }
                 }
             }
@@ -85,12 +94,6 @@ struct ProgramsView: View {
                         description: Text("Créez votre premier programme avec le bouton +.")
                     )
                 }
-            }
-            .confirmationDialog("Nouveau programme", isPresented: $showingAddChoice, titleVisibility: .visible) {
-                Button("De zéro") { createFromScratch() }
-                Button("Depuis un modèle") { showingTemplatePicker = true }
-                Button("Générateur") { showingGeneratorWizard = true }
-                Button("Annuler", role: .cancel) {}
             }
             .confirmationDialog(
                 "Supprimer ce programme ?",

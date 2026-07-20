@@ -29,7 +29,9 @@ struct RestTimerView: View {
                             .font(Theme.timerFont)
                             .foregroundStyle(.white)
                             .monospacedDigit()
-                            .minimumScaleFactor(0.5)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.4)
+                            .frame(maxWidth: 260 - 14 * 2 - 24 * 2)
                             .padding(24)
                     }
                     .frame(width: 260, height: 260)
