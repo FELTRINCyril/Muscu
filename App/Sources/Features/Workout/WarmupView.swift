@@ -1,15 +1,24 @@
 import SwiftUI
 import MuscuEngine
 
-// Premiere phase de la seance quand `warmupEnabled` : cardio leger (chrono
-// simple, passable) puis montee en charge sur le premier exercice lourd de
-// la seance (Warmup.rampSets), chaque palier loggeable individuellement.
-// Passable a tout moment via "Passer l'échauffement".
+// Premiere phase de la seance quand `warmupEnabled` : ecran de choix
+// (cardio chronometre / echauffement libre en chrono compte-up / passage
+// direct), puis un ecran "Continuer l'echauffement ?" permettant d'enchainer
+// plusieurs blocs avant de demarrer reellement la seance. Toujours sortie
+// via `state.finishWarmup()`, quel que soit le chemin pris.
 struct WarmupView: View {
     let state: WorkoutState
 
-    @State private var cardioEndDate: Date?
-    @State private var cardioSkipped = false
+    private enum Step: Equatable {
+        case choice
+        case cardioDuration
+        case cardioCountdown(endDate: Date, minutes: Int)
+        case free(startedAt: Date)
+        case continueChoice
+    }
+
+    @State private var step: Step = .choice
+    @State private var cardioMinutesChoice: Int = Warmup.cardioMinutes
     @State private var checkedRamps: Set<Int> = []
 
     private var rampSets: [WarmupSet] {
@@ -18,24 +27,177 @@ struct WarmupView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    cardioCard
-
-                    if !rampSets.isEmpty {
-                        rampCard
-                    }
+            Group {
+                switch step {
+                case .choice:
+                    choiceScreen
+                case .cardioDuration:
+                    cardioDurationScreen
+                case .cardioCountdown(let endDate, let minutes):
+                    cardioCountdownScreen(endDate: endDate, minutes: minutes)
+                case .free(let startedAt):
+                    freeScreen(startedAt: startedAt)
+                case .continueChoice:
+                    continueScreen
                 }
-                .padding()
             }
             .background(Theme.background)
             .navigationTitle("Échauffement")
             .navigationBarTitleDisplayMode(.inline)
-            .safeAreaInset(edge: .bottom) {
+        }
+        .onAppear { restoreCheckedRamps() }
+    }
+
+    // MARK: - Ecran de choix initial
+
+    private var choiceScreen: some View {
+        VStack(spacing: 20) {
+            Spacer(minLength: 12)
+
+            VStack(spacing: 16) {
+                WarmupOptionCard(title: "Cardio", subtitle: "Chrono minute", systemImage: "figure.run") {
+                    step = .cardioDuration
+                }
+                WarmupOptionCard(title: "Échauffement libre", subtitle: "Chrono libre + montée en charge", systemImage: "figure.flexibility") {
+                    step = .free(startedAt: .now)
+                }
+            }
+            .padding(.horizontal)
+
+            Spacer()
+
+            Button("Commencer directement la séance") {
+                state.finishWarmup()
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .padding(.bottom, 24)
+        }
+    }
+
+    // MARK: - Cardio : choix de la duree
+
+    private var cardioDurationScreen: some View {
+        VStack(spacing: 28) {
+            Spacer(minLength: 12)
+
+            Text("Durée du cardio")
+                .font(.title3.weight(.semibold))
+
+            HStack(spacing: 12) {
+                ForEach([5, 10, 15], id: \.self) { minutes in
+                    Button {
+                        cardioMinutesChoice = minutes
+                    } label: {
+                        Text("\(minutes) min")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(cardioMinutesChoice == minutes ? Theme.accent : .secondary)
+                }
+            }
+            .padding(.horizontal)
+
+            Stepper("\(cardioMinutesChoice) min", value: $cardioMinutesChoice, in: 1...60)
+                .padding(.horizontal, 40)
+
+            Spacer()
+
+            Button {
+                step = .cardioCountdown(endDate: Date.now.addingTimeInterval(Double(cardioMinutesChoice * 60)), minutes: cardioMinutesChoice)
+            } label: {
+                Text("Démarrer le cardio")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Theme.accent)
+            .controlSize(.large)
+            .padding()
+        }
+    }
+
+    // MARK: - Cardio : decompte
+
+    private func cardioCountdownScreen(endDate: Date, minutes: Int) -> some View {
+        VStack(spacing: 40) {
+            Spacer()
+
+            TimelineView(.periodic(from: .now, by: 0.5)) { context in
+                let remaining = max(0, Int((endDate.timeIntervalSince(context.date)).rounded(.up)))
+                ZStack {
+                    Circle()
+                        .stroke(Theme.card, lineWidth: 14)
+                    Circle()
+                        .trim(from: 0, to: cardioProgress(endDate: endDate, minutes: minutes, now: context.date))
+                        .stroke(Theme.accent, style: StrokeStyle(lineWidth: 14, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                        .animation(.linear(duration: 0.5), value: remaining)
+
+                    Text(Self.formatSeconds(remaining))
+                        .font(Theme.timerFont)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .frame(maxWidth: 260 - 14 * 2 - 24 * 2)
+                        .padding(24)
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 260, height: 260)
+                .onChange(of: remaining) { _, newValue in
+                    if newValue == 0 {
+                        step = .continueChoice
+                    }
+                }
+            }
+
+            Spacer()
+
+            Button("Terminer le cardio") {
+                step = .continueChoice
+            }
+            .buttonStyle(.bordered)
+            .tint(Theme.accent)
+            .controlSize(.large)
+            .padding(.bottom, 40)
+        }
+    }
+
+    private func cardioProgress(endDate: Date, minutes: Int, now: Date) -> Double {
+        let total = Double(minutes * 60)
+        guard total > 0 else { return 1 }
+        let remaining = max(0, endDate.timeIntervalSince(now))
+        return 1 - min(1, max(0, remaining / total))
+    }
+
+    // MARK: - Echauffement libre
+
+    private func freeScreen(startedAt: Date) -> some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    Text(Self.formatSeconds(Int(context.date.timeIntervalSince(startedAt).rounded(.down))))
+                        .font(Theme.timerFont)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .foregroundStyle(Theme.accent)
+                }
+                .padding(.top, 12)
+
+                if !rampSets.isEmpty {
+                    rampCard
+                }
+
+                Spacer(minLength: 12)
+
                 Button {
-                    state.finishWarmup()
+                    step = .continueChoice
                 } label: {
-                    Text(allRampsChecked ? "Commencer la séance" : "Passer l'échauffement")
+                    Text("Terminer")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
@@ -43,70 +205,9 @@ struct WarmupView: View {
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.accent)
                 .controlSize(.large)
-                .padding()
-                .background(.ultraThinMaterial)
             }
+            .padding()
         }
-        .onAppear {
-            if cardioEndDate == nil {
-                cardioEndDate = Date.now.addingTimeInterval(Double(Warmup.cardioMinutes * 60))
-            }
-            restoreCheckedRamps()
-        }
-    }
-
-    // Reconstruit checkedRamps depuis les series deja persistees : necessaire
-    // apres un kill+resume en pleine echauffement, sinon ce @State frais
-    // repart a vide (toutes les cases redeviennent decochees) alors que
-    // logWarmupSet a deja loggee ces paliers - source de doublons a la
-    // reprise si on retapait sur une case deja validee.
-    private func restoreCheckedRamps() {
-        guard let target = state.warmupTargetExercise(),
-              let targetIndex = state.exercises.firstIndex(where: { $0.id == target.id }) else { return }
-        let loggedRampIndexes = state.loggedSets
-            .filter { $0.isWarmup && $0.orderIndex == targetIndex }
-            .map(\.setIndex)
-        checkedRamps = Set(loggedRampIndexes)
-    }
-
-    private var allRampsChecked: Bool {
-        !rampSets.isEmpty && checkedRamps.count == rampSets.count
-    }
-
-    private var cardioCard: some View {
-        VStack(spacing: 16) {
-            Text("\(Warmup.cardioMinutes) min de cardio léger")
-                .font(.title3.weight(.semibold))
-
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                Text(formattedRemaining)
-                    .font(Theme.timerFont)
-                    .monospacedDigit()
-                    .foregroundStyle(cardioSkipped || cardioRemaining == 0 ? .secondary : Theme.accent)
-            }
-
-            Button("Passer le cardio") {
-                cardioSkipped = true
-                cardioEndDate = Date.now
-            }
-            .buttonStyle(.bordered)
-            .tint(Theme.accent)
-            .disabled(cardioSkipped || cardioRemaining == 0)
-        }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-    }
-
-    private var cardioRemaining: Int {
-        guard let cardioEndDate else { return Warmup.cardioMinutes * 60 }
-        return max(0, Int(cardioEndDate.timeIntervalSinceNow.rounded(.up)))
-    }
-
-    private var formattedRemaining: String {
-        let seconds = cardioRemaining
-        return String(format: "%d:%02d", seconds / 60, seconds % 60)
     }
 
     private var rampCard: some View {
@@ -136,5 +237,109 @@ struct WarmupView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Ecran "Continuer l'echauffement ?"
+
+    private var continueScreen: some View {
+        VStack(spacing: 20) {
+            Spacer(minLength: 12)
+
+            Text("Continuer l'échauffement ?")
+                .font(.title3.weight(.semibold))
+
+            VStack(spacing: 16) {
+                WarmupOptionCard(title: "Refaire du cardio", subtitle: nil, systemImage: "figure.run") {
+                    step = .cardioDuration
+                }
+                WarmupOptionCard(title: "Échauffement libre", subtitle: nil, systemImage: "figure.flexibility") {
+                    step = .free(startedAt: .now)
+                }
+            }
+            .padding(.horizontal)
+
+            Spacer()
+
+            Button {
+                state.finishWarmup()
+            } label: {
+                Text("Commencer la séance")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Theme.accent)
+            .controlSize(.large)
+            .padding()
+        }
+    }
+
+    // MARK: - Reprise apres kill+resume
+
+    // Reconstruit checkedRamps depuis les series deja persistees : necessaire
+    // apres un kill+resume en pleine echauffement, sinon ce @State frais
+    // repart a vide (toutes les cases redeviennent decochees) alors que
+    // logWarmupSet a deja loggee ces paliers - source de doublons a la
+    // reprise si on retapait sur une case deja validee.
+    private func restoreCheckedRamps() {
+        guard let target = state.warmupTargetExercise(),
+              let targetIndex = state.exercises.firstIndex(where: { $0.id == target.id }) else { return }
+        let loggedRampIndexes = state.loggedSets
+            .filter { $0.isWarmup && $0.orderIndex == targetIndex }
+            .map(\.setIndex)
+        checkedRamps = Set(loggedRampIndexes)
+    }
+
+    private static func formatSeconds(_ seconds: Int) -> String {
+        let minutes = seconds / 60
+        let secs = seconds % 60
+        return String(format: "%d:%02d", minutes, secs)
+    }
+}
+
+// MARK: - Carte d'option (choix / continuation)
+
+private struct WarmupOptionCard: View {
+    let title: String
+    let subtitle: String?
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: systemImage)
+                    .font(.title2)
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 36)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+            .background(Theme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+        // Sans ce label explicite, l'accessibilite combine titre + sous-titre
+        // (ex: "Cardio, Chrono minute"), ce qui rend le bouton introuvable
+        // par son seul titre pour les tests UI comme pour VoiceOver.
+        .accessibilityLabel(title)
     }
 }

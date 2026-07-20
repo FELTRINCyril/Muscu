@@ -1,9 +1,10 @@
 import SwiftUI
 
-// Saisie d'une serie : poids et reps pre-remplis, gros steppers +/-, gros
-// bouton de validation. Vue "sans memoire" : le parent doit lui donner une
-// identite stable (.id(...)) qui change a chaque nouvelle serie/exercice
-// pour que les valeurs pre-remplies soient reinitialisees correctement.
+// Saisie d'une serie : poids et reps directement editables (TextField), avec
+// les steppers +/- gardes autour pour l'ajustement rapide. Vue "sans
+// memoire" : le parent doit lui donner une identite stable (.id(...)) qui
+// change a chaque nouvelle serie/exercice pour que les valeurs pre-remplies
+// soient reinitialisees correctement.
 struct SetLoggerView: View {
     let initialWeight: Double
     let initialReps: Int
@@ -11,6 +12,11 @@ struct SetLoggerView: View {
 
     @State private var weight: Double
     @State private var reps: Int
+    @FocusState private var focusedField: Field?
+
+    private enum Field {
+        case weight, reps
+    }
 
     init(initialWeight: Double, initialReps: Int, onValidate: @escaping (Double, Int) -> Void) {
         self.initialWeight = initialWeight
@@ -22,21 +28,34 @@ struct SetLoggerView: View {
 
     var body: some View {
         VStack(spacing: 24) {
-            valueStepper(
+            editableValue(
                 label: "Poids",
-                valueText: "\(WorkoutState.formatWeight(weight)) kg",
+                suffix: "kg",
                 onDecrement: { weight = max(0, weight - 2.5) },
                 onIncrement: { weight += 2.5 }
-            )
+            ) {
+                TextField(
+                    "Poids",
+                    value: $weight,
+                    format: .number.precision(.fractionLength(0...1))
+                )
+                .keyboardType(.decimalPad)
+                .focused($focusedField, equals: .weight)
+            }
 
-            valueStepper(
+            editableValue(
                 label: "Répétitions",
-                valueText: "\(reps)",
+                suffix: nil,
                 onDecrement: { reps = max(0, reps - 1) },
                 onIncrement: { reps += 1 }
-            )
+            ) {
+                TextField("Répétitions", value: $reps, format: .number)
+                    .keyboardType(.numberPad)
+                    .focused($focusedField, equals: .reps)
+            }
 
             Button {
+                focusedField = nil
                 onValidate(weight, reps)
             } label: {
                 Text("Valider la série")
@@ -48,13 +67,23 @@ struct SetLoggerView: View {
             .tint(Theme.accent)
             .controlSize(.large)
         }
+        .toolbar {
+            // Les claviers decimalPad/numberPad n'ont pas de touche retour :
+            // sans ce bouton "OK", rien ne permet de refermer le clavier une
+            // fois la saisie terminee.
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("OK") { focusedField = nil }
+            }
+        }
     }
 
-    private func valueStepper(
+    private func editableValue(
         label: String,
-        valueText: String,
+        suffix: String?,
         onDecrement: @escaping () -> Void,
-        onIncrement: @escaping () -> Void
+        onIncrement: @escaping () -> Void,
+        @ViewBuilder field: () -> some View
     ) -> some View {
         VStack(spacing: 8) {
             Text(label)
@@ -67,10 +96,19 @@ struct SetLoggerView: View {
                         .font(.system(size: 36))
                 }
 
-                Text(valueText)
-                    .font(.system(size: 34, weight: .bold))
-                    .monospacedDigit()
-                    .frame(minWidth: 120)
+                HStack(spacing: 4) {
+                    field()
+                        .font(.system(size: 34, weight: .bold))
+                        .monospacedDigit()
+                        .multilineTextAlignment(.center)
+                        .frame(minWidth: 80)
+                    if let suffix {
+                        Text(suffix)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(minWidth: 120)
 
                 Button(action: onIncrement) {
                     Image(systemName: "plus.circle.fill")

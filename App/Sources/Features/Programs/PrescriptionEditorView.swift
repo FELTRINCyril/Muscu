@@ -120,9 +120,12 @@ struct PrescriptionEditorView: View {
             .onChange(of: chargeMode) { _, newValue in
                 exercise.percentOneRepMax = newValue == .percent ? (exercise.percentOneRepMax ?? 75) : nil
                 exercise.percentMaxReps = newValue == .percentMaxReps ? (exercise.percentMaxReps ?? 75) : nil
+                if newValue != .free { exercise.targetWeight = nil }
             }
 
-            if chargeMode == .percent {
+            if chargeMode == .free {
+                targetWeightField
+            } else if chargeMode == .percent {
                 VStack(alignment: .leading) {
                     Text("\(Int(exercise.percentOneRepMax ?? 75)) %")
                         .foregroundStyle(.secondary)
@@ -148,6 +151,53 @@ struct PrescriptionEditorView: View {
                         step: 5
                     )
                 }
+            }
+        }
+    }
+
+    // Poids cible (optionnel) en mode de charge Libre : prefill prioritaire
+    // dans le runner (cf. WorkoutState.suggestedWeight utilise cote runner,
+    // et PrescribedExercise.targetWeight). TextField + steppers, meme motif
+    // que SetLoggerView (UX5).
+    @ViewBuilder
+    private var targetWeightField: some View {
+        if let weight = exercise.targetWeight {
+            HStack(spacing: 12) {
+                Text("Poids cible")
+                Spacer()
+                Button {
+                    exercise.targetWeight = max(0, weight - 2.5)
+                } label: {
+                    Image(systemName: "minus.circle")
+                }
+                TextField(
+                    "Poids",
+                    value: Binding(
+                        get: { exercise.targetWeight ?? 0 },
+                        set: { exercise.targetWeight = $0 }
+                    ),
+                    format: .number
+                )
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.center)
+                .frame(width: 60)
+                Text("kg")
+                    .foregroundStyle(.secondary)
+                Button {
+                    exercise.targetWeight = weight + 2.5
+                } label: {
+                    Image(systemName: "plus.circle")
+                }
+                Button {
+                    exercise.targetWeight = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } else {
+            Button("Poids cible (optionnel)") {
+                exercise.targetWeight = 20
             }
         }
     }

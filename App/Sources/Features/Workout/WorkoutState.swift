@@ -16,6 +16,7 @@ struct RunExercise: Identifiable, Codable {
     var restSeconds: Int
     var percentOneRepMax: Double?
     var percentMaxReps: Double?
+    var targetWeight: Double?
     var notes: String
     var orderIndex: Int
     var pyramidReps: [Int]
@@ -37,6 +38,7 @@ struct RunExercise: Identifiable, Codable {
         self.restSeconds = prescribed.restSeconds
         self.percentOneRepMax = prescribed.percentOneRepMax
         self.percentMaxReps = prescribed.percentMaxReps
+        self.targetWeight = prescribed.targetWeight
         self.notes = prescribed.notes
         self.orderIndex = prescribed.orderIndex
         self.pyramidReps = prescribed.pyramidReps
@@ -56,7 +58,7 @@ struct RunExercise: Identifiable, Codable {
     // reprise de seance.
     private enum CodingKeys: String, CodingKey {
         case id, exerciseId, displayName, format, sets, repsLower, repsUpper
-        case restSeconds, percentOneRepMax, percentMaxReps, notes, orderIndex
+        case restSeconds, percentOneRepMax, percentMaxReps, targetWeight, notes, orderIndex
         case pyramidReps, pyramidMinRest, pyramidMaxRest
         case intervalWork, intervalRest, intervalRounds, amrapSeconds
     }
@@ -73,6 +75,7 @@ struct RunExercise: Identifiable, Codable {
         restSeconds = try container.decode(Int.self, forKey: .restSeconds)
         percentOneRepMax = try container.decodeIfPresent(Double.self, forKey: .percentOneRepMax)
         percentMaxReps = try container.decodeIfPresent(Double.self, forKey: .percentMaxReps)
+        targetWeight = try container.decodeIfPresent(Double.self, forKey: .targetWeight)
         notes = try container.decode(String.self, forKey: .notes)
         orderIndex = try container.decode(Int.self, forKey: .orderIndex)
         pyramidReps = try container.decodeIfPresent([Int].self, forKey: .pyramidReps) ?? []
@@ -96,6 +99,7 @@ struct RunExercise: Identifiable, Codable {
         try container.encode(restSeconds, forKey: .restSeconds)
         try container.encodeIfPresent(percentOneRepMax, forKey: .percentOneRepMax)
         try container.encodeIfPresent(percentMaxReps, forKey: .percentMaxReps)
+        try container.encodeIfPresent(targetWeight, forKey: .targetWeight)
         try container.encode(notes, forKey: .notes)
         try container.encode(orderIndex, forKey: .orderIndex)
         try container.encode(pyramidReps, forKey: .pyramidReps)
@@ -268,7 +272,12 @@ final class WorkoutState: Identifiable {
 
     // %1RM + record connu -> charge de travail calculee ; %1RM sans record ->
     // nil (la vue doit demander le 1RM, cf. needsOneRepMax) ; sinon dernier
-    // poids logge pour cet exercice.
+    // poids logge pour cet exercice. Le poids cible du programme (mode
+    // libre, cf. PrescribedExercise.targetWeight) est prioritaire sur cette
+    // suggestion mais gere au niveau de l'appelant (cf. ClassicExerciseCard.
+    // prefillWeight dans WorkoutRunnerView), pas ici : suggestedWeight reste
+    // la logique %1RM/dernier-log pure, reutilisee ailleurs (objectiveText,
+    // echauffement) independamment du poids cible.
     func suggestedWeight(for exercise: RunExercise) -> Double? {
         if let percent = exercise.percentOneRepMax {
             // oneRepMax <= 0 (jamais renseigne, valeur par defaut) compte

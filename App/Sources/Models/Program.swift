@@ -69,6 +69,10 @@ final class PrescribedExercise {
     var restSeconds: Int = 0
     var percentOneRepMax: Double?
     var percentMaxReps: Double?
+    // Poids cible optionnel en mode de charge "Libre" : quand renseigne,
+    // prefill prioritaire dans le runner (cf. WorkoutState.suggestedWeight),
+    // avant le dernier poids logge. nil = comportement inchange.
+    var targetWeight: Double?
     var pyramidReps: [Int] = []
     var pyramidMinRest: Int = 0
     var pyramidMaxRest: Int = 0
@@ -92,6 +96,7 @@ final class PrescribedExercise {
         restSeconds: Int = 0,
         percentOneRepMax: Double? = nil,
         percentMaxReps: Double? = nil,
+        targetWeight: Double? = nil,
         pyramidReps: [Int] = [],
         pyramidMinRest: Int = 0,
         pyramidMaxRest: Int = 0,
@@ -112,6 +117,7 @@ final class PrescribedExercise {
         self.restSeconds = restSeconds
         self.percentOneRepMax = percentOneRepMax
         self.percentMaxReps = percentMaxReps
+        self.targetWeight = targetWeight
         self.pyramidReps = pyramidReps
         self.pyramidMinRest = pyramidMinRest
         self.pyramidMaxRest = pyramidMaxRest

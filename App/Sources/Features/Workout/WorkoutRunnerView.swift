@@ -234,14 +234,14 @@ private struct ClassicExerciseCard: View {
         let reps = exercise.repsLower == exercise.repsUpper
             ? "\(exercise.repsLower)"
             : "\(exercise.repsLower)-\(exercise.repsUpper)"
-        if let weight = state.suggestedWeight(for: exercise) {
+        if let weight = exercise.targetWeight ?? state.suggestedWeight(for: exercise) {
             return "\(reps) reps @ \(WorkoutState.formatWeight(weight)) kg"
         }
         return "\(reps) reps"
     }
 
     private var prefillWeight: Double {
-        state.suggestedWeight(for: exercise) ?? 0
+        exercise.targetWeight ?? state.suggestedWeight(for: exercise) ?? 0
     }
 
     private var prefillReps: Int {

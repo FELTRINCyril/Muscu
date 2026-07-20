@@ -50,6 +50,7 @@ enum ExportImport {
         var restSeconds: Int
         var percentOneRepMax: Double?
         var percentMaxReps: Double?
+        var targetWeight: Double?
         var pyramidReps: [Int]
         var pyramidMinRest: Int
         var pyramidMaxRest: Int
@@ -282,6 +283,7 @@ enum ExportImport {
             restSeconds: exercise.restSeconds,
             percentOneRepMax: exercise.percentOneRepMax,
             percentMaxReps: exercise.percentMaxReps,
+            targetWeight: exercise.targetWeight,
             pyramidReps: exercise.pyramidReps,
             pyramidMinRest: exercise.pyramidMinRest,
             pyramidMaxRest: exercise.pyramidMaxRest,
@@ -383,6 +385,7 @@ enum ExportImport {
             restSeconds: dto.restSeconds,
             percentOneRepMax: dto.percentOneRepMax,
             percentMaxReps: dto.percentMaxReps,
+            targetWeight: dto.targetWeight,
             pyramidReps: dto.pyramidReps,
             pyramidMinRest: dto.pyramidMinRest,
             pyramidMaxRest: dto.pyramidMaxRest,
