@@ -112,9 +112,9 @@ struct RunExercise: Identifiable, Codable {
     }
 }
 
-// Phase de la seance : echauffement (avant le premier exercice, si
-// warmupEnabled) puis deroule normal. Persistee sur ActiveWorkout pour
-// survivre a un kill+resume pendant l'echauffement lui-meme.
+// Phase de la seance : echauffement (avant le premier exercice, toujours
+// propose) puis deroule normal. Persistee sur ActiveWorkout pour survivre a
+// un kill+resume pendant l'echauffement lui-meme.
 enum RunnerPhase: String, Codable {
     case warmup
     case running
@@ -162,7 +162,12 @@ final class WorkoutState: Identifiable {
         self.currentExerciseIndex = 0
         self.currentSetIndex = 0
         self.activeWorkout = nil
-        self.phase = programSession.warmupEnabled ? .warmup : .running
+        // L'echauffement est toujours propose au demarrage (plus de reglage
+        // par seance) : WarmupView offre elle-meme "Commencer directement la
+        // seance" pour le passer. Une seance reprise (restoring:) preserve
+        // sa phase persistee (RunnerPhase depuis activeWorkout.phaseRaw,
+        // cf. l'autre init ci-dessous) et ne repasse jamais par ici.
+        self.phase = .warmup
     }
 
     private init(

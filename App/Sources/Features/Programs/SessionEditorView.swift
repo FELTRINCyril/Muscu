@@ -22,10 +22,6 @@ struct SessionEditorView: View {
                 TextField("Nom de la séance", text: $session.name)
             }
 
-            Section {
-                Toggle("Échauffement", isOn: $session.warmupEnabled)
-            }
-
             Section("Exercices") {
                 ForEach(sortedExercises) { exercise in
                     Button {

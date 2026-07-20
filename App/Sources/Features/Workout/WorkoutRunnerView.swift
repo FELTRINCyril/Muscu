@@ -79,11 +79,10 @@ struct WorkoutRunnerView: View {
                     }
                 }
                 ToolbarItem(placement: .principal) {
-                    if state.currentExercise != nil {
-                        Text(progressLabel)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    SessionChronoLabel(
+                        startedAt: state.startedAt,
+                        subtitle: state.currentExercise != nil ? progressLabel : nil
+                    )
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     actionsMenu
@@ -148,6 +147,42 @@ struct WorkoutRunnerView: View {
 
     private var progressLabel: String {
         "Exercice \(state.currentExerciseIndex + 1)/\(state.exercises.count)"
+    }
+}
+
+// MARK: - Chrono de duree de seance
+
+// Chrono absolu (base sur state.startedAt, pas un compteur incremente a la
+// main) : reste correct meme apres un arriere-plan prolonge ou un
+// kill+resume, et reste coherent avec la duree finale affichee par
+// WorkoutSummaryView (meme reference de depart). Affiche dans le toolbar
+// principal du runner ET de l'echauffement (cf. WarmupView), puisque
+// startedAt est fixe a la creation de la seance, avant l'echauffement.
+struct SessionChronoLabel: View {
+    let startedAt: Date
+    var subtitle: String?
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            VStack(spacing: 0) {
+                Text(Self.formatElapsed(context.date.timeIntervalSince(startedAt)))
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(.white)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private static func formatElapsed(_ interval: TimeInterval) -> String {
+        let totalSeconds = max(0, Int(interval))
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%02d:%02d", minutes, seconds)
     }
 }
 

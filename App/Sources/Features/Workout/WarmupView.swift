@@ -1,7 +1,7 @@
 import SwiftUI
 import MuscuEngine
 
-// Premiere phase de la seance quand `warmupEnabled` : ecran de choix
+// Premiere phase de la seance, toujours proposee : ecran de choix
 // (cardio chronometre / echauffement libre en chrono compte-up / passage
 // direct), puis un ecran "Continuer l'echauffement ?" permettant d'enchainer
 // plusieurs blocs avant de demarrer reellement la seance. Toujours sortie
@@ -42,8 +42,12 @@ struct WarmupView: View {
                 }
             }
             .background(Theme.background)
-            .navigationTitle("Échauffement")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    SessionChronoLabel(startedAt: state.startedAt, subtitle: "Échauffement")
+                }
+            }
         }
         .onAppear { restoreCheckedRamps() }
     }

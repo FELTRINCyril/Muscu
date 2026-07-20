@@ -140,14 +140,7 @@ private struct SessionRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                Text(session.name.isEmpty ? "Séance" : session.name)
-                if session.warmupEnabled {
-                    Image(systemName: "flame.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-            }
+            Text(session.name.isEmpty ? "Séance" : session.name)
             Text(exerciseCountLabel)
                 .font(.caption)
                 .foregroundStyle(.secondary)
