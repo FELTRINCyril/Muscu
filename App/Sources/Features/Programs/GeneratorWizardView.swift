@@ -4,7 +4,13 @@ import MuscuEngine
 // Questionnaire generateur : une question par ecran, gros boutons tappables,
 // indicateur de progression et bouton retour. Derniere etape -> RuleBasedGenerator.
 struct GeneratorWizardView: View {
+    let onEdit: ((Program) -> Void)?
     let onSaved: () -> Void
+
+    init(onEdit: ((Program) -> Void)? = nil, onSaved: @escaping () -> Void) {
+        self.onEdit = onEdit
+        self.onSaved = onSaved
+    }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(CatalogStore.self) private var catalogStore
@@ -50,6 +56,7 @@ struct GeneratorWizardView: View {
                 DraftPreviewView(
                     draft: draft,
                     regenerate: { regenerate() },
+                    onEdit: onEdit,
                     onSaved: {
                         onSaved()
                         dismiss()

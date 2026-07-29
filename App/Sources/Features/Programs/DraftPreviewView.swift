@@ -10,6 +10,10 @@ struct DraftPreviewView: View {
     let draft: DraftProgram
     let regenerate: (() -> DraftProgram?)?
 
+    // Ouvre directement l'editeur complet du programme (via ProgramsView) apres
+    // enregistrement, si fourni. nil par defaut : bouton "Modifier" absent.
+    let onEdit: ((Program) -> Void)?
+
     // Ferme la sheet racine du flux (TemplatePickerView ou GeneratorWizardView),
     // passee explicitement plutot que d'utiliser @Environment(\.dismiss) qui ne
     // fermerait que cet ecran pousse dans la pile de navigation interne.
@@ -21,9 +25,15 @@ struct DraftPreviewView: View {
     @State private var expandedSessions: Set<Int>
     @State private var swapTarget: SwapTarget?
 
-    init(draft: DraftProgram, regenerate: (() -> DraftProgram?)? = nil, onSaved: @escaping () -> Void) {
+    init(
+        draft: DraftProgram,
+        regenerate: (() -> DraftProgram?)? = nil,
+        onEdit: ((Program) -> Void)? = nil,
+        onSaved: @escaping () -> Void
+    ) {
         self.draft = draft
         self.regenerate = regenerate
+        self.onEdit = onEdit
         self.onSaved = onSaved
         self._currentDraft = State(initialValue: draft)
         self._expandedSessions = State(initialValue: Set(draft.sessions.indices))
@@ -97,6 +107,13 @@ struct DraftPreviewView: View {
         .background(Theme.background)
         .navigationTitle("Aperçu")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if onEdit != nil {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Modifier") { saveAndEdit() }
+                }
+            }
+        }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 Button {
@@ -137,6 +154,17 @@ struct DraftPreviewView: View {
         modelContext.insert(program)
         try? modelContext.save()
         onSaved()
+    }
+
+    // Enregistre le brouillon puis ouvre directement l'editeur complet du
+    // programme (via ProgramsView), au lieu d'obliger a enregistrer -> retrouver
+    // le programme dans la liste -> l'ouvrir.
+    private func saveAndEdit() {
+        let program = currentDraft.toModel()
+        modelContext.insert(program)
+        try? modelContext.save()
+        onSaved()
+        onEdit?(program)
     }
 
     private func exerciseCountLabel(_ count: Int) -> String {

@@ -115,10 +115,16 @@ struct ProgramsView: View {
                 }
             }
             .sheet(isPresented: $showingTemplatePicker) {
-                TemplatePickerView(onSaved: { showingTemplatePicker = false })
+                TemplatePickerView(
+                    onEdit: { program in path.append(program) },
+                    onSaved: { showingTemplatePicker = false }
+                )
             }
             .sheet(isPresented: $showingGeneratorWizard) {
-                GeneratorWizardView(onSaved: { showingGeneratorWizard = false })
+                GeneratorWizardView(
+                    onEdit: { program in path.append(program) },
+                    onSaved: { showingGeneratorWizard = false }
+                )
             }
         }
     }

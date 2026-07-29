@@ -11,6 +11,7 @@ struct SessionEditorView: View {
     @State private var editMode: EditMode = .inactive
     @State private var showingPicker = false
     @State private var editingExercise: PrescribedExercise?
+    @State private var swappingExercise: PrescribedExercise?
 
     private var sortedExercises: [PrescribedExercise] {
         session.exercises.sorted { $0.orderIndex < $1.orderIndex }
@@ -30,11 +31,24 @@ struct SessionEditorView: View {
                         ExercisePrescriptionRow(exercise: exercise)
                     }
                     .contextMenu {
+                        Button {
+                            swappingExercise = exercise
+                        } label: {
+                            Label("Remplacer par...", systemImage: "arrow.triangle.2.circlepath")
+                        }
                         Button(role: .destructive) {
                             delete(exercise)
                         } label: {
                             Label("Supprimer", systemImage: "trash")
                         }
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                        Button {
+                            swappingExercise = exercise
+                        } label: {
+                            Label("Remplacer", systemImage: "arrow.triangle.2.circlepath")
+                        }
+                        .tint(Theme.accent)
                     }
                 }
                 .onMove(perform: moveExercises)
@@ -67,6 +81,13 @@ struct SessionEditorView: View {
         }
         .sheet(item: $editingExercise) { exercise in
             PrescriptionEditorView(exercise: exercise)
+        }
+        .sheet(item: $swappingExercise) { exercise in
+            ExerciseSwapSheet(currentExerciseId: exercise.exerciseId) { newId, newName in
+                exercise.exerciseId = newId
+                exercise.displayName = newName
+                try? modelContext.save()
+            }
         }
         .onDisappear {
             try? modelContext.save()

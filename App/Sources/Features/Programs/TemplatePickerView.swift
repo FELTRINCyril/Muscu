@@ -5,7 +5,13 @@ import MuscuEngine
 // (SplitTemplates.recommended), generation immediate d'un DraftProgram avec des
 // valeurs par defaut raisonnables (hypertrophie, intermediaire, salle complete).
 struct TemplatePickerView: View {
+    let onEdit: ((Program) -> Void)?
     let onSaved: () -> Void
+
+    init(onEdit: ((Program) -> Void)? = nil, onSaved: @escaping () -> Void) {
+        self.onEdit = onEdit
+        self.onSaved = onSaved
+    }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(CatalogStore.self) private var catalogStore
@@ -51,6 +57,7 @@ struct TemplatePickerView: View {
                 DraftPreviewView(
                     draft: draft,
                     regenerate: { regenerate() },
+                    onEdit: onEdit,
                     onSaved: {
                         onSaved()
                         dismiss()
