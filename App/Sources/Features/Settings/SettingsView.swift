@@ -263,6 +263,8 @@ private struct AIProviderConfigView: View {
     @State private var apiKey = AIProviderConfig.apiKey(for: AIProviderConfig.selectedProvider)
     @State private var model = AIProviderConfig.model(for: AIProviderConfig.selectedProvider)
     @State private var baseURL = AIProviderConfig.baseURL
+    @State private var isTesting = false
+    @State private var testResult: (success: Bool, message: String)?
 
     var body: some View {
         Form {
@@ -293,6 +295,32 @@ private struct AIProviderConfigView: View {
             } footer: {
                 Text("La clé API est stockée de façon chiffrée dans le trousseau de l'appareil. Une fois configurée, l'option \"Générer avec l'IA\" apparaît dans le générateur de programme.")
             }
+
+            Section {
+                Button {
+                    testConnection()
+                } label: {
+                    if isTesting {
+                        HStack {
+                            ProgressView()
+                            Text("Test en cours...")
+                        }
+                    } else {
+                        Text("Tester la connexion")
+                    }
+                }
+                .disabled(isTesting || !AIProviderConfig.isConfigured)
+
+                if let testResult {
+                    Label(testResult.message, systemImage: testResult.success ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundStyle(testResult.success ? .green : .red)
+                        .font(.footnote)
+                }
+            } footer: {
+                if !AIProviderConfig.isConfigured {
+                    Text("Renseignez la clé API et le modèle pour tester.")
+                }
+            }
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)
@@ -307,6 +335,28 @@ private struct AIProviderConfigView: View {
         .onChange(of: apiKey) { _, newValue in AIProviderConfig.setApiKey(newValue, for: provider) }
         .onChange(of: model) { _, newValue in AIProviderConfig.setModel(newValue, for: provider) }
         .onChange(of: baseURL) { _, newValue in AIProviderConfig.baseURL = newValue }
+    }
+
+    private func testConnection() {
+        guard let settings = AIProviderConfig.currentSettings() else { return }
+        isTesting = true
+        testResult = nil
+        Task {
+            do {
+                let request = try AIProviderRequest.build(
+                    settings: settings,
+                    prompt: "Reponds uniquement avec le JSON {\"ok\": true}"
+                )
+                let data = try await URLSessionAIClient().post(url: request.url, headers: request.headers, body: request.body)
+                _ = try AIProviderRequest.extractText(from: data, kind: settings.kind)
+                testResult = (true, "Connexion réussie")
+            } catch let AIGeneratorError.httpError(code, body) {
+                testResult = (false, "Erreur HTTP \(code) : \(body)")
+            } catch {
+                testResult = (false, "Échec : \(error.localizedDescription)")
+            }
+            isTesting = false
+        }
     }
 }
 
