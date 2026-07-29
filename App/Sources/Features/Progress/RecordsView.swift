@@ -10,16 +10,24 @@ struct RecordsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \ExerciseRecord.displayName) private var records: [ExerciseRecord]
 
+    // L'item de la sheet d'edition porte lui-meme isNew : un seul @State a
+    // poser, aucune desynchronisation possible entre le record edite et son
+    // statut nouveau/existant.
+    private struct EditingTarget: Identifiable {
+        let record: ExerciseRecord
+        let isNew: Bool
+        var id: PersistentIdentifier { record.id }
+    }
+
     @State private var showingPicker = false
-    @State private var editingRecord: ExerciseRecord?
-    @State private var editingIsNew = false
+    @State private var editing: EditingTarget?
+    @State private var pendingPick: (id: String, displayName: String)?
 
     var body: some View {
         List {
             ForEach(records) { record in
                 Button {
-                    editingIsNew = false
-                    editingRecord = record
+                    editing = EditingTarget(record: record, isNew: false)
                 } label: {
                     RecordRow(record: record)
                 }
@@ -45,21 +53,33 @@ struct RecordsView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
+                .accessibilityIdentifier("records.addButton")
             }
         }
-        .sheet(isPresented: $showingPicker) {
+        // La selection est memorisee (pendingPick) puis traitee dans
+        // onDismiss : poser editingRecord pendant que la sheet du picker est
+        // encore presentee ferait entrer en concurrence les deux .sheet de
+        // cette vue, et SwiftUI abandonne alors la presentation de l'editeur.
+        .sheet(isPresented: $showingPicker, onDismiss: handlePendingPick) {
             ExercisePickerView { id, displayName in
-                if let existing = records.first(where: { $0.exerciseId == id }) {
-                    editingIsNew = false
-                    editingRecord = existing
-                } else {
-                    editingIsNew = true
-                    editingRecord = ExerciseRecord(exerciseId: id, displayName: displayName)
-                }
+                pendingPick = (id, displayName)
             }
         }
-        .sheet(item: $editingRecord) { record in
-            RecordEditSheet(record: record, isNew: editingIsNew)
+        .sheet(item: $editing) { target in
+            RecordEditSheet(record: target.record, isNew: target.isNew)
+        }
+    }
+
+    private func handlePendingPick() {
+        guard let pick = pendingPick else { return }
+        pendingPick = nil
+        if let existing = records.first(where: { $0.exerciseId == pick.id }) {
+            editing = EditingTarget(record: existing, isNew: false)
+        } else {
+            editing = EditingTarget(
+                record: ExerciseRecord(exerciseId: pick.id, displayName: pick.displayName),
+                isNew: true
+            )
         }
     }
 

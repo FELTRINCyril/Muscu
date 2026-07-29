@@ -53,6 +53,7 @@ struct ExercisesView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityIdentifier("exercises.addButton")
                 }
             }
             .sheet(isPresented: $showingAddSheet) {

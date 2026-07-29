@@ -61,6 +61,7 @@ struct WorkoutRunnerView: View {
                     } label: {
                         Image(systemName: "xmark")
                     }
+                    .accessibilityIdentifier("workout.exitButton")
                     // dismiss() direct : la fermeture d'un confirmationDialog
                     // n'ouvre PAS de nouvelle presentation UIKit (contrairement
                     // au chemin alerte -> runner de HomeView.resumeWorkout, qui
@@ -138,6 +139,7 @@ struct WorkoutRunnerView: View {
         } label: {
             Image(systemName: "ellipsis.circle")
         }
+        .accessibilityIdentifier("workout.actionsMenu")
     }
 
     private var currentPrimaryMuscle: String? {

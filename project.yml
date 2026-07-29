@@ -28,3 +28,26 @@ targets:
         Debug:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
           ONLY_ACTIVE_ARCH: YES
+  MuscuUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: Muscu
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "6.0"
+        PRODUCT_NAME: MuscuUITests
+        TEST_TARGET_NAME: Muscu
+schemes:
+  Muscu:
+    build:
+      targets:
+        Muscu: all
+        MuscuUITests: [test]
+    test:
+      targets:
+        - MuscuUITests
+

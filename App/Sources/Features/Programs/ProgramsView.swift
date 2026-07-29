@@ -78,6 +78,7 @@ struct ProgramsView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
+                    .accessibilityIdentifier("programs.addButton")
                     .confirmationDialog("Nouveau programme", isPresented: $showingAddChoice, titleVisibility: .visible) {
                         Button("De zéro") { createFromScratch() }
                         Button("Depuis un modèle") { showingTemplatePicker = true }

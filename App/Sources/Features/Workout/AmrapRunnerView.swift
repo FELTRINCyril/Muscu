@@ -108,6 +108,7 @@ struct AmrapRunnerView: View {
             counter += 1
             FeedbackSettings.impact(.light)
         }
+        .accessibilityIdentifier("amrap.counterTapArea")
     }
 
     private func formattedTime(_ seconds: Int) -> String {
