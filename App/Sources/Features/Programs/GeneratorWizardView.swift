@@ -281,8 +281,10 @@ struct GeneratorWizardView: View {
     }
 
     private func regenerate() -> DraftProgram? {
-        guard let draftInput else { return nil }
-        return try? RuleBasedGenerator(catalog: catalogStore.catalog).generate(draftInput)
+        guard var input = draftInput else { return nil }
+        input.variation += 1
+        draftInput = input
+        return try? RuleBasedGenerator(catalog: catalogStore.catalog).generate(input)
     }
 
     // MARK: - Composants

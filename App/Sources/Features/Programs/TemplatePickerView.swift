@@ -80,7 +80,9 @@ struct TemplatePickerView: View {
     }
 
     private func regenerate() -> DraftProgram? {
-        guard let draftInput else { return nil }
+        guard var draftInput else { return nil }
+        draftInput.variation += 1
+        self.draftInput = draftInput
         return try? RuleBasedGenerator(catalog: catalogStore.catalog).generate(draftInput)
     }
 }

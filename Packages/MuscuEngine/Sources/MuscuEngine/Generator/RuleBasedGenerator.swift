@@ -122,6 +122,7 @@ public struct RuleBasedGenerator: ProgramGenerator {
                 preferCompound: slot.compound,
                 equipment: equipmentForSelection,
                 avoidAreas: input.avoidAreas,
+                variation: input.variation,
                 used: used
             ) else { continue }
             used.insert(chosen.id)
@@ -151,6 +152,7 @@ public struct RuleBasedGenerator: ProgramGenerator {
         preferCompound: Bool,
         equipment: TrainingEquipment,
         avoidAreas: [String],
+        variation: Int,
         used: Set<String>
     ) -> CatalogExercise? {
         let candidates = catalog.all
@@ -170,8 +172,9 @@ public struct RuleBasedGenerator: ProgramGenerator {
             .map(\.exercise)
 
         let preferredMechanic = preferCompound ? "compound" : "isolation"
-        if let match = staples.first(where: { $0.mechanic == preferredMechanic && !used.contains($0.id) }) {
-            return match
+        let preferred = staples.filter { $0.mechanic == preferredMechanic && !used.contains($0.id) }
+        if !preferred.isEmpty {
+            return preferred[variation % preferred.count]
         }
         if let anyStaple = staples.first(where: { !used.contains($0.id) }) {
             return anyStaple
@@ -189,10 +192,10 @@ public struct RuleBasedGenerator: ProgramGenerator {
     // Visible pour les tests uniquement (le package est importe @testable).
     func pickExerciseForTesting(
         muscle: String, preferCompound: Bool, equipment: TrainingEquipment,
-        avoidAreas: [String], used: Set<String>
+        avoidAreas: [String], used: Set<String>, variation: Int = 0
     ) -> CatalogExercise? {
         pickExercise(muscle: muscle, preferCompound: preferCompound,
-                     equipment: equipment, avoidAreas: avoidAreas, used: used)
+                     equipment: equipment, avoidAreas: avoidAreas, variation: variation, used: used)
     }
 
     private func isCandidate(_ exercise: CatalogExercise, muscle: String, equipment: TrainingEquipment, avoidAreas: [String]) -> Bool {

@@ -25,6 +25,7 @@ public struct GeneratorInput: Codable, Sendable {
     public var splitPreference: SplitPreference
     public var priorityMuscles: [String] // cles EN du catalogue
     public var avoidAreas: [String]      // ex: ["lower back", "knees"]
+    public var variation: Int            // increment a chaque "Regenerer" pour faire tourner les choix
 
     public init(
         goal: Goal,
@@ -34,7 +35,8 @@ public struct GeneratorInput: Codable, Sendable {
         equipment: TrainingEquipment,
         splitPreference: SplitPreference,
         priorityMuscles: [String],
-        avoidAreas: [String]
+        avoidAreas: [String],
+        variation: Int = 0
     ) {
         self.goal = goal
         self.experience = experience
@@ -44,5 +46,32 @@ public struct GeneratorInput: Codable, Sendable {
         self.splitPreference = splitPreference
         self.priorityMuscles = priorityMuscles
         self.avoidAreas = avoidAreas
+        self.variation = variation
+    }
+
+    // Decodage retro-compatible (les autres champs restent synthetises)
+    private enum CodingKeys: String, CodingKey {
+        case goal
+        case experience
+        case daysPerWeek
+        case sessionMinutes
+        case equipment
+        case splitPreference
+        case priorityMuscles
+        case avoidAreas
+        case variation
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        goal = try container.decode(Goal.self, forKey: .goal)
+        experience = try container.decode(Experience.self, forKey: .experience)
+        daysPerWeek = try container.decode(Int.self, forKey: .daysPerWeek)
+        sessionMinutes = try container.decode(Int.self, forKey: .sessionMinutes)
+        equipment = try container.decode(TrainingEquipment.self, forKey: .equipment)
+        splitPreference = try container.decode(SplitPreference.self, forKey: .splitPreference)
+        priorityMuscles = try container.decode([String].self, forKey: .priorityMuscles)
+        avoidAreas = try container.decode([String].self, forKey: .avoidAreas)
+        variation = try container.decodeIfPresent(Int.self, forKey: .variation) ?? 0
     }
 }

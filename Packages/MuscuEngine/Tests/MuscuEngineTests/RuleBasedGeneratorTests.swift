@@ -227,4 +227,31 @@ struct RuleBasedGeneratorTests {
         #expect(pick != nil)
         #expect(StapleExercises.staple(for: pick!.id) == nil)
     }
+
+    @Test func variationRotatesExerciseChoices() throws {
+        let catalog = try ExerciseCatalog.load()
+        var input = GeneratorInput(
+            goal: .hypertrophy, experience: .intermediate, daysPerWeek: 3,
+            sessionMinutes: 60, equipment: .fullGym, splitPreference: .ppl,
+            priorityMuscles: [], avoidAreas: []
+        )
+        let draft0 = try RuleBasedGenerator(catalog: catalog).generate(input)
+        input.variation = 1
+        let draft1 = try RuleBasedGenerator(catalog: catalog).generate(input)
+        #expect(draft0 != draft1, "variation differente -> choix differents")
+
+        let draft1bis = try RuleBasedGenerator(catalog: catalog).generate(input)
+        #expect(draft1 == draft1bis, "meme variation -> resultat identique (determinisme)")
+    }
+
+    @Test func generatorInputDecodesWithoutVariationField() throws {
+        // Retro-compatibilite : un JSON encode avant l'ajout du champ doit decoder (variation = 0).
+        let json = """
+        {"goal":"hypertrophy","experience":"intermediate","daysPerWeek":3,
+         "sessionMinutes":60,"equipment":"fullGym","splitPreference":"auto",
+         "priorityMuscles":[],"avoidAreas":[]}
+        """.data(using: .utf8)!
+        let input = try JSONDecoder().decode(GeneratorInput.self, from: json)
+        #expect(input.variation == 0)
+    }
 }
