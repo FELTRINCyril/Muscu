@@ -86,6 +86,16 @@ extension XCUIApplication {
         return query.firstMatch
     }
 
+    /// Premier Button HITTABLE dont le label n'est dans aucune des chaines
+    /// exclues (match exact) - utile pour cibler "la premiere alternative"
+    /// d'une liste dont le contenu est data-dependant (nom d'exercice
+    /// variable), en excluant les boutons connus qui ne sont pas des
+    /// alternatives (ex: "Annuler", "Autre exercice...").
+    func firstHittableButton(excludingExactLabels excluded: [String], timeout: TimeInterval = 20) -> XCUIElement {
+        let predicate = NSPredicate(format: "NOT (label IN %@)", excluded)
+        return firstHittable(in: buttons.matching(predicate), timeout: timeout)
+    }
+
     private func firstHittable(in query: XCUIElementQuery, timeout: TimeInterval) -> XCUIElement {
         let deadline = Date().addingTimeInterval(timeout)
         var fallback: XCUIElement?

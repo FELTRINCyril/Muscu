@@ -150,6 +150,42 @@ final class ProgramsFlowTests: XCTestCase {
         waitAndAssert(app.staticTexts["3 séances"], "Le nouveau programme devrait apparaître dans la liste avec 3 séances")
     }
 
+    // Swap d'exercice dans l'apercu de generation : l'icone d'echange ouvre la
+    // sheet d'alternatives et le remplacement met a jour la ligne.
+    func testSwapExerciseInDraftPreview() {
+        let app = XCUIApplication()
+        app.launchEmpty()
+        tapWhenReady(app.tabBars.buttons["Programmes"])
+        waitAndAssert(app.navigationBars["Programmes"])
+
+        tapWhenReady(app.buttons["programs.addButton"])
+        tapWhenReady(app.buttons["Depuis un modèle"])
+        waitAndAssert(app.navigationBars["Depuis un modèle"])
+
+        // Meme carte que testCreateFromTemplate : 3 seances/semaine par
+        // defaut, carte Push/Pull/Legs.
+        let pplCard = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "Push/Pull/Legs")).firstMatch
+        tapWhenReady(pplCard)
+        waitAndAssert(app.navigationBars["Aperçu"])
+
+        // Ouvrir la sheet de swap du premier exercice.
+        let swapButton = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH 'Remplacer '")
+        ).firstMatch
+        tapUntilReveals(swapButton, reveals: app.navigationBars["Remplacer par"])
+
+        // Choisir la premiere alternative. Un simple `.cells.firstMatch`
+        // matcherait la premiere cellule de l'ecran recouvert (le titre du
+        // brouillon, toujours dans l'arbre d'accessibilite derriere la sheet)
+        // plutot que la sheet elle-meme ; on filtre donc sur le premier
+        // Button HITTABLE en excluant les actions connues de la sheet qui ne
+        // sont pas des alternatives.
+        let firstAlternative = app.firstHittableButton(excludingExactLabels: ["Annuler", "Autre exercice...", "Sheet Grabber"])
+        tapWhenReady(firstAlternative)
+        waitForDisappearance(app.navigationBars["Remplacer par"], timeout: 10)
+        waitAndAssert(app.navigationBars["Aperçu"])
+    }
+
     // Générateur : parcourt les 8 étapes en tapant la première option de
     // chaque écran (les étapes 7/8 sont optionnelles, on avance directement).
     func testGeneratorWizardAllSteps() {
