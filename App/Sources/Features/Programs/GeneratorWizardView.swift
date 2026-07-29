@@ -14,6 +14,7 @@ struct GeneratorWizardView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(CatalogStore.self) private var catalogStore
+    @Environment(NetworkStatus.self) private var networkStatus
 
     private static let totalSteps = 8
 
@@ -31,6 +32,10 @@ struct GeneratorWizardView: View {
     @State private var generatedDraft: DraftProgram?
     @State private var draftInput: GeneratorInput?
     @State private var errorMessage: String?
+
+    @State private var aiNotes = ""
+    @State private var isGeneratingWithAI = false
+    @State private var aiTask: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -73,6 +78,27 @@ struct GeneratorWizardView: View {
                 Button("OK", role: .cancel) { errorMessage = nil }
             } message: {
                 Text(errorMessage ?? "")
+            }
+            .overlay {
+                if isGeneratingWithAI {
+                    ZStack {
+                        Color.black.opacity(0.55).ignoresSafeArea()
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .controlSize(.large)
+                            Text("Génération du programme par l'IA...")
+                                .font(.headline)
+                            Button("Annuler") {
+                                aiTask?.cancel()
+                                isGeneratingWithAI = false
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding(24)
+                        .background(Theme.card)
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                    }
+                }
             }
         }
     }
@@ -200,6 +226,37 @@ struct GeneratorWizardView: View {
                 onToggle: { toggle(&avoidAreas, $0) }
             )
             nextButton(title: "Générer") { generate() }
+
+            if AIProviderConfig.isConfigured {
+                VStack(alignment: .leading, spacing: 12) {
+                    Divider()
+                    Text("Ou avec l'IA")
+                        .font(.headline)
+                    TextField(
+                        "Objectifs, contraintes, préférences... (optionnel)",
+                        text: $aiNotes,
+                        axis: .vertical
+                    )
+                    .lineLimit(3...6)
+                    .textFieldStyle(.roundedBorder)
+
+                    Button {
+                        generateWithAI()
+                    } label: {
+                        Label("Générer avec l'IA", systemImage: "sparkles")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Theme.accent)
+                    .disabled(!networkStatus.isOnline)
+
+                    if !networkStatus.isOnline {
+                        Text("Connexion internet requise pour la génération IA.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
     }
 
@@ -284,6 +341,46 @@ struct GeneratorWizardView: View {
             generatedDraft = try RuleBasedGenerator(catalog: catalogStore.catalog).generate(input)
         } catch {
             errorMessage = "Le programme n'a pas pu être généré : \(error)"
+        }
+    }
+
+    private func generateWithAI() {
+        guard let goal, let experience, let daysPerWeek, let sessionMinutes, let equipment else {
+            errorMessage = "Toutes les questions doivent être renseignées."
+            return
+        }
+        guard let settings = AIProviderConfig.currentSettings() else { return }
+        let input = GeneratorInput(
+            goal: goal,
+            experience: experience,
+            daysPerWeek: daysPerWeek,
+            sessionMinutes: sessionMinutes,
+            equipment: equipment,
+            splitPreference: splitPreference,
+            priorityMuscles: Array(priorityMuscles),
+            avoidAreas: Array(avoidAreas)
+        )
+        draftInput = input
+        isGeneratingWithAI = true
+        aiTask = Task {
+            do {
+                let generator = AIProgramGenerator(
+                    settings: settings,
+                    client: URLSessionAIClient(),
+                    catalog: catalogStore.catalog
+                )
+                let draft = try await generator.generate(input: input, userNotes: aiNotes)
+                if !Task.isCancelled {
+                    generatedDraft = draft
+                }
+            } catch is CancellationError {
+                // Annule par l'utilisateur : rien a afficher.
+            } catch let AIGeneratorError.httpError(code, _) {
+                errorMessage = "Le fournisseur IA a répondu avec une erreur (HTTP \(code)). Vérifiez la clé et le modèle dans les réglages, ou utilisez le générateur local."
+            } catch {
+                errorMessage = "La génération IA a échoué. Vous pouvez réessayer ou utiliser le générateur local."
+            }
+            isGeneratingWithAI = false
         }
     }
 
