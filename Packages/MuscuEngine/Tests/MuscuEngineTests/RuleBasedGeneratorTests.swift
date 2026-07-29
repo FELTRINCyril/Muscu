@@ -184,4 +184,47 @@ struct RuleBasedGeneratorTests {
             }
         }
     }
+
+    @Test func generatorPicksOnlyStapleExercisesInFullGym() throws {
+        let catalog = try ExerciseCatalog.load()
+        let input = GeneratorInput(
+            goal: .hypertrophy, experience: .intermediate, daysPerWeek: 3,
+            sessionMinutes: 60, equipment: .fullGym, splitPreference: .ppl,
+            priorityMuscles: [], avoidAreas: []
+        )
+        let draft = try RuleBasedGenerator(catalog: catalog).generate(input)
+        for session in draft.sessions {
+            for exercise in session.exercises {
+                #expect(
+                    StapleExercises.staple(for: exercise.exerciseId) != nil,
+                    "exercice hors liste blanche: \(exercise.exerciseId)"
+                )
+            }
+        }
+    }
+
+    @Test func generatorPrefersRankOneCompoundForChest() throws {
+        let catalog = try ExerciseCatalog.load()
+        let input = GeneratorInput(
+            goal: .hypertrophy, experience: .intermediate, daysPerWeek: 3,
+            sessionMinutes: 60, equipment: .fullGym, splitPreference: .ppl,
+            priorityMuscles: [], avoidAreas: []
+        )
+        let draft = try RuleBasedGenerator(catalog: catalog).generate(input)
+        let allIds = draft.sessions.flatMap { $0.exercises.map(\.exerciseId) }
+        #expect(allIds.contains("Barbell_Bench_Press_-_Medium_Grip"),
+                "le DC barre (rang 1) devrait etre choisi pour le slot pecs compound")
+        #expect(!allIds.contains("Alternating_Floor_Press"))
+    }
+
+    @Test func generatorFallsBackToCatalogWhenNoStapleMatches() throws {
+        // Muscle "neck" : aucun staple ne le cible -> le repli catalogue doit fournir un exercice.
+        let catalog = try ExerciseCatalog.load()
+        let generator = RuleBasedGenerator(catalog: catalog)
+        let pick = generator.pickExerciseForTesting(
+            muscle: "neck", preferCompound: false, equipment: .fullGym, avoidAreas: [], used: []
+        )
+        #expect(pick != nil)
+        #expect(StapleExercises.staple(for: pick!.id) == nil)
+    }
 }

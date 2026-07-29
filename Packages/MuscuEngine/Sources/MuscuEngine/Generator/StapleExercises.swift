@@ -7,6 +7,7 @@ public enum MovementGroup: String, CaseIterable, Sendable {
     case verticalPull, horizontalPull, pullover, deadlift, backExtension
     case shoulderPress, lateralRaise, frontRaise, rearDelt, facePull, shrug
     case bicepsCurl, hammerCurl, preacherCurl, tricepsExtension, tricepsDip, skullcrusher, kickback
+    case wristCurl
     case squat, legPress, lunge, hipHinge, hipThrust, legExtension, legCurl
     case calfStanding, calfSeated, calfPress
     case crunch, legRaise, plank, rotation
@@ -139,6 +140,10 @@ public enum StapleExercises {
         .init(catalogId: "Lying_Triceps_Press", group: .skullcrusher, rank: 1),
         .init(catalogId: "EZ-Bar_Skullcrusher", group: .skullcrusher, rank: 2),
         .init(catalogId: "Tricep_Dumbbell_Kickback", group: .kickback, rank: 1),
+        // Avant-bras
+        .init(catalogId: "Seated_Palm-Up_Barbell_Wrist_Curl", group: .wristCurl, rank: 1),
+        .init(catalogId: "Cable_Wrist_Curl", group: .wristCurl, rank: 2),
+        .init(catalogId: "Seated_Dumbbell_Palms-Up_Wrist_Curl", group: .wristCurl, rank: 3),
         // Jambes - squats et presses
         .init(catalogId: "Barbell_Squat", group: .squat, rank: 1),
         .init(catalogId: "Barbell_Full_Squat", group: .squat, rank: 2),

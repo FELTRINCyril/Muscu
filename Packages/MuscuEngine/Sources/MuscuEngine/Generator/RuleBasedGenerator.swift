@@ -16,7 +16,9 @@ public protocol ProgramGenerator {
 /// 1. Choix du split (blueprint de sessions) selon la preference ou le split recommande.
 /// 2. Parametres par objectif (sets/reps/repos/%1RM).
 /// 3. Volume par experience et duree de seance.
-/// 4. Selection des exercices par slot (muscle + equipement autorise, tri deterministe par id).
+/// 4. Selection des exercices par slot (muscle + equipement autorise) : priorite a la
+///    liste blanche StapleExercises (tri par rang puis id), repli catalogue complet
+///    (tri deterministe par id) si aucun classique ne matche.
 /// 5. Ajout d'un slot isolation pour les muscles prioritaires deja travailles.
 /// 6. Nommage du programme et des sessions.
 public struct RuleBasedGenerator: ProgramGenerator {
@@ -153,13 +155,44 @@ public struct RuleBasedGenerator: ProgramGenerator {
     ) -> CatalogExercise? {
         let candidates = catalog.all
             .filter { isCandidate($0, muscle: muscle, equipment: equipment, avoidAreas: avoidAreas) }
-            .sorted { $0.id < $1.id }
+
+        // Priorite a la liste blanche des classiques, tries par (rang, id) :
+        // le rang departage au sein d'un groupe, l'id departage entre groupes.
+        let staples = candidates
+            .compactMap { exercise -> (exercise: CatalogExercise, staple: StapleExercise)? in
+                guard let staple = StapleExercises.staple(for: exercise.id) else { return nil }
+                return (exercise, staple)
+            }
+            .sorted {
+                if $0.staple.rank != $1.staple.rank { return $0.staple.rank < $1.staple.rank }
+                return $0.exercise.id < $1.exercise.id
+            }
+            .map(\.exercise)
 
         let preferredMechanic = preferCompound ? "compound" : "isolation"
-        if let match = candidates.first(where: { $0.mechanic == preferredMechanic && !used.contains($0.id) }) {
+        if let match = staples.first(where: { $0.mechanic == preferredMechanic && !used.contains($0.id) }) {
             return match
         }
-        return candidates.first { !used.contains($0.id) }
+        if let anyStaple = staples.first(where: { !used.contains($0.id) }) {
+            return anyStaple
+        }
+
+        // Repli : aucun classique ne convient (muscle non couvert, equipement
+        // restreint...) -> comportement historique sur le catalogue complet.
+        let fallback = candidates.sorted { $0.id < $1.id }
+        if let match = fallback.first(where: { $0.mechanic == preferredMechanic && !used.contains($0.id) }) {
+            return match
+        }
+        return fallback.first { !used.contains($0.id) }
+    }
+
+    // Visible pour les tests uniquement (le package est importe @testable).
+    func pickExerciseForTesting(
+        muscle: String, preferCompound: Bool, equipment: TrainingEquipment,
+        avoidAreas: [String], used: Set<String>
+    ) -> CatalogExercise? {
+        pickExercise(muscle: muscle, preferCompound: preferCompound,
+                     equipment: equipment, avoidAreas: avoidAreas, used: used)
     }
 
     private func isCandidate(_ exercise: CatalogExercise, muscle: String, equipment: TrainingEquipment, avoidAreas: [String]) -> Bool {
