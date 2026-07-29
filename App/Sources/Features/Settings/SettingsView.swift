@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import MuscuEngine
 
 // Onglet Reglages : chrono, cache d'images, export/import des donnees,
 // configuration IA (avancee, masquee) et a propos.
@@ -256,19 +257,31 @@ struct ExportDocument: FileDocument {
     }
 }
 
-// Configuration (avancee, cachee) du futur provider IA.
+// Configuration de la generation IA : provider, cle, modele, test de connexion.
 private struct AIProviderConfigView: View {
+    @State private var provider = AIProviderConfig.selectedProvider
+    @State private var apiKey = AIProviderConfig.apiKey(for: AIProviderConfig.selectedProvider)
+    @State private var model = AIProviderConfig.model(for: AIProviderConfig.selectedProvider)
     @State private var baseURL = AIProviderConfig.baseURL
-    @State private var apiKey = AIProviderConfig.apiKey
-    @State private var model = AIProviderConfig.model
 
     var body: some View {
         Form {
+            Section("Fournisseur") {
+                Picker("Fournisseur", selection: $provider) {
+                    ForEach(AIProviderKind.allCases, id: \.self) { kind in
+                        Text(kind.displayName).tag(kind)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
             Section {
-                TextField("URL de base", text: $baseURL)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.URL)
+                if provider.requiresBaseURL {
+                    TextField("URL de base (https://.../v1)", text: $baseURL)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                }
                 SecureField("Clé API", text: $apiKey)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
@@ -276,18 +289,24 @@ private struct AIProviderConfigView: View {
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
             } header: {
-                Text("Provider")
+                Text("Connexion")
             } footer: {
-                Text("Optionnel : cette configuration n'est utilisée par aucune fonctionnalité pour l'instant. Elle prépare une future génération de programmes assistée par IA. La clé API est stockée de façon chiffrée dans le trousseau de l'appareil.")
+                Text("La clé API est stockée de façon chiffrée dans le trousseau de l'appareil. Une fois configurée, l'option \"Générer avec l'IA\" apparaît dans le générateur de programme.")
             }
         }
         .scrollContentBackground(.hidden)
         .background(Theme.background)
         .navigationTitle("Génération IA")
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: provider) { _, newValue in
+            AIProviderConfig.selectedProvider = newValue
+            // Recharge les champs propres au provider selectionne.
+            apiKey = AIProviderConfig.apiKey(for: newValue)
+            model = AIProviderConfig.model(for: newValue)
+        }
+        .onChange(of: apiKey) { _, newValue in AIProviderConfig.setApiKey(newValue, for: provider) }
+        .onChange(of: model) { _, newValue in AIProviderConfig.setModel(newValue, for: provider) }
         .onChange(of: baseURL) { _, newValue in AIProviderConfig.baseURL = newValue }
-        .onChange(of: apiKey) { _, newValue in AIProviderConfig.apiKey = newValue }
-        .onChange(of: model) { _, newValue in AIProviderConfig.model = newValue }
     }
 }
 

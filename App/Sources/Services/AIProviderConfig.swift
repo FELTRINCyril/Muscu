@@ -1,39 +1,70 @@
 import Foundation
 import Security
+import MuscuEngine
 
-// Configuration (non utilisee pour l'instant) d'un futur provider de
-// generation de programmes par IA. Aucun appel reseau ici : uniquement le
-// stockage des reglages. La cle API est sensible -> Keychain, le reste
-// (URL, modele) -> UserDefaults.
+// Configuration de la generation IA : provider selectionne, cle API par
+// provider (Keychain), modele par provider et URL de base (UserDefaults).
 enum AIProviderConfig {
+    private static let providerKey = "aiProviderKind"
     private static let baseURLKey = "aiProviderBaseURL"
-    private static let modelKey = "aiProviderModel"
-    private static let apiKeyAccount = "aiProviderApiKey"
 
+    static var selectedProvider: AIProviderKind {
+        get {
+            guard let raw = UserDefaults.standard.string(forKey: providerKey),
+                  let kind = AIProviderKind(rawValue: raw) else { return .anthropic }
+            return kind
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: providerKey) }
+    }
+
+    // URL de base, utilisee uniquement par openAICompatible (ex: https://api.exemple.com/v1).
     static var baseURL: String {
         get { UserDefaults.standard.string(forKey: baseURLKey) ?? "" }
         set { UserDefaults.standard.set(newValue, forKey: baseURLKey) }
     }
 
-    static var model: String {
-        get { UserDefaults.standard.string(forKey: modelKey) ?? "" }
-        set { UserDefaults.standard.set(newValue, forKey: modelKey) }
+    static func model(for kind: AIProviderKind) -> String {
+        UserDefaults.standard.string(forKey: "aiProviderModel.\(kind.rawValue)")
+            ?? kind.defaultModel ?? ""
     }
 
-    static var apiKey: String {
-        get { KeychainHelper.read(account: apiKeyAccount) ?? "" }
-        set {
-            if newValue.isEmpty {
-                KeychainHelper.delete(account: apiKeyAccount)
-            } else {
-                KeychainHelper.save(account: apiKeyAccount, value: newValue)
-            }
+    static func setModel(_ model: String, for kind: AIProviderKind) {
+        UserDefaults.standard.set(model, forKey: "aiProviderModel.\(kind.rawValue)")
+    }
+
+    static func apiKey(for kind: AIProviderKind) -> String {
+        KeychainHelper.read(account: "aiProviderApiKey.\(kind.rawValue)") ?? ""
+    }
+
+    static func setApiKey(_ key: String, for kind: AIProviderKind) {
+        if key.isEmpty {
+            KeychainHelper.delete(account: "aiProviderApiKey.\(kind.rawValue)")
+        } else {
+            KeychainHelper.save(account: "aiProviderApiKey.\(kind.rawValue)", value: key)
         }
     }
 
-    // Configure des lors qu'une cle API non vide est enregistree.
+    /// Configure = cle + modele non vides pour le provider choisi,
+    /// et URL de base valide si le provider l'exige.
     static var isConfigured: Bool {
-        !apiKey.isEmpty
+        let kind = selectedProvider
+        guard !apiKey(for: kind).isEmpty, !model(for: kind).isEmpty else { return false }
+        if kind.requiresBaseURL {
+            guard let url = URL(string: baseURL), url.scheme == "https" else { return false }
+        }
+        return true
+    }
+
+    /// Settings agreges pour le generateur IA (Task 8).
+    static func currentSettings() -> AIProviderSettings? {
+        guard isConfigured else { return nil }
+        let kind = selectedProvider
+        return AIProviderSettings(
+            kind: kind,
+            apiKey: apiKey(for: kind),
+            model: model(for: kind),
+            baseURL: kind.requiresBaseURL ? baseURL : nil
+        )
     }
 }
 
