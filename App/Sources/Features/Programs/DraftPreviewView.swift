@@ -19,6 +19,7 @@ struct DraftPreviewView: View {
 
     @State private var currentDraft: DraftProgram
     @State private var expandedSessions: Set<Int>
+    @State private var swapTarget: SwapTarget?
 
     init(draft: DraftProgram, regenerate: (() -> DraftProgram?)? = nil, onSaved: @escaping () -> Void) {
         self.draft = draft
@@ -59,8 +60,23 @@ struct DraftPreviewView: View {
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         } else {
-                            ForEach(Array(session.exercises.enumerated()), id: \.offset) { _, exercise in
-                                DraftExerciseRow(exercise: exercise)
+                            ForEach(Array(session.exercises.enumerated()), id: \.offset) { exerciseIndex, exercise in
+                                HStack {
+                                    DraftExerciseRow(exercise: exercise)
+                                    Spacer()
+                                    Button {
+                                        swapTarget = SwapTarget(
+                                            sessionIndex: index,
+                                            exerciseIndex: exerciseIndex,
+                                            exerciseId: exercise.exerciseId
+                                        )
+                                    } label: {
+                                        Image(systemName: "arrow.triangle.2.circlepath")
+                                            .foregroundStyle(Theme.accent)
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .accessibilityLabel("Remplacer \(exercise.displayName)")
+                                }
                             }
                         }
                     } label: {
@@ -108,6 +124,12 @@ struct DraftPreviewView: View {
             .padding()
             .background(.ultraThinMaterial)
         }
+        .sheet(item: $swapTarget) { target in
+            ExerciseSwapSheet(currentExerciseId: target.exerciseId) { newId, newName in
+                currentDraft.sessions[target.sessionIndex].exercises[target.exerciseIndex].exerciseId = newId
+                currentDraft.sessions[target.sessionIndex].exercises[target.exerciseIndex].displayName = newName
+            }
+        }
     }
 
     private func save() {
@@ -131,6 +153,13 @@ extension DraftProgram: @retroactive Hashable {
         hasher.combine(notes)
         hasher.combine(sessions.count)
     }
+}
+
+private struct SwapTarget: Identifiable {
+    let sessionIndex: Int
+    let exerciseIndex: Int
+    let exerciseId: String
+    var id: String { "\(sessionIndex)-\(exerciseIndex)" }
 }
 
 private struct DraftExerciseRow: View {
