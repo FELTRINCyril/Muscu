@@ -207,7 +207,7 @@ public struct RuleBasedGenerator: ProgramGenerator {
         return true
     }
 
-    private static func isEquipmentAllowed(_ equipment: String?, for training: TrainingEquipment) -> Bool {
+    static func isEquipmentAllowed(_ equipment: String?, for training: TrainingEquipment) -> Bool {
         switch training {
         case .fullGym:
             return true
