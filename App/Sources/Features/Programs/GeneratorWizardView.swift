@@ -36,6 +36,7 @@ struct GeneratorWizardView: View {
     @State private var aiNotes = ""
     @State private var isGeneratingWithAI = false
     @State private var aiTask: Task<Void, Never>?
+    @State private var lastDraftWasAI = false
 
     var body: some View {
         NavigationStack {
@@ -60,7 +61,7 @@ struct GeneratorWizardView: View {
             .navigationDestination(item: $generatedDraft) { draft in
                 DraftPreviewView(
                     draft: draft,
-                    regenerate: { regenerate() },
+                    regenerate: lastDraftWasAI ? nil : { regenerate() },
                     onEdit: onEdit,
                     onSaved: {
                         onSaved()
@@ -337,6 +338,7 @@ struct GeneratorWizardView: View {
             avoidAreas: Array(avoidAreas)
         )
         draftInput = input
+        lastDraftWasAI = false
         do {
             generatedDraft = try RuleBasedGenerator(catalog: catalogStore.catalog).generate(input)
         } catch {
@@ -371,14 +373,19 @@ struct GeneratorWizardView: View {
                 )
                 let draft = try await generator.generate(input: input, userNotes: aiNotes)
                 if !Task.isCancelled {
+                    lastDraftWasAI = true
                     generatedDraft = draft
                 }
             } catch is CancellationError {
                 // Annule par l'utilisateur : rien a afficher.
+            } catch let error as URLError where error.code == .cancelled {
+                // Annule par l'utilisateur (URLSession.data(for:) leve .cancelled, pas CancellationError) : rien a afficher.
             } catch let AIGeneratorError.httpError(code, _) {
                 errorMessage = "Le fournisseur IA a répondu avec une erreur (HTTP \(code)). Vérifiez la clé et le modèle dans les réglages, ou utilisez le générateur local."
             } catch {
-                errorMessage = "La génération IA a échoué. Vous pouvez réessayer ou utiliser le générateur local."
+                if !Task.isCancelled {
+                    errorMessage = "La génération IA a échoué. Vous pouvez réessayer ou utiliser le générateur local."
+                }
             }
             isGeneratingWithAI = false
         }

@@ -13,5 +13,4 @@ public enum AIGeneratorError: Error, Sendable {
     case emptyResponse
     case invalidJSON(String)
     case unknownExercises([String])
-    case cancelled
 }
