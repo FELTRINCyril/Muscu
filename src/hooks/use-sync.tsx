@@ -18,6 +18,8 @@ import { queryClient } from '@/queries';
 import { useAppState } from '@/hooks/use-app-state';
 import { useAnalytics } from '@/hooks/use-analytics';
 import { storage } from '@/storage';
+import { getExerciseLibrarySnapshot } from '@/crud/exercise';
+import { getExerciseLibraryProperties } from '@/analytics/helpers';
 
 type SyncTrigger = 'initial' | 'scheduled' | 'deferred' | 'manual';
 
@@ -96,7 +98,7 @@ const useSyncProvider = () => {
     }, []);
 
     const trackSyncResult = useCallback(
-        (
+        async (
             args: {
                 outcome: 'success' | 'failure';
                 trigger: SyncTrigger;
@@ -109,6 +111,12 @@ const useSyncProvider = () => {
             hadPreviousSuccess: boolean,
         ) => {
             if (!isAnalyticsEnabled) return;
+            const exerciseLibrary = await getExerciseLibrarySnapshot();
+            const exerciseLibraryProperties = getExerciseLibraryProperties(
+                exerciseLibrary?.exerciseLibraryTotalCount ?? null,
+                exerciseLibrary?.exerciseLibrarySkulptCount ?? null,
+                exerciseLibrary?.exerciseLibraryUserCreatedCount ?? null,
+            );
 
             if (
                 !storage.getBoolean(HAS_COMPLETED_FIRST_SYNC_KEY) &&
@@ -121,13 +129,14 @@ const useSyncProvider = () => {
                         durationMs: args.durationMs,
                         pendingBefore: args.pendingBefore,
                         pendingAfter: args.pendingAfter,
+                        ...exerciseLibraryProperties,
                     });
                 }
             }
 
             if (lastSyncOutcomeRef.current !== args.outcome) {
                 lastSyncOutcomeRef.current = args.outcome;
-                track('sync:state_changed', args);
+                track('sync:state_changed', { ...args, ...exerciseLibraryProperties });
             }
         },
         [isAnalyticsEnabled, track],
@@ -171,7 +180,7 @@ const useSyncProvider = () => {
 
                 const stats = await getSyncStats();
 
-                trackSyncResult(
+                await trackSyncResult(
                     {
                         outcome: success ? 'success' : 'failure',
                         trigger,
@@ -200,7 +209,7 @@ const useSyncProvider = () => {
                 } catch (statsError) {
                     reportError(statsError, 'Failed to read sync stats after sync failure:');
                 }
-                trackSyncResult(
+                await trackSyncResult(
                     {
                         outcome: 'failure',
                         trigger,

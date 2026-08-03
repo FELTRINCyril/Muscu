@@ -12,6 +12,8 @@ import { HStack } from '@/components/primitives/hstack';
 import { useActionsStore } from '@/stores/actions';
 import { useRunningWorkoutStatic } from '@/hooks/use-running-workout';
 import { useAnalytics } from '@/hooks/use-analytics';
+import { getExerciseLibrarySnapshot } from '@/crud/exercise';
+import { getExerciseLibraryProperties } from '@/analytics/helpers';
 
 interface ActionsProps {
     workout?: WorkoutSelect;
@@ -73,12 +75,18 @@ export const Actions: FC<ActionsProps> = ({ workout }) => {
         return t('begin', { ns: 'common' });
     }, [workout, t]);
 
-    const handleExerciseAdd = () => {
+    const handleExerciseAdd = async () => {
         if (workout) {
+            const exerciseLibrary = await getExerciseLibrarySnapshot();
             track('workout:exercise_add_requested', {
                 workoutId: workout.id,
                 surface: 'actions',
                 status: workout.status,
+                ...getExerciseLibraryProperties(
+                    exerciseLibrary?.exerciseLibraryTotalCount ?? null,
+                    exerciseLibrary?.exerciseLibrarySkulptCount ?? null,
+                    exerciseLibrary?.exerciseLibraryUserCreatedCount ?? null,
+                ),
             });
             router.navigate(`/select?workoutId=${workout.id}`);
         } else {

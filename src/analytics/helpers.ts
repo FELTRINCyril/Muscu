@@ -69,6 +69,45 @@ export const getSearchRankBucket = (rank: number): '1' | '2_3' | '4_10' | '11_pl
     return '11_plus';
 };
 
+export const getWorkoutCompositionProperties = (
+    totalExerciseCount: number | null,
+    totalSetCount: number | null,
+) => ({
+    totalExerciseCount,
+    totalSetCount,
+    averageSetsPerExercise:
+        totalExerciseCount == null || totalSetCount == null
+            ? null
+            : totalExerciseCount === 0
+              ? 0
+              : Math.round((totalSetCount / totalExerciseCount) * 100) / 100,
+});
+
+export const getWorkoutProgressProperties = (
+    totalExerciseCount: number | null,
+    totalSetCount: number | null,
+    completedSetCount: number | null,
+) => ({
+    ...getWorkoutCompositionProperties(totalExerciseCount, totalSetCount),
+    completedSetCount,
+    setCompletionPercentage:
+        totalSetCount == null || completedSetCount == null
+            ? null
+            : totalSetCount === 0
+              ? 0
+              : Math.round((completedSetCount / totalSetCount) * 10_000) / 100,
+});
+
+export const getExerciseLibraryProperties = (
+    exerciseLibraryTotalCount: number | null,
+    exerciseLibrarySkulptCount: number | null,
+    exerciseLibraryUserCreatedCount: number | null,
+) => ({
+    exerciseLibraryTotalCount,
+    exerciseLibrarySkulptCount,
+    exerciseLibraryUserCreatedCount,
+});
+
 /** Returns a bounded, non-sensitive error class for analytics properties. */
 export const getAnalyticsErrorType = (error: unknown): string => {
     if (!(error instanceof Error)) return 'unknown';

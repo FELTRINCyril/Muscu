@@ -6,8 +6,13 @@ import * as Notifications from 'expo-notifications';
 import { useAnalytics } from '@/hooks/use-analytics';
 import { useUser } from '@/hooks/use-user';
 import { storage } from '@/storage';
+import { getExerciseLibrarySnapshot } from '@/crud/exercise';
 
-import { getCampaignProperties, isFirstAnalyticsSession } from './helpers';
+import {
+    getCampaignProperties,
+    getExerciseLibraryProperties,
+    isFirstAnalyticsSession,
+} from './helpers';
 
 const HAS_STARTED_SESSION_KEY = 'analytics.hasStartedSession';
 const FOREGROUND_SOURCE_SETTLE_MS = 350;
@@ -42,7 +47,7 @@ export const AnalyticsTracker: FC = () => {
     const notificationKeysRef = useRef(new Set<string>());
     const initialNotificationRef = useRef(Notifications.getLastNotificationResponse());
     const trackSession = useCallback(
-        (source: SessionSource, campaign: Record<string, string> = {}) => {
+        async (source: SessionSource, campaign: Record<string, string> = {}) => {
             if (!isEnabled || userCreatedAtMs == null) return;
 
             const hasStartedSession = storage.getBoolean(HAS_STARTED_SESSION_KEY) === true;
@@ -53,13 +58,20 @@ export const AnalyticsTracker: FC = () => {
 
             if (!hasStartedSession) storage.set(HAS_STARTED_SESSION_KEY, true);
 
+            const exerciseLibrary = await getExerciseLibrarySnapshot(user?.id);
+
             track('app:session_start', {
                 source,
                 isFirstSession,
                 ...campaign,
+                ...getExerciseLibraryProperties(
+                    exerciseLibrary?.exerciseLibraryTotalCount ?? null,
+                    exerciseLibrary?.exerciseLibrarySkulptCount ?? null,
+                    exerciseLibrary?.exerciseLibraryUserCreatedCount ?? null,
+                ),
             });
         },
-        [isEnabled, track, userCreatedAtMs],
+        [isEnabled, track, user?.id, userCreatedAtMs],
     );
 
     const trackDeepLink = useCallback(
@@ -110,12 +122,12 @@ export const AnalyticsTracker: FC = () => {
 
                 if (response) {
                     const campaign = trackNotification(response);
-                    trackSession('notification', campaign);
+                    await trackSession('notification', campaign);
                 } else if (initialUrl) {
                     const campaign = trackDeepLink(initialUrl);
-                    trackSession('deep_link', campaign);
+                    await trackSession('deep_link', campaign);
                 } else {
-                    trackSession('cold_start');
+                    await trackSession('cold_start');
                 }
             } finally {
                 initialSessionPendingRef.current = false;
@@ -158,7 +170,7 @@ export const AnalyticsTracker: FC = () => {
                 pendingSessionSourceRef.current = null;
                 pendingCampaignRef.current = {};
                 foregroundTimerRef.current = null;
-                trackSession(source, campaign);
+                void trackSession(source, campaign);
             }, FOREGROUND_SOURCE_SETTLE_MS);
         });
 

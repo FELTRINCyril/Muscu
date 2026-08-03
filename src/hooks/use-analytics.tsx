@@ -126,7 +126,18 @@ const AnalyticsProvider: FC<PropsWithChildren> = ({ children }) => {
  * const { track, screen, identify } = useAnalytics();
  *
  * // Track an event
- * track('workout:start', { workoutId: 'workout-id', source: 'planned' });
+ * track('workout:start', {
+ *     workoutId: 'workout-id',
+ *     source: 'planned',
+ *     totalExerciseCount: 5,
+ *     totalSetCount: 15,
+ *     averageSetsPerExercise: 3,
+ *     completedSetCount: 0,
+ *     setCompletionPercentage: 0,
+ *     exerciseLibraryTotalCount: 250,
+ *     exerciseLibrarySkulptCount: 240,
+ *     exerciseLibraryUserCreatedCount: 10,
+ * });
  *
  * // Track a screen
  * screen('workout');

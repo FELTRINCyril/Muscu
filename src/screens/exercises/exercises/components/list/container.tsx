@@ -17,11 +17,15 @@ import {
     groupExercises,
     useDeleteExercise,
 } from '@/hooks/use-exercises';
-import type { ExerciseListSelect } from '@/crud/exercise';
+import { getExerciseLibrarySnapshot, type ExerciseListSelect } from '@/crud/exercise';
 import { StickyHeaderState } from '../header';
 import { isSkulptExerciseUserId } from '@/constants/skulpt';
 import { useAnalytics } from '@/hooks/use-analytics';
-import { getSearchRankBucket, getSearchScriptGroup } from '@/analytics';
+import {
+    getExerciseLibraryProperties,
+    getSearchRankBucket,
+    getSearchScriptGroup,
+} from '@/analytics';
 
 type ModeBrowse = {
     mode: 'browse';
@@ -118,21 +122,34 @@ export const ExercisesListContainer: FC<ExercisesListContainerProps> = ({
         if (isLoading || error) return;
 
         const signature = `${searchContext}:${trimmedQuery}:${exerciseResults.length}:${activeFilterCount}`;
+        let cancelled = false;
         const timeout = setTimeout(() => {
             if (lastTrackedSearchRef.current === signature) return;
-            lastTrackedSearchRef.current = signature;
-            track('exercise_search:completed', {
-                context: searchContext,
-                workoutId: analyticsWorkoutId,
-                queryLength: Array.from(trimmedQuery).length,
-                scriptGroup: getSearchScriptGroup(trimmedQuery),
-                resultCount: exerciseResults.length,
-                hasResults: exerciseResults.length > 0,
-                activeFilterCount,
+            void getExerciseLibrarySnapshot().then((exerciseLibrary) => {
+                if (cancelled) return;
+                if (lastTrackedSearchRef.current === signature) return;
+                lastTrackedSearchRef.current = signature;
+                track('exercise_search:completed', {
+                    context: searchContext,
+                    workoutId: analyticsWorkoutId,
+                    queryLength: Array.from(trimmedQuery).length,
+                    scriptGroup: getSearchScriptGroup(trimmedQuery),
+                    resultCount: exerciseResults.length,
+                    hasResults: exerciseResults.length > 0,
+                    activeFilterCount,
+                    ...getExerciseLibraryProperties(
+                        exerciseLibrary?.exerciseLibraryTotalCount ?? null,
+                        exerciseLibrary?.exerciseLibrarySkulptCount ?? null,
+                        exerciseLibrary?.exerciseLibraryUserCreatedCount ?? null,
+                    ),
+                });
             });
         }, 500);
 
-        return () => clearTimeout(timeout);
+        return () => {
+            cancelled = true;
+            clearTimeout(timeout);
+        };
     }, [
         activeFilterCount,
         analyticsWorkoutId,

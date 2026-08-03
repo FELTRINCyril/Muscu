@@ -20,7 +20,8 @@ import { Separator } from '@/components/layout/separator';
 import { SheetChoices } from '@/components/forms/fields/sheet/choices';
 import { useUser } from '@/hooks/use-user';
 import { useAnalytics } from '@/hooks/use-analytics';
-import { createExercise, isSkulptExercise } from '@/crud/exercise';
+import { createExercise, getExerciseLibrarySnapshot, isSkulptExercise } from '@/crud/exercise';
+import { getExerciseLibraryProperties } from '@/analytics/helpers';
 import { queryClient } from '@/queries';
 import { Label } from '@/components/forms/label';
 import { useExercise, useUpdateExercise } from '@/hooks/use-exercises';
@@ -493,11 +494,20 @@ const EditorForm: FC<EditorFormProps> = ({ existingExercise }) => {
     });
 
     const createExerciseMutation = useMutation({
-        mutationFn: createExercise,
-        onSuccess: (created) => {
+        mutationFn: async (data: Parameters<typeof createExercise>[0]) => {
+            const created = await createExercise(data);
+            const exerciseLibrary = await getExerciseLibrarySnapshot(user?.id);
+            return { created, exerciseLibrary };
+        },
+        onSuccess: ({ created, exerciseLibrary }) => {
             queryClient.invalidateQueries({ queryKey: ['exercises-list'] });
             track('exercise:create', {
                 category: created.category,
+                ...getExerciseLibraryProperties(
+                    exerciseLibrary?.exerciseLibraryTotalCount ?? null,
+                    exerciseLibrary?.exerciseLibrarySkulptCount ?? null,
+                    exerciseLibrary?.exerciseLibraryUserCreatedCount ?? null,
+                ),
             });
             router.back();
         },

@@ -17,13 +17,18 @@ import {
     useCreateWorkoutGroup,
     useWorkout,
 } from '@/hooks/use-workouts';
-import { getLastExerciseSetsByExerciseId } from '@/crud/exercise';
+import { getExerciseLibrarySnapshot, getLastExerciseSetsByExerciseId } from '@/crud/exercise';
+import { getWorkoutProgressSnapshot } from '@/crud/workout';
 import { ExerciseSetSelect } from '@/db/schema';
 import { CreateButton } from '@/components/buttons/create';
 import { FilterButton } from '@/components/buttons/filter';
 import { useEditor } from '@/hooks/use-editor';
 import { useAnalytics } from '@/hooks/use-analytics';
-import { getAnalyticsErrorType } from '@/analytics/helpers';
+import {
+    getAnalyticsErrorType,
+    getExerciseLibraryProperties,
+    getWorkoutProgressProperties,
+} from '@/analytics/helpers';
 import { useFilterStore, hasActiveFilters, countActiveFilters } from '@/stores/filter';
 import { useShallow } from 'zustand/shallow';
 
@@ -288,9 +293,24 @@ const SelectExercisesScreen: FC = () => {
                 }
             }
 
+            const [progress, exerciseLibrary] = await Promise.all([
+                getWorkoutProgressSnapshot(workoutId),
+                getExerciseLibrarySnapshot(),
+            ]);
             track('workout:exercise_add', {
                 workoutId,
                 exerciseCount: selected.length,
+                addedExerciseCount: selected.length,
+                ...getWorkoutProgressProperties(
+                    progress?.totalExerciseCount ?? null,
+                    progress?.totalSetCount ?? null,
+                    progress?.completedSetCount ?? null,
+                ),
+                ...getExerciseLibraryProperties(
+                    exerciseLibrary?.exerciseLibraryTotalCount ?? null,
+                    exerciseLibrary?.exerciseLibrarySkulptCount ?? null,
+                    exerciseLibrary?.exerciseLibraryUserCreatedCount ?? null,
+                ),
             });
 
             router.back();

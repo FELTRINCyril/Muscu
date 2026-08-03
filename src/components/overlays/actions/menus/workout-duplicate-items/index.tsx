@@ -34,11 +34,11 @@ const WorkoutDuplicateItems: FC<WorkoutDuplicateItemsProps> = ({ labels = 'repea
 
         const { workoutId } = payload;
         close();
-        const newWorkout = await duplicateWorkout.mutateAsync({
+        const result = await duplicateWorkout.mutateAsync({
             workoutId,
             mode,
         });
-        router.setParams({ workoutId: newWorkout.id });
+        router.setParams({ workoutId: result.workout.id });
     };
 
     return (

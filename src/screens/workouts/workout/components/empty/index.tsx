@@ -10,6 +10,8 @@ import { Box } from '@/components/primitives/box';
 import { Pressable } from '@/components/primitives/pressable';
 import { WorkoutSelect } from '@/db/schema';
 import { useAnalytics } from '@/hooks/use-analytics';
+import { getExerciseLibrarySnapshot } from '@/crud/exercise';
+import { getExerciseLibraryProperties } from '@/analytics/helpers';
 
 interface EmptyStateProps {
     workout?: WorkoutSelect;
@@ -68,12 +70,18 @@ const EmptyState: FC<EmptyStateProps> = ({ workout }) => {
         return t('workout.empty.description.planned', { ns: 'screens' });
     }, [t, workout]);
 
-    const handleExerciseAdd = () => {
+    const handleExerciseAdd = async () => {
         if (workout) {
+            const exerciseLibrary = await getExerciseLibrarySnapshot();
             track('workout:exercise_add_requested', {
                 workoutId: workout.id,
                 surface: 'empty_state',
                 status: workout.status,
+                ...getExerciseLibraryProperties(
+                    exerciseLibrary?.exerciseLibraryTotalCount ?? null,
+                    exerciseLibrary?.exerciseLibrarySkulptCount ?? null,
+                    exerciseLibrary?.exerciseLibraryUserCreatedCount ?? null,
+                ),
             });
             router.navigate(`/select?workoutId=${workout.id}`);
         } else {

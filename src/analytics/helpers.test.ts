@@ -3,8 +3,11 @@ import { describe, expect, test } from '@jest/globals';
 import {
     getAnalyticsErrorType,
     getCampaignProperties,
+    getExerciseLibraryProperties,
     getSearchRankBucket,
     getSearchScriptGroup,
+    getWorkoutCompositionProperties,
+    getWorkoutProgressProperties,
     isFirstAnalyticsSession,
 } from './helpers';
 
@@ -75,6 +78,61 @@ describe('analytics helpers', () => {
 
     test.each(rankCases)('buckets result rank %s', (rank, expected) => {
         expect(getSearchRankBucket(rank)).toBe(expected);
+    });
+
+    test('builds a workout composition snapshot for analytics', () => {
+        expect(getWorkoutCompositionProperties(3, 10)).toEqual({
+            totalExerciseCount: 3,
+            totalSetCount: 10,
+            averageSetsPerExercise: 3.33,
+        });
+        expect(getWorkoutCompositionProperties(0, 0)).toEqual({
+            totalExerciseCount: 0,
+            totalSetCount: 0,
+            averageSetsPerExercise: 0,
+        });
+        expect(getWorkoutCompositionProperties(null, null)).toEqual({
+            totalExerciseCount: null,
+            totalSetCount: null,
+            averageSetsPerExercise: null,
+        });
+    });
+
+    test('builds workout progress without inventing unavailable values', () => {
+        expect(getWorkoutProgressProperties(4, 12, 5)).toEqual({
+            totalExerciseCount: 4,
+            totalSetCount: 12,
+            averageSetsPerExercise: 3,
+            completedSetCount: 5,
+            setCompletionPercentage: 41.67,
+        });
+        expect(getWorkoutProgressProperties(0, 0, 0)).toEqual({
+            totalExerciseCount: 0,
+            totalSetCount: 0,
+            averageSetsPerExercise: 0,
+            completedSetCount: 0,
+            setCompletionPercentage: 0,
+        });
+        expect(getWorkoutProgressProperties(null, null, null)).toEqual({
+            totalExerciseCount: null,
+            totalSetCount: null,
+            averageSetsPerExercise: null,
+            completedSetCount: null,
+            setCompletionPercentage: null,
+        });
+    });
+
+    test('keeps exercise library counts explicit when the snapshot is unavailable', () => {
+        expect(getExerciseLibraryProperties(250, 240, 10)).toEqual({
+            exerciseLibraryTotalCount: 250,
+            exerciseLibrarySkulptCount: 240,
+            exerciseLibraryUserCreatedCount: 10,
+        });
+        expect(getExerciseLibraryProperties(null, null, null)).toEqual({
+            exerciseLibraryTotalCount: null,
+            exerciseLibrarySkulptCount: null,
+            exerciseLibraryUserCreatedCount: null,
+        });
     });
 
     test('keeps analytics errors useful without sending messages', () => {

@@ -4,6 +4,7 @@ import { useAnalytics } from './use-analytics';
 import {
     getFilteredExercises,
     deleteExercise,
+    getExerciseLibrarySnapshot,
     mergeExercise,
     getExerciseById,
     getExerciseHistory,
@@ -11,6 +12,7 @@ import {
     type ExerciseHistoryItem,
     type ExerciseFilterParams,
 } from '@/crud/exercise';
+import { getExerciseLibraryProperties } from '@/analytics/helpers';
 import { ExerciseSelect } from '@/db/schema';
 export {
     createExerciseSearchIndex,
@@ -43,8 +45,11 @@ export const useDeleteExercise = () => {
     const { track } = useAnalytics();
 
     return useMutation({
-        mutationFn: (exerciseId: string) => deleteExercise(exerciseId, user!.id),
-        onSuccess: () => {
+        mutationFn: async (exerciseId: string) => {
+            await deleteExercise(exerciseId, user!.id);
+            return await getExerciseLibrarySnapshot(user!.id);
+        },
+        onSuccess: (exerciseLibrary) => {
             queryClient.invalidateQueries({ queryKey: ['exercises-list'] });
             queryClient.invalidateQueries({ queryKey: ['workout-details'] });
             queryClient.invalidateQueries({ queryKey: ['exercise-sets'] });
@@ -53,7 +58,13 @@ export const useDeleteExercise = () => {
             queryClient.invalidateQueries({ queryKey: ['workout-groups'] });
             queryClient.invalidateQueries({ queryKey: ['workouts-overview-meta'] });
             queryClient.invalidateQueries({ queryKey: ['exercise-history'] });
-            track('exercise:delete');
+            track('exercise:delete', {
+                ...getExerciseLibraryProperties(
+                    exerciseLibrary?.exerciseLibraryTotalCount ?? null,
+                    exerciseLibrary?.exerciseLibrarySkulptCount ?? null,
+                    exerciseLibrary?.exerciseLibraryUserCreatedCount ?? null,
+                ),
+            });
         },
     });
 };

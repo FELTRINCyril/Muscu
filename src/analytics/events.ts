@@ -26,13 +26,33 @@ type WorkoutEditorProperties = {
     status: WorkoutStatus;
 };
 
+type WorkoutCompositionProperties = {
+    totalExerciseCount: number | null;
+    totalSetCount: number | null;
+    averageSetsPerExercise: number | null;
+};
+
+type WorkoutProgressProperties = WorkoutCompositionProperties & {
+    completedSetCount: number | null;
+    setCompletionPercentage: number | null;
+};
+
+type ExerciseLibraryProperties = {
+    exerciseLibraryTotalCount: number | null;
+    exerciseLibrarySkulptCount: number | null;
+    exerciseLibraryUserCreatedCount: number | null;
+};
+
+type WorkoutDiagnosticProperties = WorkoutProgressProperties & ExerciseLibraryProperties;
+
 // Keep user-entered and sensitive data out of this catalog. Do not add workout/exercise
 // names, notes, search text, measurement values, health samples, or raw deep-link URLs.
 export type AnalyticsEventMap = {
-    'app:session_start': CampaignProperties & {
-        source: 'cold_start' | 'foreground' | 'deep_link' | 'notification';
-        isFirstSession: boolean;
-    };
+    'app:session_start': CampaignProperties &
+        ExerciseLibraryProperties & {
+            source: 'cold_start' | 'foreground' | 'deep_link' | 'notification';
+            isFirstSession: boolean;
+        };
     'app:deep_link_opened': CampaignProperties;
     'app:share_requested': {
         surface: 'settings';
@@ -50,7 +70,7 @@ export type AnalyticsEventMap = {
         hasStartDate: boolean;
         hasReminder: boolean;
     };
-    'workout:create': {
+    'workout:create': WorkoutDiagnosticProperties & {
         workoutId: string;
         status: WorkoutStatus;
         hasStartDate: boolean;
@@ -63,30 +83,30 @@ export type AnalyticsEventMap = {
         reminderChanged: boolean;
         timingChanged: boolean;
     };
-    'workout:duplicate': {
+    'workout:duplicate': WorkoutDiagnosticProperties & {
         sourceWorkoutId: string;
         workoutId: string;
         mode: 'now' | 'planned' | 'completed';
     };
-    'workout:start': {
+    'workout:start': WorkoutDiagnosticProperties & {
         workoutId: string;
         source: 'new' | 'planned' | 'repeat';
         $insert_id?: string;
     };
-    'workout:complete': {
+    'workout:complete': WorkoutDiagnosticProperties & {
         workoutId: string;
         duration: number | null;
         wallDurationSec: number;
         activeDurationSec: number;
-        completedSetCount: number;
         exerciseCount: number;
         completionSource: 'phone' | 'watch';
         watchUsed: boolean;
         liveActivityUsed: boolean;
         $insert_id: string;
     };
-    'workout:delete': {
+    'workout:delete': WorkoutDiagnosticProperties & {
         workoutId: string;
+        status: WorkoutStatus;
     };
     'workout:reminder_configured': {
         workoutId: string;
@@ -99,7 +119,7 @@ export type AnalyticsEventMap = {
         workoutId?: string;
         errorType: string;
     };
-    'workout:exercise_add_requested': {
+    'workout:exercise_add_requested': ExerciseLibraryProperties & {
         workoutId: string;
         surface: 'empty_state' | 'actions';
         status: WorkoutStatus;
@@ -113,35 +133,36 @@ export type AnalyticsEventMap = {
         selectedCount: number;
         activeFilterCount: number;
     };
-    'workout:exercise_add': {
+    'workout:exercise_add': WorkoutDiagnosticProperties & {
         workoutId: string;
         exerciseCount: number;
+        addedExerciseCount: number;
     };
-    'workout:exercise_remove': {
+    'workout:exercise_remove': WorkoutDiagnosticProperties & {
         workoutId: string;
     };
-    'workout:exercise_set_add': {
+    'workout:exercise_set_add': WorkoutDiagnosticProperties & {
         workoutId: string;
         workoutExerciseId: string;
         setType: string;
         source: 'manual' | 'exercise_seed' | 'copied';
     };
-    'workout:exercise_set_remove': {
+    'workout:exercise_set_remove': WorkoutDiagnosticProperties & {
         workoutId: string;
         workoutExerciseId: string;
     };
-    'workout:exercise_set_complete': {
+    'workout:exercise_set_complete': WorkoutDiagnosticProperties & {
         workoutId: string;
         workoutExerciseId: string;
         setType: string;
         source: 'phone' | 'watch' | 'auto_timer';
         $insert_id: string;
     };
-    'exercise:create': {
+    'exercise:create': ExerciseLibraryProperties & {
         category: string;
     };
-    'exercise:delete': undefined;
-    'exercise_search:completed': {
+    'exercise:delete': ExerciseLibraryProperties;
+    'exercise_search:completed': ExerciseLibraryProperties & {
         context: 'library' | 'workout_select';
         workoutId?: string;
         queryLength: number;
@@ -220,13 +241,13 @@ export type AnalyticsEventMap = {
     'progress:day_opened': {
         daysAgo: number;
     };
-    'sync:first_success': {
+    'sync:first_success': ExerciseLibraryProperties & {
         trigger: 'initial' | 'scheduled' | 'deferred' | 'manual';
         durationMs: number;
         pendingBefore: number;
         pendingAfter: number;
     };
-    'sync:state_changed': {
+    'sync:state_changed': ExerciseLibraryProperties & {
         outcome: 'success' | 'failure';
         trigger: 'initial' | 'scheduled' | 'deferred' | 'manual';
         durationMs: number;

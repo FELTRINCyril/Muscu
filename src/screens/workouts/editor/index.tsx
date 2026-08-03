@@ -13,6 +13,7 @@ import { VStack } from '@/components/primitives/vstack';
 import { Input } from '@/components/forms/fields/input';
 import { useUser } from '@/hooks/use-user';
 import { createWorkout } from '@/crud/workout';
+import { getExerciseLibrarySnapshot } from '@/crud/exercise';
 import { queryClient } from '@/queries';
 import { Label } from '@/components/forms/label';
 import { Choices } from '@/components/forms/fields/choices';
@@ -23,7 +24,11 @@ import { SheetChoices } from '@/components/forms/fields/sheet/choices';
 import { useRunningWorkoutStatic } from '@/hooks/use-running-workout';
 import { useUpdateWorkout, useWorkout } from '@/hooks/use-workouts';
 import { useAnalytics } from '@/hooks/use-analytics';
-import { getAnalyticsErrorType } from '@/analytics/helpers';
+import {
+    getAnalyticsErrorType,
+    getExerciseLibraryProperties,
+    getWorkoutProgressProperties,
+} from '@/analytics/helpers';
 import { WorkoutSelect } from '@/db/schema';
 import { reportError, runInBackground } from '@/services/error-reporting';
 
@@ -196,14 +201,26 @@ const EditorForm: FC<EditorFormProps> = ({ existingWorkout }) => {
     }, [selectedStatus, startDate, setValue, isEdit]);
 
     const createWorkoutMutation = useMutation({
-        mutationFn: createWorkout,
-        onSuccess: (created) => {
+        mutationFn: async (data: Parameters<typeof createWorkout>[0]) => {
+            const [created, exerciseLibrary] = await Promise.all([
+                createWorkout(data),
+                getExerciseLibrarySnapshot(),
+            ]);
+            return { created, exerciseLibrary };
+        },
+        onSuccess: ({ created, exerciseLibrary }) => {
             queryClient.invalidateQueries({ queryKey: ['workouts', user?.id] });
             track('workout:create', {
                 workoutId: created.id,
                 status: created.status,
                 hasStartDate: Boolean(created.startAt),
                 hasReminder: Boolean(created.remind),
+                ...getWorkoutProgressProperties(0, 0, 0),
+                ...getExerciseLibraryProperties(
+                    exerciseLibrary?.exerciseLibraryTotalCount ?? null,
+                    exerciseLibrary?.exerciseLibrarySkulptCount ?? null,
+                    exerciseLibrary?.exerciseLibraryUserCreatedCount ?? null,
+                ),
             });
             if (created.remind) {
                 track('workout:reminder_configured', {

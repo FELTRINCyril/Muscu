@@ -24,6 +24,7 @@ import { clampExerciseSetReps } from '@/constants/exercise-set';
 
 import { withSync, withSyncDelete, handleCrudError } from '../shared';
 import { queueSyncOperation } from '../sync';
+import { getCurrentUser } from '../user';
 
 export interface ExerciseHistoryItem {
     workout: WorkoutSelect;
@@ -125,6 +126,45 @@ export const isSkulptExercise = (row: Pick<ExerciseSelect, 'userId'> | null | un
 
 const exerciseScopeCondition = (userId: string) =>
     or(eq(exercise.userId, userId), eq(exercise.userId, SKULPT_EXERCISES_USER_ID));
+
+export interface ExerciseLibrarySnapshot {
+    exerciseLibraryTotalCount: number;
+    exerciseLibrarySkulptCount: number;
+    exerciseLibraryUserCreatedCount: number;
+}
+
+export const getExerciseLibrarySnapshot = async (
+    userId?: string,
+): Promise<ExerciseLibrarySnapshot | null> => {
+    try {
+        const resolvedUserId = userId ?? (await getCurrentUser())?.id;
+        if (!resolvedUserId) return null;
+
+        const [counts] = await db
+            .select({
+                exerciseLibraryTotalCount: sql<number>`count(*)`,
+                exerciseLibrarySkulptCount: sql<number>`coalesce(
+                    sum(case when ${exercise.userId} = ${SKULPT_EXERCISES_USER_ID} then 1 else 0 end),
+                    0
+                )`,
+                exerciseLibraryUserCreatedCount: sql<number>`coalesce(
+                    sum(case when ${exercise.userId} = ${resolvedUserId} then 1 else 0 end),
+                    0
+                )`,
+            })
+            .from(exercise)
+            .where(exerciseScopeCondition(resolvedUserId));
+
+        return {
+            exerciseLibraryTotalCount: Number(counts?.exerciseLibraryTotalCount ?? 0),
+            exerciseLibrarySkulptCount: Number(counts?.exerciseLibrarySkulptCount ?? 0),
+            exerciseLibraryUserCreatedCount: Number(counts?.exerciseLibraryUserCreatedCount ?? 0),
+        };
+    } catch (error) {
+        reportError(error, 'Failed to load exercise library snapshot:');
+        return null;
+    }
+};
 
 const buildForkedExerciseRecord = (
     source: ExerciseSelect,

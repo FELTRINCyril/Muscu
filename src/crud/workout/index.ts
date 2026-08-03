@@ -120,6 +120,50 @@ export const getWorkoutById = async (id: string): Promise<WorkoutSelect | null> 
     return result.length > 0 ? result[0] : null;
 };
 
+export interface WorkoutCompositionCounts {
+    totalExerciseCount: number;
+    totalSetCount: number;
+}
+
+export interface WorkoutProgressSnapshot extends WorkoutCompositionCounts {
+    completedSetCount: number;
+}
+
+export const getWorkoutProgressSnapshot = async (
+    workoutId: string,
+): Promise<WorkoutProgressSnapshot | null> => {
+    try {
+        const [counts] = await db
+            .select({
+                totalExerciseCount: sql<number>`count(distinct ${workoutExercise.id})`,
+                totalSetCount: sql<number>`count(${exerciseSet.id})`,
+                completedSetCount: sql<number>`coalesce(
+                    sum(case when ${exerciseSet.completedAt} is not null then 1 else 0 end),
+                    0
+                )`,
+            })
+            .from(workoutExercise)
+            .leftJoin(exerciseSet, eq(exerciseSet.workoutExerciseId, workoutExercise.id))
+            .where(eq(workoutExercise.workoutId, workoutId));
+
+        return {
+            totalExerciseCount: Number(counts?.totalExerciseCount ?? 0),
+            totalSetCount: Number(counts?.totalSetCount ?? 0),
+            completedSetCount: Number(counts?.completedSetCount ?? 0),
+        };
+    } catch (error) {
+        reportError(error, 'Failed to load workout progress snapshot:', {
+            extras: { workoutId },
+        });
+        return null;
+    }
+};
+
+export interface DeleteWorkoutResult {
+    workout: WorkoutSelect;
+    progress: WorkoutProgressSnapshot;
+}
+
 export const createWorkout = async (data: Omit<WorkoutInsert, 'id'>): Promise<WorkoutSelect> => {
     // compute duration if both dates provided
     let computedDuration: number | null = null;
@@ -240,7 +284,7 @@ export const updateWorkout = async (
     }
 };
 
-export const deleteWorkout = async (id: string): Promise<void> => {
+export const deleteWorkout = async (id: string): Promise<DeleteWorkoutResult> => {
     try {
         const workoutToDelete = await getWorkoutById(id);
 
@@ -253,10 +297,14 @@ export const deleteWorkout = async (id: string): Promise<void> => {
 
         // Get all workout groups for this workout
         const workoutGroups = await getWorkoutGroups(id);
+        let totalSetCount = 0;
+        let completedSetCount = 0;
 
         // Delete all exercise sets for each workout exercise and create sync records
         for (const workoutExercise of workoutExercises) {
             const exerciseSets = await getExerciseSets(workoutExercise.id);
+            totalSetCount += exerciseSets.length;
+            completedSetCount += exerciseSets.filter((set) => set.completedAt != null).length;
             for (const set of exerciseSets) {
                 await db.delete(exerciseSet).where(eq(exerciseSet.id, set.id));
                 await queueSyncOperation({
@@ -303,6 +351,15 @@ export const deleteWorkout = async (id: string): Promise<void> => {
             timestamp: new Date(),
             data: workoutToDelete,
         });
+
+        return {
+            workout: workoutToDelete,
+            progress: {
+                totalExerciseCount: workoutExercises.length,
+                totalSetCount,
+                completedSetCount,
+            },
+        };
     } catch (error) {
         reportError(error, 'Failed to delete workout:');
         throw error;
@@ -639,11 +696,17 @@ export const getWorkoutWithExercisesAndSets = async (workoutId: string) => {
     } as const;
 };
 
-export const startWorkout = async (workoutId: string): Promise<WorkoutSelect> => {
+export interface StartWorkoutResult {
+    workout: WorkoutSelect;
+    progress: WorkoutProgressSnapshot | null;
+}
+
+export const startWorkout = async (workoutId: string): Promise<StartWorkoutResult> => {
     const startedWorkout = await updateWorkout(workoutId, {
         status: 'in_progress',
         startedAt: new Date(),
     });
+    const progress = await getWorkoutProgressSnapshot(workoutId);
 
     try {
         // Determine first exercise by group order then orderInGroup (fallback to createdAt)
@@ -653,7 +716,7 @@ export const startWorkout = async (workoutId: string): Promise<WorkoutSelect> =>
         ]);
 
         if (exercises.length === 0) {
-            return startedWorkout;
+            return { workout: startedWorkout, progress };
         }
 
         const groupOrderMap = new Map(groups.map((g) => [g.id, g.order]));
@@ -687,7 +750,7 @@ export const startWorkout = async (workoutId: string): Promise<WorkoutSelect> =>
         reportError(error, 'Failed to auto-start the first workout set:');
     }
 
-    return startedWorkout;
+    return { workout: startedWorkout, progress };
 };
 
 export interface CompleteWorkoutResult {
@@ -696,6 +759,7 @@ export interface CompleteWorkoutResult {
     newlyCompletedSets: Pick<ExerciseSetSelect, 'id' | 'workoutExerciseId' | 'type'>[];
     completedSetCount: number;
     exerciseCount: number;
+    totalSetCount: number;
     activeDurationSec: number;
 }
 
@@ -726,6 +790,7 @@ export const completeWorkout = async (workoutId: string): Promise<CompleteWorkou
             newlyCompletedSets: [],
             completedSetCount: allSets.filter((set) => set.completedAt != null).length,
             exerciseCount: workoutExercises.length,
+            totalSetCount: allSets.length,
             activeDurationSec: getActiveSetDurationSeconds(allSets),
         };
     }
@@ -796,14 +861,20 @@ export const completeWorkout = async (workoutId: string): Promise<CompleteWorkou
         })),
         completedSetCount: allSets.filter((set) => set.completedAt != null).length,
         exerciseCount: workoutExercises.length,
+        totalSetCount: allSets.length,
         activeDurationSec: getActiveSetDurationSeconds(allSets),
     };
 };
 
+export interface DuplicateWorkoutResult {
+    workout: WorkoutSelect;
+    progress: WorkoutProgressSnapshot;
+}
+
 export const duplicateWorkout = async (
     workoutId: string,
     mode: 'now' | 'planned' | 'completed',
-): Promise<WorkoutSelect> => {
+): Promise<DuplicateWorkoutResult> => {
     try {
         const originalWorkout = await getWorkoutWithExercisesAndSets(workoutId);
         if (!originalWorkout) {
@@ -1011,7 +1082,14 @@ export const duplicateWorkout = async (
         appendCreateSyncOperations(syncOperations, 'exercise_set', exerciseSetRows);
         await queueSyncOperations(syncOperations);
 
-        return newWorkout;
+        return {
+            workout: newWorkout,
+            progress: {
+                totalExerciseCount: workoutExerciseRows.length,
+                totalSetCount: exerciseSetRows.length,
+                completedSetCount: mode === 'completed' ? exerciseSetRows.length : 0,
+            },
+        };
     } catch (error) {
         reportError(error, 'Failed to duplicate workout:');
         throw error;

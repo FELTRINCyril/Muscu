@@ -11,7 +11,6 @@ import {
     useDeleteWorkoutExercise,
     useWorkoutWithDetails,
 } from '@/hooks/use-workouts';
-import { useAnalytics } from '@/hooks/use-analytics';
 import { addWorkoutExerciseSet, type SetType } from '@/screens/workouts/exercise/helpers/add-set';
 
 import { MenuItem } from '../../components/menu-item';
@@ -21,7 +20,6 @@ const SET_TYPES: SetType[] = ['working', 'failure', 'dropset', 'warmup'];
 const WorkoutExerciseMenu: FC = () => {
     const { t } = useTranslation(['common', 'screens']);
     const router = useRouter();
-    const { track } = useAnalytics();
 
     const { close, payload } = useActionsStore(
         useShallow((state) => ({
@@ -82,7 +80,6 @@ const WorkoutExerciseMenu: FC = () => {
                             id: workoutExerciseId,
                             workoutId,
                         });
-                        track('workout:exercise_remove', { workoutId });
                         router.back();
                     } catch {
                         // deleteWorkoutExercise reports the underlying error.
@@ -90,7 +87,7 @@ const WorkoutExerciseMenu: FC = () => {
                 },
             },
         ]);
-    }, [close, deleteWorkoutExercise, router, t, track, workoutExerciseId, workoutId]);
+    }, [close, deleteWorkoutExercise, router, t, workoutExerciseId, workoutId]);
 
     if (!workoutId || !workoutExerciseId) return null;
 

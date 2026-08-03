@@ -21,7 +21,6 @@ import { WorkoutItem } from './types';
 import { Exercise } from './components/exercise';
 import { Pushes } from '@/components/promo/pushes';
 import { useRunningWorkoutTicker } from '@/hooks/use-running-workout';
-import { useAnalytics } from '@/hooks/use-analytics';
 import { useWorkoutHealthStats } from '@/hooks/use-workout-health-stats';
 import { useUser } from '@/hooks/use-user';
 import { type ExerciseSetSelect } from '@/db/schema';
@@ -286,8 +285,6 @@ const WorkoutScreen: FC = () => {
     const { runningWorkoutActiveExercise, runningWorkoutActiveSet, runningWorkoutRestingSet } =
         useRunningWorkoutTicker();
 
-    const { track } = useAnalytics();
-
     // Edit mode state
     const isEditMode = useSupersetEditStore((state) => state.workoutId === workoutId);
     const clearSupersetEdit = useSupersetEditStore((state) => state.clear);
@@ -376,11 +373,6 @@ const WorkoutScreen: FC = () => {
             deleteWorkoutExercise.mutate(
                 { id, workoutId },
                 {
-                    onSuccess: () => {
-                        track('workout:exercise_remove', {
-                            workoutId,
-                        });
-                    },
                     onSettled: () => {
                         deletingExerciseIdsRef.current.delete(id);
                         setDeletingExerciseIds((prev) => {
@@ -392,7 +384,7 @@ const WorkoutScreen: FC = () => {
                 },
             );
         },
-        [deleteWorkoutExercise, workoutId, track],
+        [deleteWorkoutExercise, workoutId],
     );
 
     const handleReorder = useCallback(

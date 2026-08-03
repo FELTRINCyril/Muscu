@@ -37,13 +37,21 @@ import {
     WorkoutStats,
     WorkoutDaySummary,
     StrengthRadarStats,
+    WorkoutProgressSnapshot,
+    getWorkoutProgressSnapshot,
 } from '@/crud/workout';
 import { useUser } from './use-user';
 import { useAnalytics } from './use-analytics';
-import { getAnalyticsErrorType } from '@/analytics/helpers';
+import {
+    getAnalyticsErrorType,
+    getExerciseLibraryProperties,
+    getWorkoutProgressProperties,
+} from '@/analytics/helpers';
 import {
     createExerciseSet,
     deleteExerciseSet,
+    ExerciseLibrarySnapshot,
+    getExerciseLibrarySnapshot,
     getExerciseSetById,
     getExerciseSets,
     updateExerciseSet,
@@ -59,10 +67,45 @@ type WorkoutCompletionSource = 'phone' | 'watch';
 type SetCompletionSource = 'phone' | 'watch' | 'auto_timer';
 type SetCreationSource = 'manual' | 'exercise_seed' | 'copied';
 
+const getProgressAnalyticsProperties = (progress: WorkoutProgressSnapshot | null) =>
+    getWorkoutProgressProperties(
+        progress?.totalExerciseCount ?? null,
+        progress?.totalSetCount ?? null,
+        progress?.completedSetCount ?? null,
+    );
+
+const getExerciseLibraryAnalyticsProperties = (library: ExerciseLibrarySnapshot | null) =>
+    getExerciseLibraryProperties(
+        library?.exerciseLibraryTotalCount ?? null,
+        library?.exerciseLibrarySkulptCount ?? null,
+        library?.exerciseLibraryUserCreatedCount ?? null,
+    );
+
+const getWorkoutDiagnosticProperties = (
+    progress: WorkoutProgressSnapshot | null,
+    library: ExerciseLibrarySnapshot | null,
+) => ({
+    ...getProgressAnalyticsProperties(progress),
+    ...getExerciseLibraryAnalyticsProperties(library),
+});
+
+const getWorkoutDiagnosticSnapshot = async (workoutId: string) => {
+    const [progress, exerciseLibrary] = await Promise.all([
+        getWorkoutProgressSnapshot(workoutId),
+        getExerciseLibrarySnapshot(),
+    ]);
+    return { progress, exerciseLibrary };
+};
+
 const completingWorkoutPromises = new Map<string, ReturnType<typeof completeWorkout>>();
 const completingSetPromises = new Map<
     string,
-    Promise<{ set: ExerciseSetSelect; didComplete: boolean }>
+    Promise<{
+        set: ExerciseSetSelect;
+        didComplete: boolean;
+        progress: WorkoutProgressSnapshot | null;
+        exerciseLibrary: ExerciseLibrarySnapshot | null;
+    }>
 >();
 
 export const useWorkouts = () => {
@@ -220,8 +263,14 @@ export const useDeleteWorkout = () => {
 
     return useMutation({
         mutationKey: deleteWorkoutMutationKey,
-        mutationFn: (workoutId: string) => deleteWorkout(workoutId),
-        onSuccess: (_, workoutId) => {
+        mutationFn: async (workoutId: string) => {
+            const [result, exerciseLibrary] = await Promise.all([
+                deleteWorkout(workoutId),
+                getExerciseLibrarySnapshot(),
+            ]);
+            return { ...result, exerciseLibrary };
+        },
+        onSuccess: (result, workoutId) => {
             queryClient.removeQueries({ queryKey: ['workout', workoutId], exact: true });
             queryClient.removeQueries({ queryKey: ['workout-details', workoutId], exact: true });
             queryClient.removeQueries({ queryKey: ['workout-exercises', workoutId], exact: true });
@@ -239,7 +288,11 @@ export const useDeleteWorkout = () => {
             queryClient.invalidateQueries({ queryKey: ['workout-groups'] });
             queryClient.invalidateQueries({ queryKey: ['exercise-sets'] });
             queryClient.invalidateQueries({ queryKey: ['active-workout'] });
-            track('workout:delete', { workoutId });
+            track('workout:delete', {
+                workoutId,
+                status: result.workout.status,
+                ...getWorkoutDiagnosticProperties(result.progress, result.exerciseLibrary),
+            });
             // Cancel any stale scheduled timer notifications that may have been left
             // from this workout. Notification identifiers are tied to setIds which are
             // no longer accessible after deletion, so cancel all scheduled notifications.
@@ -261,9 +314,16 @@ export const useStartWorkout = () => {
     const { track } = useAnalytics();
 
     return useMutation({
-        mutationFn: (input: string | { workoutId: string; source: WorkoutStartSource }) =>
-            startWorkout(typeof input === 'string' ? input : input.workoutId),
-        onSuccess: (data, input) => {
+        mutationFn: async (input: string | { workoutId: string; source: WorkoutStartSource }) => {
+            const workoutId = typeof input === 'string' ? input : input.workoutId;
+            const [result, exerciseLibrary] = await Promise.all([
+                startWorkout(workoutId),
+                getExerciseLibrarySnapshot(),
+            ]);
+            return { ...result, exerciseLibrary };
+        },
+        onSuccess: (result, input) => {
+            const data = result.workout;
             const source = typeof input === 'string' ? 'planned' : input.source;
             queryClient.invalidateQueries({ queryKey: ['workouts'] });
             queryClient.invalidateQueries({ queryKey: ['workout', data.id] });
@@ -273,6 +333,7 @@ export const useStartWorkout = () => {
             track('workout:start', {
                 workoutId: data.id,
                 source,
+                ...getWorkoutDiagnosticProperties(result.progress, result.exerciseLibrary),
                 $insert_id: `workout:${data.id}:start`,
             });
         },
@@ -301,14 +362,16 @@ export const useCompleteWorkout = () => {
             const existing = completingWorkoutPromises.get(input.workoutId);
             if (existing) {
                 const result = await existing;
-                return { ...result, didComplete: false };
+                return { ...result, didComplete: false, exerciseLibrary: null };
             }
 
             const promise = completeWorkout(input.workoutId).finally(() => {
                 completingWorkoutPromises.delete(input.workoutId);
             });
             completingWorkoutPromises.set(input.workoutId, promise);
-            return await promise;
+            const result = await promise;
+            const exerciseLibrary = result.didComplete ? await getExerciseLibrarySnapshot() : null;
+            return { ...result, exerciseLibrary };
         },
         onSuccess: (result, input) => {
             const data = result.workout;
@@ -320,6 +383,14 @@ export const useCompleteWorkout = () => {
             invalidateWorkoutSetDerivedQueries(queryClient);
 
             if (!result.didComplete) return;
+            const diagnosticProperties = {
+                ...getWorkoutProgressProperties(
+                    result.exerciseCount,
+                    result.totalSetCount,
+                    result.completedSetCount,
+                ),
+                ...getExerciseLibraryAnalyticsProperties(result.exerciseLibrary),
+            };
 
             result.newlyCompletedSets.forEach((set) => {
                 track('workout:exercise_set_complete', {
@@ -327,6 +398,7 @@ export const useCompleteWorkout = () => {
                     workoutExerciseId: set.workoutExerciseId,
                     setType: set.type,
                     source: input.completionSource,
+                    ...diagnosticProperties,
                     $insert_id: `set:${set.id}:complete`,
                 });
             });
@@ -336,8 +408,8 @@ export const useCompleteWorkout = () => {
                 duration: data.duration,
                 wallDurationSec: Math.max(0, data.duration ?? 0),
                 activeDurationSec: result.activeDurationSec,
-                completedSetCount: result.completedSetCount,
                 exerciseCount: result.exerciseCount,
+                ...diagnosticProperties,
                 completionSource: input.completionSource,
                 watchUsed: input.watchUsed,
                 liveActivityUsed: input.liveActivityUsed,
@@ -446,10 +518,14 @@ export const useUpdateWorkoutExercise = () => {
 
 export const useDeleteWorkoutExercise = () => {
     const queryClient = useQueryClient();
+    const { track } = useAnalytics();
 
     return useMutation({
-        mutationFn: ({ id }: { id: string; workoutId: string }) => deleteWorkoutExercise(id),
-        onSuccess: (_, variables) => {
+        mutationFn: async ({ id, workoutId }: { id: string; workoutId: string }) => {
+            await deleteWorkoutExercise(id);
+            return await getWorkoutDiagnosticSnapshot(workoutId);
+        },
+        onSuccess: (snapshot, variables) => {
             queryClient.invalidateQueries({ queryKey: ['workout-exercises', variables.workoutId] });
             queryClient.invalidateQueries({
                 queryKey: ['workout-exercises-with-exercise', variables.workoutId],
@@ -459,6 +535,10 @@ export const useDeleteWorkoutExercise = () => {
             queryClient.invalidateQueries({ queryKey: ['exercise-sets'] });
             queryClient.invalidateQueries({ queryKey: ['workout-groups', variables.workoutId] });
             invalidateWorkoutSetDerivedQueries(queryClient);
+            track('workout:exercise_remove', {
+                workoutId: variables.workoutId,
+                ...getWorkoutDiagnosticProperties(snapshot.progress, snapshot.exerciseLibrary),
+            });
         },
     });
 };
@@ -481,9 +561,11 @@ export const useCreateExerciseSet = () => {
     const { track } = useAnalytics();
 
     return useMutation({
-        mutationFn: (input: CreateExerciseSetInput) => {
+        mutationFn: async (input: CreateExerciseSetInput) => {
             const { analyticsSource: _analyticsSource, workoutId: _workoutId, ...data } = input;
-            return createExerciseSet(data);
+            const created = await createExerciseSet(data);
+            const analyticsSnapshot = await getWorkoutDiagnosticSnapshot(input.workoutId);
+            return { ...created, analyticsSnapshot };
         },
         onSuccess: (data, input) => {
             queryClient.invalidateQueries({ queryKey: ['exercise-sets', data.workoutExerciseId] });
@@ -494,6 +576,10 @@ export const useCreateExerciseSet = () => {
                 workoutExerciseId: data.workoutExerciseId,
                 setType: data.type,
                 source: input.analyticsSource ?? 'manual',
+                ...getWorkoutDiagnosticProperties(
+                    data.analyticsSnapshot.progress,
+                    data.analyticsSnapshot.exerciseLibrary,
+                ),
             });
         },
     });
@@ -536,14 +622,20 @@ export const useCompleteExerciseSet = () => {
                 const existingSet = await getExerciseSetById(input.id);
                 if (!existingSet) throw new Error('Exercise set not found');
                 if (existingSet.completedAt) {
-                    return { set: existingSet, didComplete: false };
+                    return {
+                        set: existingSet,
+                        didComplete: false,
+                        progress: null,
+                        exerciseLibrary: null,
+                    };
                 }
 
                 const set = await updateExerciseSet(input.id, {
                     ...(input.updates ?? {}),
                     completedAt: input.updates?.completedAt ?? new Date(),
                 });
-                return { set, didComplete: true };
+                const snapshot = await getWorkoutDiagnosticSnapshot(input.workoutId);
+                return { set, didComplete: true, ...snapshot };
             })().finally(() => {
                 completingSetPromises.delete(input.id);
             });
@@ -564,6 +656,7 @@ export const useCompleteExerciseSet = () => {
                 workoutExerciseId: input.workoutExerciseId,
                 setType: input.setType,
                 source: input.source,
+                ...getWorkoutDiagnosticProperties(result.progress, result.exerciseLibrary),
                 $insert_id: `set:${input.id}:complete`,
             });
         },
@@ -575,9 +668,18 @@ export const useDeleteExerciseSet = () => {
     const { track } = useAnalytics();
 
     return useMutation({
-        mutationFn: ({ id }: { id: string; workoutId: string; workoutExerciseId: string }) =>
-            deleteExerciseSet(id),
-        onSuccess: (_, variables) => {
+        mutationFn: async ({
+            id,
+            workoutId,
+        }: {
+            id: string;
+            workoutId: string;
+            workoutExerciseId: string;
+        }) => {
+            await deleteExerciseSet(id);
+            return await getWorkoutDiagnosticSnapshot(workoutId);
+        },
+        onSuccess: (snapshot, variables) => {
             queryClient.invalidateQueries({
                 queryKey: ['exercise-sets', variables.workoutExerciseId],
             });
@@ -586,6 +688,7 @@ export const useDeleteExerciseSet = () => {
             track('workout:exercise_set_remove', {
                 workoutId: variables.workoutId,
                 workoutExerciseId: variables.workoutExerciseId,
+                ...getWorkoutDiagnosticProperties(snapshot.progress, snapshot.exerciseLibrary),
             });
         },
     });
@@ -609,14 +712,25 @@ export const useDuplicateWorkout = () => {
     const { track } = useAnalytics();
 
     return useMutation({
-        mutationFn: ({
+        mutationFn: async ({
             workoutId,
             mode,
         }: {
             workoutId: string;
             mode: 'now' | 'planned' | 'completed';
-        }) => duplicateWorkout(workoutId, mode),
-        onSuccess: (data, variables) => {
+        }) => {
+            const [result, exerciseLibrary] = await Promise.all([
+                duplicateWorkout(workoutId, mode),
+                getExerciseLibrarySnapshot(),
+            ]);
+            return { ...result, exerciseLibrary };
+        },
+        onSuccess: (result, variables) => {
+            const data = result.workout;
+            const diagnosticProperties = getWorkoutDiagnosticProperties(
+                result.progress,
+                result.exerciseLibrary,
+            );
             queryClient.invalidateQueries({ queryKey: ['workouts'] });
             queryClient.invalidateQueries({ queryKey: ['workout'] });
             queryClient.invalidateQueries({ queryKey: ['workout-details'] });
@@ -626,11 +740,13 @@ export const useDuplicateWorkout = () => {
                 sourceWorkoutId: variables.workoutId,
                 workoutId: data.id,
                 mode: variables.mode,
+                ...diagnosticProperties,
             });
             if (variables.mode === 'now') {
                 track('workout:start', {
                     workoutId: data.id,
                     source: 'repeat',
+                    ...diagnosticProperties,
                     $insert_id: `workout:${data.id}:start`,
                 });
             }
