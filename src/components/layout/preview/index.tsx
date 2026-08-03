@@ -31,6 +31,7 @@ interface PreviewThumbnailProps {
     onOpen?: (name: string, gifFilename: string) => void;
     containerStyle?: BoxProps['style'];
     analyticsSurface?: 'exercise_library' | 'workout_select' | 'active_workout';
+    analyticsWorkoutId?: string;
 }
 
 const PreviewThumbnailComponent: FC<PreviewThumbnailProps> = ({
@@ -39,6 +40,7 @@ const PreviewThumbnailComponent: FC<PreviewThumbnailProps> = ({
     onOpen,
     containerStyle,
     analyticsSurface,
+    analyticsWorkoutId,
 }) => {
     const { track } = useAnalytics();
     const gifThumbnailUrl = useMemo(() => {
@@ -51,11 +53,14 @@ const PreviewThumbnailComponent: FC<PreviewThumbnailProps> = ({
             if (!gifFilename) return;
             event.stopPropagation();
             if (analyticsSurface) {
-                track('exercise:preview_opened', { surface: analyticsSurface });
+                track('exercise:preview_opened', {
+                    surface: analyticsSurface,
+                    workoutId: analyticsWorkoutId,
+                });
             }
             onOpen?.(name, gifFilename);
         },
-        [analyticsSurface, gifFilename, name, onOpen, track],
+        [analyticsSurface, analyticsWorkoutId, gifFilename, name, onOpen, track],
     );
 
     if (!gifThumbnailUrl) return null;

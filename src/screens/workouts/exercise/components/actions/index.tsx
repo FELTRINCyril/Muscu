@@ -258,6 +258,7 @@ export const Actions: FC<ActionsProps> = ({
 
                         await completeSet({
                             id: workoutInfo.currentSet.id,
+                            workoutId: workoutDetails.workout.id,
                             workoutExerciseId,
                             setType: workoutInfo.currentSet.type,
                             source: 'phone',

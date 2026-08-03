@@ -23,6 +23,7 @@ import { CreateButton } from '@/components/buttons/create';
 import { FilterButton } from '@/components/buttons/filter';
 import { useEditor } from '@/hooks/use-editor';
 import { useAnalytics } from '@/hooks/use-analytics';
+import { getAnalyticsErrorType } from '@/analytics/helpers';
 import { useFilterStore, hasActiveFilters, countActiveFilters } from '@/stores/filter';
 import { useShallow } from 'zustand/shallow';
 
@@ -250,6 +251,7 @@ const SelectExercisesScreen: FC = () => {
                     await Promise.all(
                         prevSets.map((s, orderIndex) =>
                             createExerciseSet.mutateAsync({
+                                workoutId,
                                 analyticsSource: 'copied',
                                 workoutExerciseId: created.id,
                                 order: orderIndex,
@@ -269,6 +271,7 @@ const SelectExercisesScreen: FC = () => {
                     const ex = exerciseMap.get(exerciseId);
                     const tracks = ex?.tracking || [];
                     await createExerciseSet.mutateAsync({
+                        workoutId,
                         analyticsSource: 'exercise_seed',
                         workoutExerciseId: created.id,
                         order: 0,
@@ -291,6 +294,13 @@ const SelectExercisesScreen: FC = () => {
             });
 
             router.back();
+        } catch (error) {
+            track('workout:operation_failed', {
+                operation: 'exercise_add',
+                workoutId,
+                errorType: getAnalyticsErrorType(error),
+            });
+            throw error;
         } finally {
             setSubmitting(false);
         }
@@ -367,6 +377,7 @@ const SelectExercisesScreen: FC = () => {
                 mode="select"
                 rawExercises={filteredExercises}
                 query={deferredQuery}
+                analyticsWorkoutId={workoutId}
                 activeFilterCount={activeFilterCount}
                 isLoading={isLoading || isFetching}
                 error={error}

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useWorkouts, useWorkoutsOverviewMeta } from '@/hooks/use-workouts';
 import { useEditor } from '@/hooks/use-editor';
 import { useUser } from '@/hooks/use-user';
+import { useAnalytics } from '@/hooks/use-analytics';
 import { getPlannedWorkouts, groupWorkoutsByWeek, getInProgressWorkouts } from '@/helpers/workouts';
 import { VStack } from '@/components/primitives/vstack';
 import { Text } from '@/components/primitives/text';
@@ -64,6 +65,7 @@ const styles = StyleSheet.create((theme, rt) => ({
 
 const HomeScreen: FC = () => {
     const { navigate } = useEditor();
+    const { track } = useAnalytics();
     const { t, i18n } = useTranslation(['screens']);
     const { user } = useUser();
 
@@ -72,8 +74,9 @@ const HomeScreen: FC = () => {
     const { data: workoutsOverviewMeta = {} } = useWorkoutsOverviewMeta(workoutIds);
 
     const handleCreateWorkout = useCallback(() => {
+        track('workout:create_requested', { surface: 'home_empty_state' });
         navigate({ type: 'workout__create' });
-    }, [navigate]);
+    }, [navigate, track]);
 
     const { inProgressWorkouts, plannedWorkouts, completedGroups, hasWorkouts } = useMemo(() => {
         const workoutsList = workouts ?? [];

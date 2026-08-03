@@ -103,6 +103,8 @@ const useSyncProvider = () => {
                 durationMs: number;
                 pendingBefore: number;
                 pendingAfter: number;
+                failureKind?: 'returned_false' | 'exception';
+                retryCount: number;
             },
             hadPreviousSuccess: boolean,
         ) => {
@@ -176,6 +178,8 @@ const useSyncProvider = () => {
                         durationMs: Math.max(0, Date.now() - startedAt),
                         pendingBefore,
                         pendingAfter: stats.pendingCount,
+                        failureKind: success ? undefined : 'returned_false',
+                        retryCount: failedSyncAttemptsRef.current,
                     },
                     hadPreviousSuccess,
                 );
@@ -203,6 +207,8 @@ const useSyncProvider = () => {
                         durationMs: Math.max(0, Date.now() - startedAt),
                         pendingBefore,
                         pendingAfter,
+                        failureKind: 'exception',
+                        retryCount: failedSyncAttemptsRef.current,
                     },
                     hadPreviousSuccess,
                 );

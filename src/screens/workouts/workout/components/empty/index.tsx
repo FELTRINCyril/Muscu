@@ -9,6 +9,7 @@ import { VStack } from '@/components/primitives/vstack';
 import { Box } from '@/components/primitives/box';
 import { Pressable } from '@/components/primitives/pressable';
 import { WorkoutSelect } from '@/db/schema';
+import { useAnalytics } from '@/hooks/use-analytics';
 
 interface EmptyStateProps {
     workout?: WorkoutSelect;
@@ -54,6 +55,7 @@ const styles = StyleSheet.create((theme, rt) => ({
 const EmptyState: FC<EmptyStateProps> = ({ workout }) => {
     const { t } = useTranslation(['screens']);
     const { theme, rt } = useUnistyles();
+    const { track } = useAnalytics();
 
     const title = useMemo(() => {
         if (workout?.status) return t(`workout.empty.title.${workout.status}`, { ns: 'screens' });
@@ -68,6 +70,11 @@ const EmptyState: FC<EmptyStateProps> = ({ workout }) => {
 
     const handleExerciseAdd = () => {
         if (workout) {
+            track('workout:exercise_add_requested', {
+                workoutId: workout.id,
+                surface: 'empty_state',
+                status: workout.status,
+            });
             router.navigate(`/select?workoutId=${workout.id}`);
         } else {
             router.navigate('/select');

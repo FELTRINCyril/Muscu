@@ -68,3 +68,11 @@ export const getSearchRankBucket = (rank: number): '1' | '2_3' | '4_10' | '11_pl
     if (rank <= 10) return '4_10';
     return '11_plus';
 };
+
+/** Returns a bounded, non-sensitive error class for analytics properties. */
+export const getAnalyticsErrorType = (error: unknown): string => {
+    if (!(error instanceof Error)) return 'unknown';
+
+    const name = error.name.trim();
+    return name ? name.slice(0, 64) : 'Error';
+};

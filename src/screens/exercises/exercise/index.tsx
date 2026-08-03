@@ -55,6 +55,13 @@ const ExerciseScreen: FC = () => {
 
     const handleTabChange = (index: number) => {
         setActiveTab(index);
+        if (index === 1 && activeTab !== 1) {
+            track('exercise:statistics_viewed', {
+                ownership: isSkulptExerciseUserId(exercise.userId) ? 'system' : 'custom',
+                category: exercise.category,
+                hasHistory: (history?.length ?? 0) > 0,
+            });
+        }
         if (index === 2 && activeTab !== 2) {
             track('exercise:guide_viewed', {
                 surface: 'exercise_detail',

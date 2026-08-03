@@ -11,6 +11,7 @@ import { CreateButton } from '@/components/buttons/create';
 import { HStack } from '@/components/primitives/hstack';
 import { useActionsStore } from '@/stores/actions';
 import { useRunningWorkoutStatic } from '@/hooks/use-running-workout';
+import { useAnalytics } from '@/hooks/use-analytics';
 
 interface ActionsProps {
     workout?: WorkoutSelect;
@@ -51,6 +52,7 @@ const styles = StyleSheet.create((theme, rt) => ({
 export const Actions: FC<ActionsProps> = ({ workout }) => {
     const { theme } = useUnistyles();
     const { t } = useTranslation(['common', 'screens']);
+    const { track } = useAnalytics();
 
     const { startWorkout, completeWorkout, isPendingStartWorkout, isPendingCompleteWorkout } =
         useRunningWorkoutStatic();
@@ -73,6 +75,11 @@ export const Actions: FC<ActionsProps> = ({ workout }) => {
 
     const handleExerciseAdd = () => {
         if (workout) {
+            track('workout:exercise_add_requested', {
+                workoutId: workout.id,
+                surface: 'actions',
+                status: workout.status,
+            });
             router.navigate(`/select?workoutId=${workout.id}`);
         } else {
             router.navigate('/select');

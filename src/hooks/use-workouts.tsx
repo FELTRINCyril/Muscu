@@ -40,6 +40,7 @@ import {
 } from '@/crud/workout';
 import { useUser } from './use-user';
 import { useAnalytics } from './use-analytics';
+import { getAnalyticsErrorType } from '@/analytics/helpers';
 import {
     createExerciseSet,
     deleteExerciseSet,
@@ -190,6 +191,7 @@ const invalidateWorkoutSetDerivedQueries = (queryClient: ReturnType<typeof useQu
 
 export const useUpdateWorkout = () => {
     const queryClient = useQueryClient();
+    const { track } = useAnalytics();
 
     return useMutation({
         mutationFn: ({ id, updates }: { id: string; updates: Partial<WorkoutSelect> }) =>
@@ -201,6 +203,13 @@ export const useUpdateWorkout = () => {
             queryClient.invalidateQueries({ queryKey: ['active-workout'] });
             queryClient.invalidateQueries({ queryKey: ['exercise-sets'] });
             invalidateWorkoutSetDerivedQueries(queryClient);
+        },
+        onError: (error, variables) => {
+            track('workout:operation_failed', {
+                operation: 'update',
+                workoutId: variables.id,
+                errorType: getAnalyticsErrorType(error),
+            });
         },
     });
 };
@@ -230,12 +239,19 @@ export const useDeleteWorkout = () => {
             queryClient.invalidateQueries({ queryKey: ['workout-groups'] });
             queryClient.invalidateQueries({ queryKey: ['exercise-sets'] });
             queryClient.invalidateQueries({ queryKey: ['active-workout'] });
-            track('workout:delete');
+            track('workout:delete', { workoutId });
             // Cancel any stale scheduled timer notifications that may have been left
             // from this workout. Notification identifiers are tied to setIds which are
             // no longer accessible after deletion, so cancel all scheduled notifications.
             // This is safe because workout timers are the only scheduled notifications.
             Notifications.cancelAllScheduledNotificationsAsync().catch(() => undefined);
+        },
+        onError: (error, workoutId) => {
+            track('workout:operation_failed', {
+                operation: 'delete',
+                workoutId,
+                errorType: getAnalyticsErrorType(error),
+            });
         },
     });
 };
@@ -258,6 +274,14 @@ export const useStartWorkout = () => {
                 workoutId: data.id,
                 source,
                 $insert_id: `workout:${data.id}:start`,
+            });
+        },
+        onError: (error, input) => {
+            const workoutId = typeof input === 'string' ? input : input.workoutId;
+            track('workout:operation_failed', {
+                operation: 'start',
+                workoutId,
+                errorType: getAnalyticsErrorType(error),
             });
         },
     });
@@ -299,6 +323,7 @@ export const useCompleteWorkout = () => {
 
             result.newlyCompletedSets.forEach((set) => {
                 track('workout:exercise_set_complete', {
+                    workoutId: input.workoutId,
                     workoutExerciseId: set.workoutExerciseId,
                     setType: set.type,
                     source: input.completionSource,
@@ -317,6 +342,13 @@ export const useCompleteWorkout = () => {
                 watchUsed: input.watchUsed,
                 liveActivityUsed: input.liveActivityUsed,
                 $insert_id: `workout:${data.id}:complete`,
+            });
+        },
+        onError: (error, input) => {
+            track('workout:operation_failed', {
+                operation: 'complete',
+                workoutId: input.workoutId,
+                errorType: getAnalyticsErrorType(error),
             });
         },
     });
@@ -440,6 +472,7 @@ export const useExerciseSets = (workoutExerciseId: string) => {
 };
 
 export type CreateExerciseSetInput = Omit<ExerciseSetInsert, 'id'> & {
+    workoutId: string;
     analyticsSource?: SetCreationSource;
 };
 
@@ -449,7 +482,7 @@ export const useCreateExerciseSet = () => {
 
     return useMutation({
         mutationFn: (input: CreateExerciseSetInput) => {
-            const { analyticsSource: _analyticsSource, ...data } = input;
+            const { analyticsSource: _analyticsSource, workoutId: _workoutId, ...data } = input;
             return createExerciseSet(data);
         },
         onSuccess: (data, input) => {
@@ -457,6 +490,7 @@ export const useCreateExerciseSet = () => {
             queryClient.invalidateQueries({ queryKey: ['workout-details'] });
             invalidateWorkoutSetDerivedQueries(queryClient);
             track('workout:exercise_set_add', {
+                workoutId: input.workoutId,
                 workoutExerciseId: data.workoutExerciseId,
                 setType: data.type,
                 source: input.analyticsSource ?? 'manual',
@@ -486,6 +520,7 @@ export const useCompleteExerciseSet = () => {
     return useMutation({
         mutationFn: async (input: {
             id: string;
+            workoutId: string;
             workoutExerciseId: string;
             setType: ExerciseSetSelect['type'];
             source: SetCompletionSource;
@@ -525,6 +560,7 @@ export const useCompleteExerciseSet = () => {
 
             if (!result.didComplete) return;
             track('workout:exercise_set_complete', {
+                workoutId: input.workoutId,
                 workoutExerciseId: input.workoutExerciseId,
                 setType: input.setType,
                 source: input.source,
@@ -539,7 +575,8 @@ export const useDeleteExerciseSet = () => {
     const { track } = useAnalytics();
 
     return useMutation({
-        mutationFn: ({ id }: { id: string; workoutExerciseId: string }) => deleteExerciseSet(id),
+        mutationFn: ({ id }: { id: string; workoutId: string; workoutExerciseId: string }) =>
+            deleteExerciseSet(id),
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({
                 queryKey: ['exercise-sets', variables.workoutExerciseId],
@@ -547,6 +584,7 @@ export const useDeleteExerciseSet = () => {
             queryClient.invalidateQueries({ queryKey: ['workout-details'] });
             invalidateWorkoutSetDerivedQueries(queryClient);
             track('workout:exercise_set_remove', {
+                workoutId: variables.workoutId,
                 workoutExerciseId: variables.workoutExerciseId,
             });
         },
@@ -584,7 +622,11 @@ export const useDuplicateWorkout = () => {
             queryClient.invalidateQueries({ queryKey: ['workout-details'] });
             queryClient.invalidateQueries({ queryKey: ['active-workout'] });
             queryClient.invalidateQueries({ queryKey: ['workouts-overview-meta'] });
-            track('workout:duplicate', { mode: variables.mode });
+            track('workout:duplicate', {
+                sourceWorkoutId: variables.workoutId,
+                workoutId: data.id,
+                mode: variables.mode,
+            });
             if (variables.mode === 'now') {
                 track('workout:start', {
                     workoutId: data.id,
@@ -592,6 +634,13 @@ export const useDuplicateWorkout = () => {
                     $insert_id: `workout:${data.id}:start`,
                 });
             }
+        },
+        onError: (error, variables) => {
+            track('workout:operation_failed', {
+                operation: 'duplicate',
+                workoutId: variables.workoutId,
+                errorType: getAnalyticsErrorType(error),
+            });
         },
     });
 };

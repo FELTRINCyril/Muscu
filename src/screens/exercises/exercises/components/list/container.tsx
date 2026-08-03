@@ -37,6 +37,7 @@ type ModeSelect = {
 type BaseProps = {
     rawExercises: ExerciseListSelect[] | undefined;
     query: string;
+    analyticsWorkoutId?: string;
     isLoading?: boolean;
     error?: unknown;
     extraData?: unknown;
@@ -63,6 +64,7 @@ const getListItemIdentity = (item: ExerciseListItem) => {
 export const ExercisesListContainer: FC<ExercisesListContainerProps> = ({
     rawExercises,
     query,
+    analyticsWorkoutId,
     isLoading,
     error,
     extraData,
@@ -121,6 +123,7 @@ export const ExercisesListContainer: FC<ExercisesListContainerProps> = ({
             lastTrackedSearchRef.current = signature;
             track('exercise_search:completed', {
                 context: searchContext,
+                workoutId: analyticsWorkoutId,
                 queryLength: Array.from(trimmedQuery).length,
                 scriptGroup: getSearchScriptGroup(trimmedQuery),
                 resultCount: exerciseResults.length,
@@ -130,7 +133,16 @@ export const ExercisesListContainer: FC<ExercisesListContainerProps> = ({
         }, 500);
 
         return () => clearTimeout(timeout);
-    }, [activeFilterCount, error, exerciseResults.length, isLoading, query, searchContext, track]);
+    }, [
+        activeFilterCount,
+        analyticsWorkoutId,
+        error,
+        exerciseResults.length,
+        isLoading,
+        query,
+        searchContext,
+        track,
+    ]);
 
     const stickyLookup = useMemo(() => {
         const categoryByIndex: (string | undefined)[] = [];
@@ -181,6 +193,7 @@ export const ExercisesListContainer: FC<ExercisesListContainerProps> = ({
 
             track('exercise_search:result_selected', {
                 context: searchContext,
+                workoutId: analyticsWorkoutId,
                 rankBucket: getSearchRankBucket(rank + 1),
                 ownership: isSkulptExerciseUserId(exerciseItem.exercise.userId)
                     ? 'system'
@@ -188,7 +201,26 @@ export const ExercisesListContainer: FC<ExercisesListContainerProps> = ({
                 category: exerciseItem.exercise.category,
             });
         },
-        [exerciseResults, query, searchContext, track],
+        [analyticsWorkoutId, exerciseResults, query, searchContext, track],
+    );
+
+    const trackWorkoutSelection = useCallback(
+        (exerciseItem: ExerciseCard, selectedCount: number) => {
+            if (!analyticsWorkoutId) return;
+
+            track('workout:exercise_selected', {
+                workoutId: analyticsWorkoutId,
+                exerciseId: exerciseItem.exercise.id,
+                discoveryMethod: query.trim() ? 'search' : 'browse',
+                ownership: isSkulptExerciseUserId(exerciseItem.exercise.userId)
+                    ? 'system'
+                    : 'custom',
+                category: exerciseItem.exercise.category,
+                selectedCount,
+                activeFilterCount,
+            });
+        },
+        [activeFilterCount, analyticsWorkoutId, query, track],
     );
 
     const handleGifPreviewOpen = useCallback((name: string, gifFilename: string) => {
@@ -206,11 +238,12 @@ export const ExercisesListContainer: FC<ExercisesListContainerProps> = ({
                     gifFilename={exerciseItem.exercise.gifFilename}
                     onOpen={handleGifPreviewOpen}
                     analyticsSurface={mode === 'browse' ? 'exercise_library' : 'workout_select'}
+                    analyticsWorkoutId={analyticsWorkoutId}
                     containerStyle={styles.previewThumbContainer}
                 />
             );
         },
-        [handleGifPreviewOpen, mode],
+        [analyticsWorkoutId, handleGifPreviewOpen, mode],
     );
 
     const renderItem = useCallback(
@@ -230,7 +263,10 @@ export const ExercisesListContainer: FC<ExercisesListContainerProps> = ({
                         selectable
                         selected={selectedList.includes(item.exercise.id)}
                         onSelectToggle={(exerciseId) => {
-                            if (!selectedList.includes(exerciseId)) trackSearchSelection(item);
+                            if (!selectedList.includes(exerciseId)) {
+                                trackSearchSelection(item);
+                                trackWorkoutSelection(item, selectedList.length + 1);
+                            }
                             onToggle(exerciseId);
                         }}
                         selectionPosition="left"
@@ -267,6 +303,7 @@ export const ExercisesListContainer: FC<ExercisesListContainerProps> = ({
             handleDelete,
             renderGifAccessory,
             trackSearchSelection,
+            trackWorkoutSelection,
         ],
     );
 

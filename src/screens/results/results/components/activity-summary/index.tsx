@@ -14,6 +14,7 @@ import { HStack } from '@/components/primitives/hstack';
 import { Box } from '@/components/primitives/box';
 import { Text } from '@/components/primitives/text';
 import { Pressable } from '@/components/primitives/pressable';
+import { useAnalytics } from '@/hooks/use-analytics';
 
 const CHART_HEIGHT = 172;
 const CHART_EDGE_INSET = 6;
@@ -382,6 +383,7 @@ const ActivitySummary = ({ onScrubbingChange }: ActivitySummaryProps) => {
     const { t } = useTranslation(['common', 'screens']);
     const { theme, rt } = useUnistyles();
     const { data: workouts = [] } = useWorkouts();
+    const { track } = useAnalytics();
     const [chartWidth, setChartWidth] = useState(0);
     const [visibleMonthStart, setVisibleMonthStart] = useState(() => dayjs().startOf('month'));
     const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
@@ -546,18 +548,26 @@ const ActivitySummary = ({ onScrubbingChange }: ActivitySummaryProps) => {
 
     const handlePrevMonth = useCallback(() => {
         resetScrubbingState();
+        track('progress:period_changed', {
+            surface: 'activity_summary',
+            direction: 'previous',
+        });
         setVisibleMonthStart((prev) => prev.subtract(1, 'month').startOf('month'));
-    }, [resetScrubbingState]);
+    }, [resetScrubbingState, track]);
 
     const handleNextMonth = useCallback(() => {
         if (!canGoForward) return;
         resetScrubbingState();
+        track('progress:period_changed', {
+            surface: 'activity_summary',
+            direction: 'next',
+        });
         setVisibleMonthStart((prev) => {
             const next = prev.add(1, 'month').startOf('month');
             const currentMonthStart = dayjs().startOf('month');
             return next.isAfter(currentMonthStart, 'month') ? prev : next;
         });
-    }, [canGoForward, resetScrubbingState]);
+    }, [canGoForward, resetScrubbingState, track]);
 
     useEffect(() => {
         return () => {

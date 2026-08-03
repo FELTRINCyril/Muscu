@@ -225,6 +225,7 @@ const useRunningWorkoutProvider = () => {
     const phoneHealthPermissionsGrantedRef = useRef(false);
     const lastHealthReadinessRef = useRef<string | null>(null);
     const trackedWatchWorkoutIdsRef = useRef(new Set<string>());
+    const trackedWatchAvailabilityRef = useRef(false);
     const trackedLiveActivityWorkoutIdsRef = useRef(new Set<string>());
     const liveActivityUsedWorkoutIdsRef = useRef(new Set<string>());
     const processWatchCommandRef = useRef<(payload: WatchCommand) => Promise<void>>(
@@ -276,6 +277,15 @@ const useRunningWorkoutProvider = () => {
     } = useNotifications();
 
     const lastScheduledChainKeyRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (trackedWatchAvailabilityRef.current) return;
+        trackedWatchAvailabilityRef.current = true;
+        track('watch:availability_checked', {
+            supported: watchManagerRef.current.isSupported(),
+            paired: watchManagerRef.current.hasPairedWatch(),
+        });
+    }, [track]);
 
     useEffect(() => {
         const updateScreenLock = async () => {
@@ -505,6 +515,7 @@ const useRunningWorkoutProvider = () => {
                 () =>
                     completeExerciseSet({
                         id: activeSet.id,
+                        workoutId: workoutDetails.workout.id,
                         workoutExerciseId: activeSet.workoutExerciseId,
                         setType: activeSet.type,
                         source: 'auto_timer',
@@ -513,7 +524,13 @@ const useRunningWorkoutProvider = () => {
                 'Failed to auto-complete active timer set:',
             );
         }
-    }, [completeExerciseSet, nowMs, runningWorkoutActiveSet, workoutDetails?.exercises]);
+    }, [
+        completeExerciseSet,
+        nowMs,
+        runningWorkoutActiveSet,
+        workoutDetails?.exercises,
+        workoutDetails?.workout.id,
+    ]);
 
     const activeWorkTimerRemainingSeconds = useMemo(() => {
         if (!workoutDetails?.exercises || !runningWorkoutActiveSet) return null;
@@ -1275,6 +1292,7 @@ const useRunningWorkoutProvider = () => {
             ) {
                 await completeExerciseSet({
                     id: runningWorkoutActiveSet.id,
+                    workoutId: runningWorkout.id,
                     workoutExerciseId: runningWorkoutActiveSet.workoutExerciseId,
                     setType: runningWorkoutActiveSet.type,
                     source: commandSource,

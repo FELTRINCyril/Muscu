@@ -62,6 +62,7 @@ const addWorkoutExerciseSet = async ({
                 const prev = exerciseSets[exerciseSets.length - 1];
 
                 return createSet({
+                    workoutId: workoutDetails.workout.id,
                     analyticsSource: 'manual',
                     workoutExerciseId: groupExercise.id,
                     order: nextOrder,
@@ -84,6 +85,7 @@ const addWorkoutExerciseSet = async ({
     const prev = sortedSets[sortedSets.length - 1];
 
     await createSet({
+        workoutId: workoutDetails.workout.id,
         analyticsSource: 'manual',
         workoutExerciseId,
         order: nextOrder,

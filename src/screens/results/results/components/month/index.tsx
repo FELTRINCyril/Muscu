@@ -12,6 +12,7 @@ import { Text } from '@/components/primitives/text';
 import { Pressable } from '@/components/primitives/pressable';
 import { useWorkouts } from '@/hooks/use-workouts';
 import { useUser } from '@/hooks/use-user';
+import { useAnalytics } from '@/hooks/use-analytics';
 
 const WEEKDAY_ORDER_SUNDAY_FIRST = [0, 1, 2, 3, 4, 5, 6] as const;
 const WEEKDAY_ORDER_MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0] as const;
@@ -179,6 +180,7 @@ const MonthStats = () => {
     const { i18n } = useTranslation(['common', 'screens']);
     const { theme, rt } = useUnistyles();
     const router = useRouter();
+    const { track } = useAnalytics();
     const { user } = useUser();
     const { data: workouts = [] } = useWorkouts();
     const [visibleMonthStart, setVisibleMonthStart] = useState(() => dayjs().startOf('month'));
@@ -250,25 +252,37 @@ const MonthStats = () => {
     }, [visibleMonthStart]);
 
     const handlePrevMonth = useCallback(() => {
+        track('progress:period_changed', {
+            surface: 'workout_calendar',
+            direction: 'previous',
+        });
         setVisibleMonthStart((prev) => prev.subtract(1, 'month').startOf('month'));
-    }, []);
+    }, [track]);
 
     const handleNextMonth = useCallback(() => {
+        if (!canGoForward) return;
+        track('progress:period_changed', {
+            surface: 'workout_calendar',
+            direction: 'next',
+        });
         setVisibleMonthStart((prev) => {
             const next = prev.add(1, 'month').startOf('month');
             const currentMonthStart = dayjs().startOf('month');
             return next.isAfter(currentMonthStart, 'month') ? prev : next;
         });
-    }, []);
+    }, [canGoForward, track]);
 
     const handleDayPress = useCallback(
         (dateKey: string) => {
+            track('progress:day_opened', {
+                daysAgo: Math.max(0, dayjs().startOf('day').diff(dayjs(dateKey), 'day')),
+            });
             router.navigate({
                 pathname: '/day',
                 params: { date: dateKey },
             } as any);
         },
-        [router],
+        [router, track],
     );
 
     return (

@@ -193,7 +193,11 @@ const SetItemComponent = ({
     const handleDelete = useCallback(
         (id: string) => {
             if (!exerciseInfo) return;
-            deleteSet({ id, workoutExerciseId: exerciseInfo.workoutExercise.id });
+            deleteSet({
+                id,
+                workoutId: exerciseInfo.workoutExercise.workoutId,
+                workoutExerciseId: exerciseInfo.workoutExercise.id,
+            });
         },
         [deleteSet, exerciseInfo],
     );

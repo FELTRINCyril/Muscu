@@ -1,6 +1,7 @@
 import { describe, expect, test } from '@jest/globals';
 
 import {
+    getAnalyticsErrorType,
     getCampaignProperties,
     getSearchRankBucket,
     getSearchScriptGroup,
@@ -74,5 +75,13 @@ describe('analytics helpers', () => {
 
     test.each(rankCases)('buckets result rank %s', (rank, expected) => {
         expect(getSearchRankBucket(rank)).toBe(expected);
+    });
+
+    test('keeps analytics errors useful without sending messages', () => {
+        const error = new Error('private workout data must not be sent');
+        error.name = 'DatabaseError';
+
+        expect(getAnalyticsErrorType(error)).toBe('DatabaseError');
+        expect(getAnalyticsErrorType('private workout data')).toBe('unknown');
     });
 });

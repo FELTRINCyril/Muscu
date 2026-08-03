@@ -19,6 +19,13 @@ type CampaignProperties = {
     campaignName?: string;
 };
 
+type WorkoutStatus = 'planned' | 'in_progress' | 'completed' | 'cancelled';
+
+type WorkoutEditorProperties = {
+    mode: 'create' | 'edit';
+    status: WorkoutStatus;
+};
+
 // Keep user-entered and sensitive data out of this catalog. Do not add workout/exercise
 // names, notes, search text, measurement values, health samples, or raw deep-link URLs.
 export type AnalyticsEventMap = {
@@ -35,12 +42,30 @@ export type AnalyticsEventMap = {
         storeReviewAvailable: boolean;
         storeReviewHasAction: boolean;
     };
-    'workout:create': {
-        status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
+    'workout:create_requested': {
+        surface: 'home_empty_state' | 'home_header';
+    };
+    'workout:editor_opened': WorkoutEditorProperties;
+    'workout:editor_submitted': WorkoutEditorProperties & {
         hasStartDate: boolean;
         hasReminder: boolean;
     };
+    'workout:create': {
+        workoutId: string;
+        status: WorkoutStatus;
+        hasStartDate: boolean;
+        hasReminder: boolean;
+    };
+    'workout:update': {
+        workoutId: string;
+        status: WorkoutStatus;
+        scheduleChanged: boolean;
+        reminderChanged: boolean;
+        timingChanged: boolean;
+    };
     'workout:duplicate': {
+        sourceWorkoutId: string;
+        workoutId: string;
         mode: 'now' | 'planned' | 'completed';
     };
     'workout:start': {
@@ -60,10 +85,33 @@ export type AnalyticsEventMap = {
         liveActivityUsed: boolean;
         $insert_id: string;
     };
-    'workout:delete': undefined;
-    'workout:reminder_scheduled': {
+    'workout:delete': {
+        workoutId: string;
+    };
+    'workout:reminder_configured': {
+        workoutId: string;
         leadTime: 'start' | '5m' | '10m' | '15m' | '30m' | '1h' | '2h';
         source: 'create' | 'update';
+    };
+    'workout:operation_failed': {
+        operation:
+            'create' | 'update' | 'start' | 'complete' | 'delete' | 'duplicate' | 'exercise_add';
+        workoutId?: string;
+        errorType: string;
+    };
+    'workout:exercise_add_requested': {
+        workoutId: string;
+        surface: 'empty_state' | 'actions';
+        status: WorkoutStatus;
+    };
+    'workout:exercise_selected': {
+        workoutId: string;
+        exerciseId: string;
+        discoveryMethod: 'browse' | 'search';
+        ownership: 'system' | 'custom';
+        category: string;
+        selectedCount: number;
+        activeFilterCount: number;
     };
     'workout:exercise_add': {
         workoutId: string;
@@ -73,14 +121,17 @@ export type AnalyticsEventMap = {
         workoutId: string;
     };
     'workout:exercise_set_add': {
+        workoutId: string;
         workoutExerciseId: string;
         setType: string;
         source: 'manual' | 'exercise_seed' | 'copied';
     };
     'workout:exercise_set_remove': {
+        workoutId: string;
         workoutExerciseId: string;
     };
     'workout:exercise_set_complete': {
+        workoutId: string;
         workoutExerciseId: string;
         setType: string;
         source: 'phone' | 'watch' | 'auto_timer';
@@ -92,6 +143,7 @@ export type AnalyticsEventMap = {
     'exercise:delete': undefined;
     'exercise_search:completed': {
         context: 'library' | 'workout_select';
+        workoutId?: string;
         queryLength: number;
         scriptGroup: 'han' | 'latin' | 'cyrillic' | 'devanagari' | 'mixed' | 'other';
         resultCount: number;
@@ -100,6 +152,7 @@ export type AnalyticsEventMap = {
     };
     'exercise_search:result_selected': {
         context: 'library' | 'workout_select';
+        workoutId?: string;
         rankBucket: '1' | '2_3' | '4_10' | '11_plus';
         ownership: 'system' | 'custom';
         category: string;
@@ -109,10 +162,20 @@ export type AnalyticsEventMap = {
         ownership: 'system' | 'custom';
         category: string;
     };
+    'exercise:statistics_viewed': {
+        ownership: 'system' | 'custom';
+        category: string;
+        hasHistory: boolean;
+    };
     'exercise:preview_opened': {
         surface: 'exercise_library' | 'workout_select' | 'active_workout';
+        workoutId?: string;
     };
     'watch:workout_started': {
+        supported: boolean;
+        paired: boolean;
+    };
+    'watch:availability_checked': {
         supported: boolean;
         paired: boolean;
     };
@@ -150,6 +213,13 @@ export type AnalyticsEventMap = {
         source: 'manual' | 'health';
         count: number;
     };
+    'progress:period_changed': {
+        surface: 'workout_calendar' | 'activity_summary';
+        direction: 'previous' | 'next';
+    };
+    'progress:day_opened': {
+        daysAgo: number;
+    };
     'sync:first_success': {
         trigger: 'initial' | 'scheduled' | 'deferred' | 'manual';
         durationMs: number;
@@ -162,6 +232,8 @@ export type AnalyticsEventMap = {
         durationMs: number;
         pendingBefore: number;
         pendingAfter: number;
+        failureKind?: 'returned_false' | 'exception';
+        retryCount: number;
     };
     'app_review_prompt:eligible': ReviewPromptProperties;
     'app_review_prompt:deferred': ReviewPromptProperties;

@@ -23,6 +23,7 @@ import { SheetChoices } from '@/components/forms/fields/sheet/choices';
 import { useRunningWorkoutStatic } from '@/hooks/use-running-workout';
 import { useUpdateWorkout, useWorkout } from '@/hooks/use-workouts';
 import { useAnalytics } from '@/hooks/use-analytics';
+import { getAnalyticsErrorType } from '@/analytics/helpers';
 import { WorkoutSelect } from '@/db/schema';
 import { reportError, runInBackground } from '@/services/error-reporting';
 
@@ -117,6 +118,16 @@ const EditorForm: FC<EditorFormProps> = ({ existingWorkout }) => {
     const updateWorkoutMutation = useUpdateWorkout();
 
     const isEdit = Boolean(existingWorkout);
+    const editorOpenTrackedRef = useRef(false);
+
+    useEffect(() => {
+        if (editorOpenTrackedRef.current) return;
+        editorOpenTrackedRef.current = true;
+        track('workout:editor_opened', {
+            mode: isEdit ? 'edit' : 'create',
+            status: existingWorkout?.status ?? 'planned',
+        });
+    }, [existingWorkout?.status, isEdit, track]);
 
     const {
         control,
@@ -189,12 +200,14 @@ const EditorForm: FC<EditorFormProps> = ({ existingWorkout }) => {
         onSuccess: (created) => {
             queryClient.invalidateQueries({ queryKey: ['workouts', user?.id] });
             track('workout:create', {
+                workoutId: created.id,
                 status: created.status,
                 hasStartDate: Boolean(created.startAt),
                 hasReminder: Boolean(created.remind),
             });
             if (created.remind) {
-                track('workout:reminder_scheduled', {
+                track('workout:reminder_configured', {
+                    workoutId: created.id,
                     leadTime: created.remind,
                     source: 'create',
                 });
@@ -208,6 +221,10 @@ const EditorForm: FC<EditorFormProps> = ({ existingWorkout }) => {
             router.replace(`/workout/${created.id}`);
         },
         onError: (error) => {
+            track('workout:operation_failed', {
+                operation: 'create',
+                errorType: getAnalyticsErrorType(error),
+            });
             reportError(error, 'Failed to create workout:');
         },
     });
@@ -216,6 +233,13 @@ const EditorForm: FC<EditorFormProps> = ({ existingWorkout }) => {
         if (!user) {
             return;
         }
+
+        track('workout:editor_submitted', {
+            mode: isEdit ? 'edit' : 'create',
+            status: payload.status,
+            hasStartDate: Boolean(payload.startAt),
+            hasReminder: Boolean(payload.remind),
+        });
 
         const workoutName =
             payload.name?.trim() || t('workout-editor.namePlaceholder', { ns: 'screens' });
@@ -237,11 +261,25 @@ const EditorForm: FC<EditorFormProps> = ({ existingWorkout }) => {
                     onSuccess: (updated) => {
                         const previousStartAt = existingWorkout.startAt?.getTime() ?? null;
                         const updatedStartAt = updated.startAt?.getTime() ?? null;
+                        const previousStartedAt = existingWorkout.startedAt?.getTime() ?? null;
+                        const updatedStartedAt = updated.startedAt?.getTime() ?? null;
+                        const previousCompletedAt = existingWorkout.completedAt?.getTime() ?? null;
+                        const updatedCompletedAt = updated.completedAt?.getTime() ?? null;
                         const reminderChanged =
                             existingWorkout.remind !== updated.remind ||
                             previousStartAt !== updatedStartAt;
+                        track('workout:update', {
+                            workoutId: updated.id,
+                            status: updated.status,
+                            scheduleChanged: previousStartAt !== updatedStartAt,
+                            reminderChanged: existingWorkout.remind !== updated.remind,
+                            timingChanged:
+                                previousStartedAt !== updatedStartedAt ||
+                                previousCompletedAt !== updatedCompletedAt,
+                        });
                         if (updated.remind && reminderChanged) {
-                            track('workout:reminder_scheduled', {
+                            track('workout:reminder_configured', {
+                                workoutId: updated.id,
                                 leadTime: updated.remind,
                                 source: 'update',
                             });
