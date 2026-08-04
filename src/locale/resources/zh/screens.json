@@ -89,8 +89,8 @@
     "exercises": {
         "title": "训练",
         "empty": {
-            "title": "暂无练习",
-            "description": "点击\"+\"创建您的第一个练习。"
+            "title": "创建练习",
+            "description": "点击此处创建您的第一个练习。"
         }
     },
     "filter": {

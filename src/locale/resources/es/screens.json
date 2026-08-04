@@ -91,8 +91,8 @@
     "exercises": {
         "title": "Ejercicios",
         "empty": {
-            "title": "No hay ejercicios",
-            "description": "Toca \"+\" y crea tu primer ejercicio."
+            "title": "Crear ejercicio",
+            "description": "Toca aquí para crear tu primer ejercicio."
         }
     },
     "filter": {
