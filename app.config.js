@@ -176,7 +176,7 @@ module.exports = {
                 NSHealthUpdateUsageDescription: 'Skulpt saves your completed workouts to Health',
             },
         ],
-        'expo-health-connect',
+        'react-native-health-connect',
         [
             'react-native-edge-to-edge',
             {
@@ -192,7 +192,7 @@ module.exports = {
             {
                 android: {
                     compileSdkVersion: 36,
-                    targetSdkVersion: 35,
+                    targetSdkVersion: 36,
                     minSdkVersion: 26,
                 },
             },
