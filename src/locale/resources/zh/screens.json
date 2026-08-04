@@ -255,16 +255,16 @@
         },
         "empty": {
             "title": {
-                "planned": "安排训练",
-                "in_progress": "训练开始",
-                "completed": "完成的训练",
-                "cancelled": "取消的训练"
+                "planned": "添加练习",
+                "in_progress": "添加练习",
+                "completed": "添加练习",
+                "cancelled": "添加练习"
             },
             "description": {
-                "planned": "点击\"+\"添加运动项目。",
-                "in_progress": "点击\"+\"添加运动项目。",
-                "completed": "点击\"+\"添加运动项目。",
-                "cancelled": "点击\"+\"添加运动项目。"
+                "planned": "点击此处，将第一个练习添加到您的训练中。",
+                "in_progress": "点击此处，将第一个练习添加到您的训练中。",
+                "completed": "点击此处，将第一个练习添加到您的训练中。",
+                "cancelled": "点击此处，将第一个练习添加到您的训练中。"
             }
         },
         "supersets": {

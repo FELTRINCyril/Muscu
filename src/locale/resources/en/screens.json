@@ -257,16 +257,16 @@
         },
         "empty": {
             "title": {
-                "planned": "Plan Workout",
-                "in_progress": "Workout Started",
-                "completed": "Completed Workout",
-                "cancelled": "Cancelled Workout"
+                "planned": "Add Exercise",
+                "in_progress": "Add Exercise",
+                "completed": "Add Exercise",
+                "cancelled": "Add Exercise"
             },
             "description": {
-                "planned": "Tap \"+\" to add exercises.",
-                "in_progress": "Tap \"+\" to add exercises.",
-                "completed": "Tap \"+\" to add exercises.",
-                "cancelled": "Tap \"+\" to add exercises."
+                "planned": "Tap here to add the first exercise to your workout.",
+                "in_progress": "Tap here to add the first exercise to your workout.",
+                "completed": "Tap here to add the first exercise to your workout.",
+                "cancelled": "Tap here to add the first exercise to your workout."
             }
         },
         "supersets": {

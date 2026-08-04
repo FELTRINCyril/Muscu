@@ -257,16 +257,16 @@
         },
         "empty": {
             "title": {
-                "planned": "Programar entrenamiento",
-                "in_progress": "Entrenamiento iniciado",
-                "completed": "Entrenamiento completado",
-                "cancelled": "Entrenamiento cancelado"
+                "planned": "Agregar ejercicio",
+                "in_progress": "Agregar ejercicio",
+                "completed": "Agregar ejercicio",
+                "cancelled": "Agregar ejercicio"
             },
             "description": {
-                "planned": "Toca \"+\" para agregar ejercicios.",
-                "in_progress": "Toca \"+\" para agregar ejercicios.",
-                "completed": "Toca \"+\" para agregar ejercicios.",
-                "cancelled": "Toca \"+\" para agregar ejercicios."
+                "planned": "Toca aquí para agregar el primer ejercicio a tu entrenamiento.",
+                "in_progress": "Toca aquí para agregar el primer ejercicio a tu entrenamiento.",
+                "completed": "Toca aquí para agregar el primer ejercicio a tu entrenamiento.",
+                "cancelled": "Toca aquí para agregar el primer ejercicio a tu entrenamiento."
             }
         },
         "supersets": {

@@ -91,10 +91,15 @@ const EmptyState: FC<EmptyStateProps> = ({ workout }) => {
 
     return (
         <VStack style={styles.container}>
-            <VStack style={styles.emptyContainer}>
+            <Pressable
+                style={styles.emptyContainer}
+                onPress={handleExerciseAdd}
+                accessibilityRole="button"
+                accessibilityLabel={description}
+            >
                 <Text style={styles.emptyTitle}>{title}</Text>
                 <Text style={styles.emptyDescription}>{description}</Text>
-            </VStack>
+            </Pressable>
             <Box style={styles.buttonContainer}>
                 <Pressable style={styles.button} onPress={handleExerciseAdd}>
                     <Box style={styles.buttonContainer}>
