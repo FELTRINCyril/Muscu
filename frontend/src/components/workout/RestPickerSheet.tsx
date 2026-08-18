@@ -1,6 +1,7 @@
 /** Bottom sheet to pick an exercise's rest duration. */
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { DraggableSheet } from '../DraggableSheet';
 import { color, font } from '../../theme/tokens';
 import { CheckIcon } from '../icons';
 import { REST_OPTIONS } from './types';
@@ -14,50 +15,45 @@ type Props = {
 
 export function RestPickerSheet({ visible, selectedSeconds, onSelect, onClose }: Props) {
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
-          <View style={styles.grabberWrap}>
-            <View style={styles.grabber} />
-          </View>
-          <View style={styles.header}>
-            <Text style={styles.title}>Rest Timer</Text>
-            <Pressable onPress={onClose} hitSlop={8}>
-              <Text style={styles.done}>Done</Text>
-            </Pressable>
-          </View>
-          <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-            {REST_OPTIONS.map((opt) => {
-              const selected = opt.seconds === selectedSeconds;
-              return (
-                <Pressable
-                  key={opt.seconds}
-                  onPress={() => onSelect(opt.seconds)}
-                  style={[styles.option, selected && styles.optionSelected]}
-                >
-                  <Text
-                    style={[
-                      styles.optionLabel,
-                      selected
-                        ? styles.optionLabelSelected
-                        : opt.seconds === 0 && styles.optionLabelOff,
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                  {selected && <CheckIcon size={17} color={color.accent} strokeWidth={3} />}
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+    <DraggableSheet visible={visible} onClose={onClose} sheetStyle={styles.sheet}>
+      <View style={styles.grabberWrap}>
+        <View style={styles.grabber} />
+      </View>
+      <View style={styles.header}>
+        <Text style={styles.title}>Rest Timer</Text>
+        <Pressable onPress={onClose} hitSlop={8}>
+          <Text style={styles.done}>Done</Text>
         </Pressable>
-      </Pressable>
-    </Modal>
+      </View>
+      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+        {REST_OPTIONS.map((opt) => {
+          const selected = opt.seconds === selectedSeconds;
+          return (
+            <Pressable
+              key={opt.seconds}
+              onPress={() => onSelect(opt.seconds)}
+              style={[styles.option, selected && styles.optionSelected]}
+            >
+              <Text
+                style={[
+                  styles.optionLabel,
+                  selected
+                    ? styles.optionLabelSelected
+                    : opt.seconds === 0 && styles.optionLabelOff,
+                ]}
+              >
+                {opt.label}
+              </Text>
+              {selected && <CheckIcon size={17} color={color.accent} strokeWidth={3} />}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </DraggableSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: color.surface1,
     borderTopLeftRadius: 22,

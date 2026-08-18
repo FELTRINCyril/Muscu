@@ -8,6 +8,7 @@ import type { Dashboard, RoutineListItem, WorkoutListItem } from '../../src/api/
 import { getDashboard, listWorkouts, startWorkout } from '../../src/api/workouts';
 import { pushWatchState } from '../../src/lib/healthSync';
 import { DumbbellIcon, PlusIcon, SearchIcon } from '../../src/components/icons';
+import { PressableScale } from '../../src/components/PressableScale';
 import { ResumeWorkoutBar } from '../../src/components/ResumeWorkoutBar';
 import { RoutineCard } from '../../src/components/RoutineCard';
 import { RoutineMenuSheet } from '../../src/components/RoutineMenuSheet';
@@ -229,10 +230,10 @@ function Populated({
 
       {/* Quick start */}
       <SectionLabel style={styles.quickStartLabel}>Quick Start</SectionLabel>
-      <Pressable onPress={onStartEmpty} style={({ pressed }) => [styles.quickStart, pressed && styles.quickStartPressed]}>
+      <PressableScale onPress={onStartEmpty} style={styles.quickStart}>
         <PlusIcon size={16} color={color.accent} strokeWidth={2.4} />
         <Text style={styles.quickStartText}>Start Empty Workout</Text>
-      </Pressable>
+      </PressableScale>
 
       {/* My routines */}
       <View style={styles.sectionHead}>
