@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { RoutineListItem } from '../api/types';
 import { color, font, TAP_TARGET } from '../theme/tokens';
+import { PressableScale } from './PressableScale';
 import { PlayIcon } from './icons';
 
 /** A saved routine with avatar, description and an accent "Start Routine" CTA. */
@@ -36,10 +37,10 @@ export function RoutineCard({
           <Text style={styles.overflowGlyph}>⋯</Text>
         </Pressable>
       </View>
-      <Pressable onPress={onStart} style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}>
+      <PressableScale onPress={onStart} style={styles.cta}>
         <PlayIcon size={16} color={color.accentFg} strokeWidth={2.8} />
         <Text style={styles.ctaLabel}>Start Routine</Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }

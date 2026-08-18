@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { color, font } from '../../theme/tokens';
+import { PressableScale } from '../PressableScale';
 import { BackChevronIcon, HeartFilledIcon, TrashIcon } from '../icons';
 
 type Props = {
@@ -102,9 +103,9 @@ export function WorkoutHeader({
             <TrashIcon size={16} color={color.text3} strokeWidth={2.2} />
           </Pressable>
         )}
-        <Pressable onPress={onFinish} style={styles.finish}>
+        <PressableScale onPress={onFinish} style={styles.finish}>
           <Text style={styles.finishText}>Finish</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       <View style={styles.strip}>

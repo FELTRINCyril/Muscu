@@ -29,6 +29,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { haptics } from '../lib/haptics';
+
 const SCREEN_H = Dimensions.get('window').height;
 const SPRING = { dampingRatio: 0.82, duration: 340 } as const;
 const DISMISS_VELOCITY = 800; // px/s downward flick that dismisses regardless of distance
@@ -63,6 +65,8 @@ export function DraggableSheet({ visible, onClose, children, sheetStyle }: Props
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
+  const buzz = () => haptics.light();
+
   const pan = Gesture.Pan()
     .onBegin(() => {
       'worklet';
@@ -81,6 +85,7 @@ export function DraggableSheet({ visible, onClose, children, sheetStyle }: Props
         ty.value = withTiming(sheetH.value, { duration: 200 }, (done) => {
           if (done) runOnJS(setRendered)(false);
         });
+        runOnJS(buzz)();
         runOnJS(onClose)();
       } else {
         ty.value = withSpring(0, { ...SPRING, velocity: e.velocityY });
