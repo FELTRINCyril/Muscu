@@ -5,8 +5,9 @@ module.exports = function (api) {
   api.cache(true);
   return {
     presets: ['babel-preset-expo'],
-    // `react-native-worklets/plugin` (Reanimated 4's worklet transform) MUST be
-    // last in the plugins list.
-    plugins: [['inline-import', { extensions: ['.sql'] }], 'react-native-worklets/plugin'],
+    // Note: babel-preset-expo auto-adds react-native-worklets/plugin (Reanimated
+    // 4's worklet transform) when reanimated is installed — do NOT add it here
+    // too, or worklets get transformed twice and crash at runtime.
+    plugins: [['inline-import', { extensions: ['.sql'] }]],
   };
 };
