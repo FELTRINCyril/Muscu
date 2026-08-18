@@ -19,10 +19,12 @@ import { router, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AppState, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import * as LiveActivity from '../modules/live-activity';
-import { startWorkout } from '../src/api/workouts';
+import { getSettings, startWorkout } from '../src/api/workouts';
+import { setHapticsEnabled } from '../src/lib/haptics';
 import { useLocalDbBootstrap } from '../src/db/bootstrap';
 import { applyPendingCardActions } from '../src/lib/liveActivityBridge';
 import { onWatchAction } from '../src/lib/healthSync';
@@ -81,6 +83,14 @@ export default function RootLayout() {
   // yet (the app is still server-backed); this only guarantees it exists.
   const dbBootstrap = useLocalDbBootstrap();
 
+  // Cache the haptic preference at startup; screens fire haptics before the
+  // workout or settings screen would sync it.
+  useEffect(() => {
+    getSettings()
+      .then((s) => setHapticsEnabled(s.haptic_feedback))
+      .catch(() => {});
+  }, []);
+
   const [fontsLoaded] = useFonts({
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
@@ -97,6 +107,7 @@ export default function RootLayout() {
   }
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider>
       <StatusBar style="light" />
         <Stack
@@ -172,5 +183,6 @@ export default function RootLayout() {
           />
         </Stack>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

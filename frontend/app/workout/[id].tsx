@@ -22,6 +22,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import * as LiveActivity from '../../modules/live-activity';
+import { haptics, setHapticsEnabled } from '../../src/lib/haptics';
 import { buildLiveActivityState } from '../../src/lib/liveActivityState';
 
 import type {
@@ -395,6 +396,7 @@ export default function ActiveWorkout() {
       setRestStartedAt(null);
       setRestEndsAt(null);
       setRestExId(null);
+      haptics.commit(); // rest's up
     }
   }, [restRemaining, restEndsAt]);
 
@@ -580,6 +582,7 @@ export default function ActiveWorkout() {
     (async () => {
       try {
         const s = await getSettings();
+        setHapticsEnabled(s.haptic_feedback);
         if (cancelled || !s.rest_timer_alerts) return;
         setAlertsEnabled(await ensureAlertPermission());
       } catch {
@@ -684,6 +687,7 @@ export default function ActiveWorkout() {
     }
 
     patchSet(exId, setId, { done: willBeDone });
+    if (willBeDone) haptics.commit(); // a set logged — the accent moment
     // The rest belongs to the exercise just finished, but the alert announces
     // what is *coming* — which, after an exercise's last set, is the next
     // exercise. `exercises` has not re-rendered yet, so the set being completed
@@ -698,6 +702,7 @@ export default function ActiveWorkout() {
     if (!set) return;
     const next = TYPE_CYCLE[(TYPE_CYCLE.indexOf(set.type) + 1) % TYPE_CYCLE.length];
     patchSet(exId, setId, { type: next });
+    haptics.select();
     if (persist) write(patchSetApi(setId, { type: next }));
   };
 
@@ -890,6 +895,7 @@ export default function ActiveWorkout() {
   };
 
   const onFinish = async () => {
+    haptics.success(); // workout done
     // Not on unmount: leaving the screen with the workout still running is
     // exactly when the card is useful (see the home screen's resume bar).
     void LiveActivity.end();

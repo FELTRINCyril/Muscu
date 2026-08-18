@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { SettingsOut, SettingsUpdate, Unit } from '../src/api/types';
 import { exportData, getSettings, updateSettings } from '../src/api/workouts';
+import { setHapticsEnabled } from '../src/lib/haptics';
 import {
   BellIcon,
   ChevronRightIcon,
@@ -74,6 +75,7 @@ export default function Settings() {
     getSettings()
       .then((s) => {
         if (!cancelled) setSettings(s);
+        setHapticsEnabled(s.haptic_feedback);
       })
       .catch(() => {
         // Stick with the sensible defaults.
@@ -87,6 +89,7 @@ export default function Settings() {
   /** Local optimistic update + fire-and-forget PATCH; failures are silently ignored. */
   const patch = (delta: SettingsUpdate) => {
     setSettings((s) => ({ ...s, ...delta }));
+    if (delta.haptic_feedback !== undefined) setHapticsEnabled(delta.haptic_feedback);
     updateSettings(delta).catch(() => {});
   };
 
