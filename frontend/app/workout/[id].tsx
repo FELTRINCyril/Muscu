@@ -81,6 +81,7 @@ import { EmptyWorkout } from '../../src/components/workout/EmptyWorkout';
 import { ExerciseCard } from '../../src/components/workout/ExerciseCard';
 import { ReorderExercises } from '../../src/components/workout/ReorderExercises';
 import { RestBar } from '../../src/components/workout/RestBar';
+import { PressableScale } from '../../src/components/PressableScale';
 import { RestPickerSheet } from '../../src/components/workout/RestPickerSheet';
 import { carryFor, completionPatch, resolveSet } from '../../src/components/workout/setCarry';
 import {
@@ -1089,7 +1090,7 @@ export default function ActiveWorkout() {
             />
           ))}
 
-          <Pressable
+          <PressableScale
             style={styles.addExercise}
             onPress={() => {
               const id = workoutId ?? routeId;
@@ -1100,7 +1101,7 @@ export default function ActiveWorkout() {
           >
             <Text style={styles.addExercisePlus}>+</Text>
             <Text style={styles.addExerciseText}>Add Exercise</Text>
-          </Pressable>
+          </PressableScale>
 
           <View style={styles.spacer} />
         </ScrollView>

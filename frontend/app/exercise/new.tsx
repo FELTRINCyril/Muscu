@@ -31,6 +31,7 @@ import {
 } from '../../src/api/workouts';
 import { ChevronRightIcon } from '../../src/components/icons';
 import { MusclePickerSheet } from '../../src/components/MusclePickerSheet';
+import { PressableScale } from '../../src/components/PressableScale';
 import { color, font } from '../../src/theme/tokens';
 
 const EQUIPMENT_OPTIONS: { label: string; value: ExerciseEquipment }[] = [
@@ -332,7 +333,7 @@ export default function NewExercise() {
           <Text style={styles.cancel}>Cancel</Text>
         </Pressable>
         <Text style={styles.title}>New Exercise</Text>
-        <Pressable
+        <PressableScale
           onPress={onSave}
           disabled={!canSave}
           hitSlop={8}
@@ -343,7 +344,7 @@ export default function NewExercise() {
           ) : (
             <Text style={styles.saveText}>Save</Text>
           )}
-        </Pressable>
+        </PressableScale>
       </View>
 
       {/* Muscle picker sheet */}

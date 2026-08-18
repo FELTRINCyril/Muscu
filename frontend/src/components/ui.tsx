@@ -12,6 +12,7 @@ import {
 import { Edge, SafeAreaView } from 'react-native-safe-area-context';
 
 import { color, font, space, TAP_TARGET, type } from '../theme/tokens';
+import { PressableScale } from './PressableScale';
 
 export function Screen({
   children,
@@ -42,31 +43,46 @@ type ButtonProps = {
 export function Button({ label, onPress, variant = 'primary', loading, disabled, icon }: ButtonProps) {
   const isPrimary = variant === 'primary';
   const inert = disabled || loading;
+  const content = loading ? (
+    <ActivityIndicator color={isPrimary ? color.accentFg : color.text2} />
+  ) : (
+    <View style={styles.buttonRow}>
+      {icon}
+      <Text
+        style={[
+          isPrimary ? styles.buttonLabel : styles.ghostLabel,
+          inert && isPrimary && { color: color.text3 },
+        ]}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+
+  // Primary = the one accent action; press-scale it (the ghost keeps its opacity).
+  if (isPrimary) {
+    return (
+      <PressableScale
+        onPress={inert ? undefined : onPress}
+        disabled={inert}
+        style={[styles.button, styles.primary, inert && styles.inert]}
+      >
+        {content}
+      </PressableScale>
+    );
+  }
+
   return (
     <Pressable
       onPress={inert ? undefined : onPress}
       style={({ pressed }) => [
         styles.button,
-        isPrimary ? styles.primary : styles.ghost,
+        styles.ghost,
         inert && styles.inert,
         pressed && !inert && styles.pressed,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={isPrimary ? color.accentFg : color.text2} />
-      ) : (
-        <View style={styles.buttonRow}>
-          {icon}
-          <Text
-            style={[
-              isPrimary ? styles.buttonLabel : styles.ghostLabel,
-              inert && isPrimary && { color: color.text3 },
-            ]}
-          >
-            {label}
-          </Text>
-        </View>
-      )}
+      {content}
     </Pressable>
   );
 }

@@ -1,8 +1,8 @@
 /** One exercise: header, note, rest-timer row, set grid, + Add Set. */
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { color, font } from '../../theme/tokens';
+import { PressableScale } from '../PressableScale';
 import { ChevronRightIcon, ClockRowIcon } from '../icons';
 import { ExerciseMenu } from './ExerciseMenu';
 import { carryFor } from './setCarry';
@@ -63,7 +63,6 @@ export function ExerciseCard({
   onReorderStart,
   onOpenDetail,
 }: Props) {
-  const [addPressed, setAddPressed] = useState(false);
   const hasDone = exercise.sets.some((s) => s.done);
   const firstUndone = exercise.sets.findIndex((s) => !s.done);
   let working = 0;
@@ -155,14 +154,9 @@ export function ExerciseCard({
       </View>
 
       {/* + Add Set */}
-      <Pressable
-        onPress={onAddSet}
-        onPressIn={() => setAddPressed(true)}
-        onPressOut={() => setAddPressed(false)}
-        style={[styles.addSet, addPressed && styles.addSetPressed]}
-      >
-        <Text style={[styles.addSetText, addPressed && styles.addSetTextPressed]}>+ Add Set</Text>
-      </Pressable>
+      <PressableScale onPress={onAddSet} style={styles.addSet}>
+        <Text style={styles.addSetText}>+ Add Set</Text>
+      </PressableScale>
     </View>
   );
 }
@@ -279,7 +273,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addSetPressed: { borderColor: color.accent },
   addSetText: { fontFamily: font.titleSemi, fontSize: 12.5, color: color.text2 },
-  addSetTextPressed: { color: color.accent },
 });

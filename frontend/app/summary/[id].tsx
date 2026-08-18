@@ -27,6 +27,7 @@ import type {
 import { getWorkout, saveAsRoutine } from '../../src/api/workouts';
 import { parseServerDate } from '../../src/lib/serverTime';
 import { CheckIcon, StarIcon } from '../../src/components/icons';
+import { PressableScale } from '../../src/components/PressableScale';
 import { ShareWorkoutSheet } from '../../src/components/ShareWorkoutSheet';
 import { fmtDateOnly, fmtDuration } from '../../src/lib/format';
 import { getSummary } from '../../src/lib/summaryCache';
@@ -314,9 +315,9 @@ export default function WorkoutSummary() {
 
         {/* ACTIONS */}
         <View style={styles.actions}>
-          <Pressable style={styles.doneBtn} onPress={onDone}>
+          <PressableScale style={styles.doneBtn} onPress={onDone}>
             <Text style={styles.doneBtnText}>Done</Text>
-          </Pressable>
+          </PressableScale>
           {/* A session started from a routine already has one; offering to save
               it again would just duplicate that routine. */}
           {!workout.routine_id && (

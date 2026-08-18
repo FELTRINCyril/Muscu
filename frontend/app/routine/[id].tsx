@@ -37,6 +37,7 @@ import {
   SyncIcon,
   TrashIcon,
 } from '../../src/components/icons';
+import { PressableScale } from '../../src/components/PressableScale';
 import { RestPickerSheet } from '../../src/components/workout/RestPickerSheet';
 import { SwipeToDelete } from '../../src/components/workout/SwipeToDelete';
 import {
@@ -372,16 +373,10 @@ export default function RoutineBuilder() {
             </View>
           )}
 
-          <Pressable
-            onPress={openLibrary}
-            style={({ pressed }) => [
-              styles.addExercise,
-              pressed && { borderColor: color.text3 },
-            ]}
-          >
+          <PressableScale onPress={openLibrary} style={styles.addExercise}>
             <Text style={styles.addExercisePlus}>+</Text>
             <Text style={styles.addExerciseText}>Add Exercise</Text>
-          </Pressable>
+          </PressableScale>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -393,14 +388,14 @@ export default function RoutineBuilder() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {titleText}
         </Text>
-        <Pressable
+        <PressableScale
           onPress={onSave}
           disabled={saving}
           hitSlop={8}
           style={[styles.saveBtn, (!canSave || saving) && { opacity: 0.5 }]}
         >
           <Text style={styles.saveText}>Save</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       <RestPickerSheet
@@ -590,15 +585,9 @@ function ExerciseCardBuilder({
       </View>
 
       {/* + Add Set */}
-      <Pressable
-        onPress={onAddSet}
-        style={({ pressed }) => [
-          styles.addSet,
-          pressed && { borderColor: color.accent },
-        ]}
-      >
+      <PressableScale onPress={onAddSet} style={styles.addSet}>
         <Text style={styles.addSetText}>+ Add Set</Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }

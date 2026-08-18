@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ImportResult } from '../src/api/types';
 import { importFile } from '../src/api/workouts';
 import { CheckIcon, UploadIcon } from '../src/components/icons';
+import { PressableScale } from '../src/components/PressableScale';
 import { color, font } from '../src/theme/tokens';
 
 type Step = 'file_pick' | 'preview' | 'progress' | 'success' | 'error';
@@ -352,18 +353,14 @@ function FilePickState({
           Point Ischys at an Ischys JSON backup or a workout CSV export and
           we&apos;ll load every set into your log.
         </Text>
-        <Pressable
+        <PressableScale
           onPress={onPick}
-          style={({ pressed }) => [
-            styles.primaryBtn,
-            styles.chooseBtn,
-            pressed && styles.primaryBtnPressed,
-          ]}
+          style={[styles.primaryBtn, styles.chooseBtn]}
           accessibilityRole="button"
           accessibilityLabel="Browse files"
         >
           <Text style={styles.primaryBtnText}>Browse files</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       {/* WHAT GETS IMPORTED checklist */}
@@ -484,13 +481,12 @@ function PreviewState({
         </>
       )}
 
-      <Pressable
+      <PressableScale
         onPress={onImport}
         disabled={!parse || !parse.supported}
-        style={({ pressed }) => [
+        style={[
           styles.primaryBtn,
           styles.importBtn,
-          pressed && styles.primaryBtnPressed,
           (!parse || !parse.supported) && styles.importBtnDisabled,
         ]}
         accessibilityRole="button"
@@ -498,7 +494,7 @@ function PreviewState({
         accessibilityLabel={importLabel}
       >
         <Text style={styles.importBtnText}>{importLabel}</Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }
@@ -611,18 +607,14 @@ function SuccessState({
           {w}
         </Text>
       ))}
-      <Pressable
+      <PressableScale
         onPress={onDone}
-        style={({ pressed }) => [
-          styles.primaryBtn,
-          styles.doneBtn,
-          pressed && styles.primaryBtnPressed,
-        ]}
+        style={[styles.primaryBtn, styles.doneBtn]}
         accessibilityRole="button"
         accessibilityLabel="Done"
       >
         <Text style={styles.importBtnText}>Done</Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }
@@ -811,7 +803,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
   },
-  primaryBtnPressed: { opacity: 0.9 },
   primaryBtnText: {
     fontFamily: font.displayBold,
     fontSize: 15,

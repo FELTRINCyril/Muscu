@@ -297,13 +297,13 @@ function EmptyState({ onStartEmpty }: { onStartEmpty: () => void }) {
         into an empty session.
       </Text>
       <View style={styles.emptyButtons}>
-        <Pressable
+        <PressableScale
           onPress={() => router.push('/routine/new')}
-          style={({ pressed }) => [styles.emptyPrimary, pressed && styles.emptyPrimaryPressed]}
+          style={styles.emptyPrimary}
         >
           <PlusIcon size={17} color={color.accentFg} strokeWidth={2.6} />
           <Text style={styles.emptyPrimaryText}>Create your first routine</Text>
-        </Pressable>
+        </PressableScale>
         <Pressable onPress={onStartEmpty} style={({ pressed }) => [styles.emptySecondary, pressed && styles.emptySecondaryPressed]}>
           <Text style={styles.emptySecondaryText}>Start empty workout</Text>
         </Pressable>
@@ -482,7 +482,6 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     backgroundColor: color.accent,
   },
-  emptyPrimaryPressed: { opacity: 0.9 },
   emptyPrimaryText: {
     fontFamily: font.displayBold,
     fontSize: 15,

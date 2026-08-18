@@ -28,6 +28,7 @@ import {
 import { CheckIcon, ChevronRightIcon, PlusIcon, SearchIcon } from '../src/components/icons';
 import { setPendingSelection } from '../src/lib/pendingSelection';
 import { ExerciseAvatar } from '../src/components/ExerciseAvatar';
+import { PressableScale } from '../src/components/PressableScale';
 import { mediaUrl } from '../src/lib/media';
 import { color, font } from '../src/theme/tokens';
 
@@ -334,14 +335,10 @@ export default function ExerciseLibrary() {
           pointerEvents="box-none"
           style={[styles.ctaWrap, { bottom: 24 + insets.bottom }]}
         >
-          <Pressable
+          <PressableScale
             onPress={handleAdd}
             disabled={adding}
-            style={({ pressed }) => [
-              styles.cta,
-              pressed && { opacity: 0.9 },
-              adding && { opacity: 0.7 },
-            ]}
+            style={[styles.cta, adding && { opacity: 0.7 }]}
           >
             {adding ? (
               <ActivityIndicator color={color.accentFg} />
@@ -350,7 +347,7 @@ export default function ExerciseLibrary() {
                 {`Add ${selCount} ${selCount === 1 ? 'exercise' : 'exercises'}`}
               </Text>
             )}
-          </Pressable>
+          </PressableScale>
         </View>
       ) : null}
     </View>
