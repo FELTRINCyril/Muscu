@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { color, font, TAP_TARGET } from '../theme/tokens';
+import { DraggableSheet } from './DraggableSheet';
 import { CopyIcon, DumbbellIcon, EditIcon, ReorderIcon, TrashIcon } from './icons';
 
 type Props = {
@@ -109,65 +110,64 @@ export function RoutineMenuSheet({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable
-          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) }]}
-          onPress={() => {}}
-        >
-          <View style={styles.grabberWrap}>
-            <View style={styles.grabber} />
-          </View>
+    <>
+      <DraggableSheet
+        visible={visible}
+        onClose={onClose}
+        sheetStyle={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) }]}
+      >
+        <View style={styles.grabberWrap}>
+          <View style={styles.grabber} />
+        </View>
 
-          <View style={styles.identityStrip}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarInitials}>{initials ?? ''}</Text>
-            </View>
-            <View style={styles.identityCol}>
-              <Text style={styles.identityName} numberOfLines={1} ellipsizeMode="tail">
-                {routineName}
-              </Text>
-              {!!subline && <Text style={styles.identitySub}>{subline}</Text>}
-            </View>
+        <View style={styles.identityStrip}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarInitials}>{initials ?? ''}</Text>
           </View>
+          <View style={styles.identityCol}>
+            <Text style={styles.identityName} numberOfLines={1} ellipsizeMode="tail">
+              {routineName}
+            </Text>
+            {!!subline && <Text style={styles.identitySub}>{subline}</Text>}
+          </View>
+        </View>
 
-          <View style={styles.rows}>
-            {onEdit && (
-              <MenuRow
-                icon={<DumbbellIcon size={20} color={color.text2} strokeWidth={2} />}
-                label="Edit exercises"
-                onPress={handleEditTap}
-                showDivider={false}
-              />
-            )}
+        <View style={styles.rows}>
+          {onEdit && (
             <MenuRow
-              icon={<EditIcon size={20} color={color.text2} strokeWidth={2} />}
-              label="Rename"
-              onPress={handleRenameTap}
+              icon={<DumbbellIcon size={20} color={color.text2} strokeWidth={2} />}
+              label="Edit exercises"
+              onPress={handleEditTap}
               showDivider={false}
             />
-            <MenuRow
-              icon={<CopyIcon size={20} color={color.text2} strokeWidth={2} />}
-              label="Duplicate"
-              onPress={handleDuplicateTap}
-              showDivider={false}
-            />
-            <MenuRow
-              icon={<ReorderIcon size={20} color={color.text2} strokeWidth={2} />}
-              label="Reorder routines"
-              onPress={handleReorderTap}
-              showDivider
-            />
-            <MenuRow
-              icon={<TrashIcon size={20} color={color.error} strokeWidth={2} />}
-              label="Delete"
-              labelColor={color.error}
-              onPress={handleDeleteTap}
-              showDivider={false}
-            />
-          </View>
-        </Pressable>
-      </Pressable>
+          )}
+          <MenuRow
+            icon={<EditIcon size={20} color={color.text2} strokeWidth={2} />}
+            label="Rename"
+            onPress={handleRenameTap}
+            showDivider={false}
+          />
+          <MenuRow
+            icon={<CopyIcon size={20} color={color.text2} strokeWidth={2} />}
+            label="Duplicate"
+            onPress={handleDuplicateTap}
+            showDivider={false}
+          />
+          <MenuRow
+            icon={<ReorderIcon size={20} color={color.text2} strokeWidth={2} />}
+            label="Reorder routines"
+            onPress={handleReorderTap}
+            showDivider
+          />
+          <MenuRow
+            icon={<TrashIcon size={20} color={color.error} strokeWidth={2} />}
+            label="Delete"
+            labelColor={color.error}
+            onPress={handleDeleteTap}
+            showDivider={false}
+          />
+        </View>
+      </DraggableSheet>
 
       {/* Inline rename modal — kept self-contained inside the sheet. */}
       <Modal
@@ -216,7 +216,7 @@ export function RoutineMenuSheet({
           </Pressable>
         </Pressable>
       </Modal>
-    </Modal>
+    </>
   );
 }
 
@@ -248,7 +248,6 @@ function MenuRow({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: color.surface1,
     borderTopLeftRadius: 22,

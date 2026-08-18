@@ -10,7 +10,7 @@
  * (rubber-band), §12 (dim to focus).
  */
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { Children, useEffect, useState } from 'react';
 import {
   Dimensions,
   Modal,
@@ -42,9 +42,15 @@ type Props = {
   children: ReactNode;
   /** Style for the sheet surface (background, radius, maxHeight, shadow). */
   sheetStyle?: StyleProp<ViewStyle>;
+  /**
+   * When the sheet contains its own scroll view, a whole-sheet pan fights the
+   * scroll. Set this to attach the pan to only the *first* child (the grabber +
+   * header "grab handle") — the remaining children then scroll freely.
+   */
+  handleOnly?: boolean;
 };
 
-export function DraggableSheet({ visible, onClose, children, sheetStyle }: Props) {
+export function DraggableSheet({ visible, onClose, children, sheetStyle, handleOnly }: Props) {
   // Stay mounted through the exit animation.
   const [rendered, setRendered] = useState(visible);
 
@@ -100,28 +106,40 @@ export function DraggableSheet({ visible, onClose, children, sheetStyle }: Props
 
   if (!rendered) return null;
 
+  const onSheetLayout = (ev: { nativeEvent: { layout: { height: number } } }) => {
+    const h = ev.nativeEvent.layout.height;
+    sheetH.value = h;
+    if (needsEntrance.value) {
+      needsEntrance.value = false;
+      ty.value = h; // start exactly one sheet-height below (off-screen)
+      ty.value = withSpring(0, SPRING); // slide up
+    }
+  };
+
+  // handleOnly: pan only the first child (grabber + header) so a nested
+  // ScrollView in the remaining children keeps scrolling normally.
+  const kids = Children.toArray(children);
+
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.root}>
         <Animated.View style={[styles.backdrop, backdropAnim]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
-        <GestureDetector gesture={pan}>
-          <Animated.View
-            style={[sheetStyle, sheetAnim]}
-            onLayout={(ev) => {
-              const h = ev.nativeEvent.layout.height;
-              sheetH.value = h;
-              if (needsEntrance.value) {
-                needsEntrance.value = false;
-                ty.value = h; // start exactly one sheet-height below (off-screen)
-                ty.value = withSpring(0, SPRING); // slide up
-              }
-            }}
-          >
-            {children}
+        {handleOnly ? (
+          <Animated.View style={[sheetStyle, sheetAnim]} onLayout={onSheetLayout}>
+            <GestureDetector gesture={pan}>
+              <View>{kids[0]}</View>
+            </GestureDetector>
+            {kids.slice(1)}
           </Animated.View>
-        </GestureDetector>
+        ) : (
+          <GestureDetector gesture={pan}>
+            <Animated.View style={[sheetStyle, sheetAnim]} onLayout={onSheetLayout}>
+              {children}
+            </Animated.View>
+          </GestureDetector>
+        )}
       </View>
     </Modal>
   );

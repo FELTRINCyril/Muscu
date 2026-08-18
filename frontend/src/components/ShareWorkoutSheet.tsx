@@ -11,7 +11,6 @@
 import { useRef, useState } from 'react';
 import {
   Alert,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -29,6 +28,8 @@ import type { WorkoutSummaryOut } from '../api/types';
 import { fmtDuration } from '../lib/format';
 import { parseServerDate } from '../lib/serverTime';
 import { color, font } from '../theme/tokens';
+import { DraggableSheet } from './DraggableSheet';
+import { PressableScale } from './PressableScale';
 import { StarIcon } from './icons';
 import { Wordmark } from './Wordmark';
 
@@ -182,113 +183,110 @@ export function ShareWorkoutSheet({ visible, summary, onClose }: Props) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+    <DraggableSheet
+      visible={visible}
+      onClose={onClose}
+      sheetStyle={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
+    >
+      <View style={styles.grabberWrap}>
+        <View style={styles.grabber} />
+      </View>
+
+      <View style={styles.header}>
+        <Text style={styles.title}>Share workout</Text>
         <Pressable
-          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
-          onPress={() => {}}
+          onPress={onClose}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Close share sheet"
+          style={styles.closeBtn}
         >
-          <View style={styles.grabberWrap}>
-            <View style={styles.grabber} />
-          </View>
-
-          <View style={styles.header}>
-            <Text style={styles.title}>Share workout</Text>
-            <Pressable
-              onPress={onClose}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Close share sheet"
-              style={styles.closeBtn}
-            >
-              <Svg width={14} height={14} viewBox="0 0 24 24">
-                <Path
-                  d="M18 6L6 18M6 6l12 12"
-                  stroke={color.text2}
-                  strokeWidth={2.2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </Svg>
-            </Pressable>
-          </View>
-
-          <View style={styles.body}>
-            {summary ? (
-              <>
-                <ViewShot
-                  ref={viewShotRef}
-                  options={{ format: 'png', quality: 1, result: 'tmpfile' }}
-                  style={styles.previewShot}
-                >
-                  <PreviewCard layout={layout} summary={summary} />
-                </ViewShot>
-
-                <View style={styles.chipsRow}>
-                  {LAYOUTS.map((l) => {
-                    const active = l.key === layout;
-                    return (
-                      <Pressable
-                        key={l.key}
-                        onPress={() => setLayout(l.key)}
-                        style={[styles.chip, active && styles.chipActive]}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
-                      >
-                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                          {l.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-
-                <View style={styles.actionsRow}>
-                  <Pressable
-                    onPress={onSaveImage}
-                    disabled={busy}
-                    style={[styles.saveBtn, busy && styles.actionDisabled]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Save workout image to Photos"
-                  >
-                    <DownloadIcon tint={color.text1} />
-                    <Text style={styles.saveBtnText}>Save image</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={onShare}
-                    disabled={busy}
-                    style={[styles.shareBtn, busy && styles.actionDisabled]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Share workout image"
-                  >
-                    <ShareIcon tint={color.accentFg} />
-                    <Text style={styles.shareBtnText}>Share</Text>
-                  </Pressable>
-                </View>
-              </>
-            ) : (
-              <>
-                <View style={[styles.previewShot, styles.emptyPreview]}>
-                  <Text style={styles.emptyText}>Nothing to share</Text>
-                  <Text style={styles.emptySub}>This workout has no data yet.</Text>
-                </View>
-                <View style={styles.actionsRow}>
-                  <View style={[styles.saveBtn, styles.actionDisabled]}>
-                    <DownloadIcon tint={color.text3} />
-                    <Text style={[styles.saveBtnText, styles.disabledText]}>Save image</Text>
-                  </View>
-                  <View style={[styles.shareBtn, styles.actionDisabled]}>
-                    <ShareIcon tint={color.text3} />
-                    <Text style={[styles.shareBtnText, styles.disabledText]}>Share</Text>
-                  </View>
-                </View>
-              </>
-            )}
-          </View>
+          <Svg width={14} height={14} viewBox="0 0 24 24">
+            <Path
+              d="M18 6L6 18M6 6l12 12"
+              stroke={color.text2}
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              fill="none"
+            />
+          </Svg>
         </Pressable>
-      </Pressable>
-    </Modal>
+      </View>
+
+      <View style={styles.body}>
+        {summary ? (
+          <>
+            <ViewShot
+              ref={viewShotRef}
+              options={{ format: 'png', quality: 1, result: 'tmpfile' }}
+              style={styles.previewShot}
+            >
+              <PreviewCard layout={layout} summary={summary} />
+            </ViewShot>
+
+            <View style={styles.chipsRow}>
+              {LAYOUTS.map((l) => {
+                const active = l.key === layout;
+                return (
+                  <Pressable
+                    key={l.key}
+                    onPress={() => setLayout(l.key)}
+                    style={[styles.chip, active && styles.chipActive]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {l.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.actionsRow}>
+              <PressableScale
+                onPress={onSaveImage}
+                disabled={busy}
+                style={[styles.saveBtn, busy && styles.actionDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Save workout image to Photos"
+              >
+                <DownloadIcon tint={color.text1} />
+                <Text style={styles.saveBtnText}>Save image</Text>
+              </PressableScale>
+              <PressableScale
+                onPress={onShare}
+                disabled={busy}
+                style={[styles.shareBtn, busy && styles.actionDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Share workout image"
+              >
+                <ShareIcon tint={color.accentFg} />
+                <Text style={styles.shareBtnText}>Share</Text>
+              </PressableScale>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={[styles.previewShot, styles.emptyPreview]}>
+              <Text style={styles.emptyText}>Nothing to share</Text>
+              <Text style={styles.emptySub}>This workout has no data yet.</Text>
+            </View>
+            <View style={styles.actionsRow}>
+              <View style={[styles.saveBtn, styles.actionDisabled]}>
+                <DownloadIcon tint={color.text3} />
+                <Text style={[styles.saveBtnText, styles.disabledText]}>Save image</Text>
+              </View>
+              <View style={[styles.shareBtn, styles.actionDisabled]}>
+                <ShareIcon tint={color.text3} />
+                <Text style={[styles.shareBtnText, styles.disabledText]}>Share</Text>
+              </View>
+            </View>
+          </>
+        )}
+      </View>
+    </DraggableSheet>
   );
 }
 
@@ -391,11 +389,6 @@ function StatCell({ label, value, unit }: { label: string; value: string; unit?:
 // ---------------------------------------------------------------------------
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    justifyContent: 'flex-end',
-  },
   sheet: {
     backgroundColor: color.surface1,
     borderTopLeftRadius: 22,

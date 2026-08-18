@@ -12,7 +12,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,6 +23,7 @@ import {
 import type { MuscleOut } from '../api/types';
 import { listMuscles } from '../api/workouts';
 import { color, font } from '../theme/tokens';
+import { DraggableSheet } from './DraggableSheet';
 import { CheckIcon, SearchIcon } from './icons';
 
 /** Module-scope cache — shared across both mount lifetimes of the sheet. */
@@ -142,117 +142,114 @@ export function MusclePickerSheet({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
-          <View style={styles.grabberWrap}>
-            <View style={styles.grabber} />
-          </View>
-          <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
-            <Pressable
-              onPress={onClose}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Done"
-            >
-              <Text style={styles.done}>Done</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.searchWrap}>
-            <View style={styles.searchIcon} pointerEvents="none">
-              <SearchIcon size={15} color={color.text3} strokeWidth={2.2} />
-            </View>
-            <TextInput
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search muscles"
-              placeholderTextColor={color.text3}
-              autoCorrect={false}
-              autoCapitalize="none"
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              style={[
-                styles.searchInput,
-                searchFocused && { borderColor: color.accent },
-              ]}
-            />
-          </View>
-
-          <ScrollView
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+    <DraggableSheet visible={visible} onClose={onClose} sheetStyle={styles.sheet} handleOnly>
+      <View>
+        <View style={styles.grabberWrap}>
+          <View style={styles.grabber} />
+        </View>
+        <View style={styles.header}>
+          <Text style={styles.title}>{title}</Text>
+          <Pressable
+            onPress={onClose}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Done"
           >
-            {loading ? (
-              <View style={styles.loading}>
-                <ActivityIndicator color={color.text3} />
-              </View>
-            ) : filtered.length === 0 ? (
-              <Text style={styles.empty}>No muscles match "{query.trim()}"</Text>
-            ) : (
-              grouped.map(({ group, items }) => (
-                <View key={group} style={styles.group}>
-                  <Text style={styles.groupLabel}>{group.toUpperCase()}</Text>
-                  {items.map((m) => {
-                    const selected = isSelected(m);
-                    return (
-                      <Pressable
-                        key={m.id}
-                        onPress={() => onRowPress(m)}
-                        style={[styles.row, selected && styles.rowSelected]}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
+            <Text style={styles.done}>Done</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.searchWrap}>
+        <View style={styles.searchIcon} pointerEvents="none">
+          <SearchIcon size={15} color={color.text3} strokeWidth={2.2} />
+        </View>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search muscles"
+          placeholderTextColor={color.text3}
+          autoCorrect={false}
+          autoCapitalize="none"
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
+          style={[
+            styles.searchInput,
+            searchFocused && { borderColor: color.accent },
+          ]}
+        />
+      </View>
+
+      <ScrollView
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {loading ? (
+          <View style={styles.loading}>
+            <ActivityIndicator color={color.text3} />
+          </View>
+        ) : filtered.length === 0 ? (
+          <Text style={styles.empty}>No muscles match "{query.trim()}"</Text>
+        ) : (
+          grouped.map(({ group, items }) => (
+            <View key={group} style={styles.group}>
+              <Text style={styles.groupLabel}>{group.toUpperCase()}</Text>
+              {items.map((m) => {
+                const selected = isSelected(m);
+                return (
+                  <Pressable
+                    key={m.id}
+                    onPress={() => onRowPress(m)}
+                    style={[styles.row, selected && styles.rowSelected]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                  >
+                    <Text style={styles.rowName} numberOfLines={1}>
+                      {m.name}
+                    </Text>
+                    {mode === 'primary' ? (
+                      <View
+                        style={[
+                          styles.primaryMark,
+                          {
+                            borderColor: selected ? color.accent : color.border,
+                            backgroundColor: selected ? color.accent : 'transparent',
+                          },
+                        ]}
                       >
-                        <Text style={styles.rowName} numberOfLines={1}>
-                          {m.name}
-                        </Text>
-                        {mode === 'primary' ? (
-                          <View
-                            style={[
-                              styles.primaryMark,
-                              {
-                                borderColor: selected ? color.accent : color.border,
-                                backgroundColor: selected ? color.accent : 'transparent',
-                              },
-                            ]}
-                          >
-                            {selected ? (
-                              <CheckIcon size={13} color={color.accentFg} strokeWidth={3.4} />
-                            ) : null}
-                          </View>
-                        ) : (
-                          <View
-                            style={[
-                              styles.checkbox,
-                              {
-                                borderColor: selected ? color.accent : color.border,
-                                backgroundColor: selected ? color.accent : 'transparent',
-                              },
-                            ]}
-                          >
-                            {selected ? (
-                              <CheckIcon size={13} color={color.accentFg} strokeWidth={3.4} />
-                            ) : null}
-                          </View>
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ))
-            )}
-          </ScrollView>
-        </Pressable>
-      </Pressable>
-    </Modal>
+                        {selected ? (
+                          <CheckIcon size={13} color={color.accentFg} strokeWidth={3.4} />
+                        ) : null}
+                      </View>
+                    ) : (
+                      <View
+                        style={[
+                          styles.checkbox,
+                          {
+                            borderColor: selected ? color.accent : color.border,
+                            backgroundColor: selected ? color.accent : 'transparent',
+                          },
+                        ]}
+                      >
+                        {selected ? (
+                          <CheckIcon size={13} color={color.accentFg} strokeWidth={3.4} />
+                        ) : null}
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))
+        )}
+      </ScrollView>
+    </DraggableSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: color.surface1,
     borderTopLeftRadius: 22,
