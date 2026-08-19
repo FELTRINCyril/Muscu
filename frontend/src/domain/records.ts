@@ -13,7 +13,13 @@
  */
 import type { RecordMetric } from '../api/types.ts';
 
-type SetLike = { type: string; weight: number | null; reps: number | null; done: boolean };
+type SetLike = {
+  type: string;
+  weight: number | null;
+  reps: number | null;
+  done: boolean;
+  kind?: 'weighted' | 'bodyweight';
+};
 
 /** Epley 1RM (mirrors domain/stats.ts). */
 function estimated1rm(weight: number | null, reps: number | null): number | null {
@@ -22,14 +28,20 @@ function estimated1rm(weight: number | null, reps: number | null): number | null
   return Math.round(weight * (1 + reps / 30) * 100) / 100;
 }
 
-/** Kg of volume for one set; 0 for warmups/undone/missing (mirrors domain/stats.ts). */
-function setVolume(s: SetLike): number {
-  if (!s.done || s.type === 'warmup' || s.weight === null || s.reps === null) return 0;
+/** Kg of volume for one set; bodyweight movements add `bodyweightKg` (mirrors domain/stats.ts). */
+function setVolume(s: SetLike, bodyweightKg = 0): number {
+  if (!s.done || s.type === 'warmup' || s.reps === null) return 0;
+  if (s.kind === 'bodyweight') {
+    const load = bodyweightKg + (s.weight ?? 0);
+    return load > 0 ? load * s.reps : 0;
+  }
+  if (s.weight === null) return 0;
   return s.weight * s.reps;
 }
 
 export type PRSet = SetLike & { id: string };
-export type PRSession = { id: string; achievedAt: number; sets: PRSet[] };
+/** A session's sets plus the mover's bodyweight (kg) for volume; 0/absent = unknown. */
+export type PRSession = { id: string; achievedAt: number; sets: PRSet[]; bodyweightKg?: number };
 
 export type RecordValue = {
   metric: RecordMetric;
@@ -114,7 +126,7 @@ export function computeRecords(sessions: PRSession[]): Partial<Record<RecordMetr
   let bestVol = 0;
   let bestAt: number | null = null;
   for (const sess of sessions) {
-    const vol = sess.sets.reduce((sum, s) => sum + setVolume(s), 0);
+    const vol = sess.sets.reduce((sum, s) => sum + setVolume(s, sess.bodyweightKg ?? 0), 0);
     if (vol > bestVol) {
       bestSessId = sess.id;
       bestVol = vol;

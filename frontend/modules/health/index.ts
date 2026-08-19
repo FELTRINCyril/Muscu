@@ -14,6 +14,7 @@ type HealthNativeModule = {
   saveWorkout(startedAt: number, endedAt: number, energyKcal: number): Promise<boolean>;
   hasWorkout(startedAt: number, endedAt: number): Promise<boolean>;
   readWorkoutMetrics(startedAt: number, endedAt: number): Promise<WorkoutMetrics>;
+  readBodyMass(): Promise<number | null>;
   startHeartRateUpdates(): void;
   stopHeartRateUpdates(): void;
   startWatchWorkout(): void;
@@ -75,6 +76,21 @@ export const readWorkoutMetrics = async (
   native
     ? native.readWorkoutMetrics(startedAt, endedAt)
     : { avgHr: null, maxHr: null, energyKcal: null };
+
+/**
+ * The user's most recent bodyweight from Apple Health, in kilograms, or null if
+ * none is recorded / read access was refused / the native module predates this.
+ * Null on an older native module rather than throwing, so a stale build degrades
+ * to "no reading" instead of crashing the settings screen.
+ */
+export const readBodyMass = async (): Promise<number | null> => {
+  if (!native || typeof native.readBodyMass !== 'function') return null;
+  try {
+    return await native.readBodyMass();
+  } catch {
+    return null;
+  }
+};
 
 /**
  * Streams live heart rate from a recording Apple Watch. The listener fires only

@@ -68,19 +68,24 @@ export function muscleLabel(primary: MuscleRow | null | undefined): string {
 export async function completedSessionsFor(
   exerciseId: string,
   exec: Executor = db,
-): Promise<{ workoutId: string; startedAt: number; sets: WorkoutSetRow[] }[]> {
+): Promise<{ workoutId: string; startedAt: number; bodyweightKg: number | null; sets: WorkoutSetRow[] }[]> {
   const rows = await exec
-    .select({ workoutId: schema.workouts.id, startedAt: schema.workouts.startedAt, set: schema.workoutSets })
+    .select({
+      workoutId: schema.workouts.id,
+      startedAt: schema.workouts.startedAt,
+      bodyweightKg: schema.workouts.bodyweightKg,
+      set: schema.workoutSets,
+    })
     .from(schema.workouts)
     .innerJoin(schema.workoutExercises, eq(schema.workoutExercises.workoutId, schema.workouts.id))
     .innerJoin(schema.workoutSets, eq(schema.workoutSets.workoutExerciseId, schema.workoutExercises.id))
     .where(and(eq(schema.workoutExercises.exerciseId, exerciseId), eq(schema.workouts.status, 'completed')));
 
-  const byWorkout = new Map<string, { workoutId: string; startedAt: number; sets: WorkoutSetRow[] }>();
+  const byWorkout = new Map<string, { workoutId: string; startedAt: number; bodyweightKg: number | null; sets: WorkoutSetRow[] }>();
   for (const r of rows) {
     let s = byWorkout.get(r.workoutId);
     if (!s) {
-      s = { workoutId: r.workoutId, startedAt: r.startedAt, sets: [] };
+      s = { workoutId: r.workoutId, startedAt: r.startedAt, bodyweightKg: r.bodyweightKg, sets: [] };
       byWorkout.set(r.workoutId, s);
     }
     s.sets.push(r.set as WorkoutSetRow);

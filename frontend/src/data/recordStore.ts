@@ -9,6 +9,7 @@ import { db, type Executor } from '../db/client';
 import * as schema from '../db/schema';
 import type { RecordMetric } from '../api/types';
 import { computeRecords, type PRSession, type RecordValue } from '../domain/records';
+import { getBodyweightKg, resolveWorkoutBodyweight } from '../lib/bodyweight';
 import { LOCAL_USER_ID, newId, nowMs } from './ids';
 import { completedSessionsFor } from './queries';
 
@@ -32,15 +33,23 @@ export async function recomputeForExercise(
   exec: Executor = db,
 ): Promise<Partial<Record<RecordMetric, RecordValue>>> {
   const sessions = await completedSessionsFor(exerciseId, exec);
+  // Bodyweight movements count the mover's mass toward volume. This exercise's
+  // kind is uniform across these sessions; each session uses its snapshot mass,
+  // falling back to the current setting for pre-feature history.
+  const exRow = (await exec.select({ kind: schema.exercises.kind }).from(schema.exercises).where(eq(schema.exercises.id, exerciseId)))[0];
+  const kind = (exRow?.kind as 'weighted' | 'bodyweight') ?? 'weighted';
+  const currentBw = await getBodyweightKg();
   const prSessions: PRSession[] = sessions.map((s) => ({
     id: s.workoutId,
     achievedAt: s.startedAt,
+    bodyweightKg: resolveWorkoutBodyweight(s.bodyweightKg, currentBw),
     sets: s.sets.map((set) => ({
       id: set.id,
       type: set.type,
       weight: set.weight,
       reps: set.reps,
       done: set.done !== 0,
+      kind,
     })),
   }));
   const computed = computeRecords(prSessions);

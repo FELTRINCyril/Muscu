@@ -8,6 +8,13 @@
       "when": 1783845882616,
       "tag": "0000_silly_riptide",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1787117640763,
+      "tag": "0001_add_bodyweight_kg",
+      "breakpoints": true
     }
   ]
 }

@@ -3,18 +3,26 @@
  *
  * Rules (from the Ischys Design System):
  * - Warmup sets are **excluded** from volume and working-set counts.
- * - Volume is measured in kilograms; bodyweight sets (no weight) contribute 0 kg.
+ * - Volume is measured in kilograms. A weighted set contributes `weight × reps`.
+ *   A bodyweight set contributes `(bodyweight + added) × reps` when a bodyweight
+ *   is known, else 0 — so nothing changes until the user sets their bodyweight.
  * - Only **completed** (`done`) sets count toward a finished workout's stats.
  *
  * No imports beyond `import type` so `node --test` type-stripping can run it.
  */
 
-/** A set's shape for stats: `type` is the set-type string (e.g. 'normal', 'warmup'). */
+/**
+ * A set's shape for stats. `type` is the set-type string (e.g. 'normal',
+ * 'warmup'). `kind` is the movement kind: for `'bodyweight'`, `weight` is the
+ * *added* load (null = none, negative = assisted) and the mover's bodyweight is
+ * added on top; absent/`'weighted'` uses `weight` directly.
+ */
 export type SetLike = {
   type: string;
   weight: number | null;
   reps: number | null;
   done: boolean;
+  kind?: 'weighted' | 'bodyweight';
 };
 
 // The original used banker's rounding, but these values never land on a .5
@@ -34,21 +42,29 @@ export function estimated1rm(weight: number | null, reps: number | null): number
 }
 
 /**
- * Kilograms of volume for a single set.
+ * Kilograms of volume for a single set. `bodyweightKg` is the mover's mass used
+ * for bodyweight movements (0 = unknown → they contribute nothing).
  *
- * Zero for warmups, incomplete sets, or sets missing weight/reps.
+ * Zero for warmups, incomplete sets, or sets missing reps (or, for weighted
+ * sets, missing weight).
  */
-export function setVolume(s: SetLike): number {
-  if (!s.done || s.type === 'warmup') return 0;
-  if (s.weight === null || s.reps === null) return 0;
+export function setVolume(s: SetLike, bodyweightKg = 0): number {
+  if (!s.done || s.type === 'warmup' || s.reps === null) return 0;
+  if (s.kind === 'bodyweight') {
+    // (bodyweight + added) × reps. A non-positive total load — no bodyweight set
+    // and/or an assist that cancels it — contributes nothing.
+    const load = bodyweightKg + (s.weight ?? 0);
+    return load > 0 ? load * s.reps : 0;
+  }
+  if (s.weight === null) return 0;
   return s.weight * s.reps;
 }
 
 const isWorking = (s: SetLike): boolean => s.done && s.type !== 'warmup';
 
 /** Total kg volume across completed, non-warmup sets. */
-export function workoutVolume(sets: SetLike[]): number {
-  return sets.reduce((total, s) => total + setVolume(s), 0);
+export function workoutVolume(sets: SetLike[], bodyweightKg = 0): number {
+  return sets.reduce((total, s) => total + setVolume(s, bodyweightKg), 0);
 }
 
 /** Number of completed, non-warmup sets (the 'SETS' stat). */
@@ -70,12 +86,12 @@ export function countWorkingSets(sets: SetLike[]): number {
  * (e.g. bodyweight-only sets for a weight metric), so the caller drops it.
  * An unknown metric falls back to `est_1rm`.
  */
-export function sessionMetric(sets: SetLike[], metric: string): number | null {
+export function sessionMetric(sets: SetLike[], metric: string, bodyweightKg = 0): number | null {
   const working = sets.filter(isWorking);
   if (working.length === 0) return null;
 
   if (metric === 'best_volume') {
-    const vol = working.reduce((total, s) => total + setVolume(s), 0);
+    const vol = working.reduce((total, s) => total + setVolume(s, bodyweightKg), 0);
     return vol > 0 ? round1(vol) : null;
   }
 

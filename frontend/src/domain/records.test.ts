@@ -30,6 +30,36 @@ const benchHistory = (): PRSession[] => [
   ]),
 ];
 
+// A bodyweight-movement set (weight = added load; mover mass comes from session).
+const bwset = (id: string, weight: number | null, reps: number, done = true): PRSet => ({
+  id,
+  type: 'normal',
+  weight,
+  reps,
+  done,
+  kind: 'bodyweight',
+});
+
+// --- computeRecords: bodyweight best_volume ---
+
+test('best_volume counts the mover mass per session for bodyweight movements', () => {
+  const sessions: PRSession[] = [
+    // 80 kg mover: 80*10 + 80*8 = 1440
+    { id: 'w1', achievedAt: at(3), bodyweightKg: 80, sets: [bwset('a', null, 10), bwset('b', null, 8)] },
+    // 82 kg mover with +5 kg: (82+5)*6 = 522
+    { id: 'w2', achievedAt: at(7), bodyweightKg: 82, sets: [bwset('c', 5, 6)] },
+  ];
+  const vol = computeRecords(sessions).best_volume!;
+  assert.equal(vol.value, 1440);
+  assert.equal(vol.workoutId, 'w1');
+});
+
+test('bodyweight best_volume is zero when the mover mass is unknown', () => {
+  // No bodyweightKg on the session and no added load -> nothing to count.
+  const sessions: PRSession[] = [{ id: 'w1', achievedAt: at(3), sets: [bwset('a', null, 10)] }];
+  assert.equal(computeRecords(sessions).best_volume, undefined);
+});
+
 // --- computeRecords ---
 
 test('best_set is the heaviest working set', () => {

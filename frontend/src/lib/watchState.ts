@@ -22,7 +22,14 @@ type SetLike = {
   prevReps?: string;
   done: boolean;
 };
-type ExerciseLike = { name: string; equipment: string; rest: number; sets: readonly SetLike[] };
+type ExerciseLike = {
+  name: string;
+  equipment: string;
+  rest: number;
+  /** For a bodyweight movement, `weight` is added load and the mover's mass is added on top. */
+  kind?: 'weighted' | 'bodyweight';
+  sets: readonly SetLike[];
+};
 
 type Resolve = (
   sets: readonly SetLike[],
@@ -68,8 +75,9 @@ export type WatchState = {
  */
 const parseWeight = (s: string): number => parseFloat(String(s ?? '').replace(',', '.'));
 
-/** Session totals: volume + set counts over done, non-warmup sets. */
-function totals(exercises: readonly (ExerciseLike & { id: string })[]) {
+/** Session totals: volume + set counts over done, non-warmup sets. A bodyweight
+ *  movement counts (bodyweight + added) × reps; 0 bodyweight means it adds 0. */
+function totals(exercises: readonly (ExerciseLike & { id: string })[], bodyweightKg: number) {
   let volumeKg = 0;
   let setsDone = 0;
   let setsTotal = 0;
@@ -77,7 +85,14 @@ function totals(exercises: readonly (ExerciseLike & { id: string })[]) {
     for (const s of ex.sets) {
       setsTotal += 1;
       if (s.done && s.type !== 'warmup') {
-        volumeKg += (parseWeight(s.weight) || 0) * (parseFloat(s.reps) || 0);
+        const reps = parseFloat(s.reps) || 0;
+        const added = parseWeight(s.weight) || 0;
+        if (ex.kind === 'bodyweight') {
+          const load = bodyweightKg + added;
+          if (load > 0) volumeKg += load * reps;
+        } else {
+          volumeKg += added * reps;
+        }
         setsDone += 1;
       }
     }
@@ -96,6 +111,8 @@ export function buildWatchState(
   resolve: Resolve,
   /** Epoch ms the workout began; omit (or null) before it is known. */
   startedAt: number | null = null,
+  /** Current bodyweight (kg) for bodyweight-movement volume; 0 = unknown. */
+  bodyweightKg = 0,
 ): WatchState | null {
   const current = locateNextSet(exercises);
   if (!current) return null;
@@ -108,7 +125,7 @@ export function buildWatchState(
     s.done ? 'done' : i === index ? 'active' : 'pending',
   );
 
-  const t = totals(exercises);
+  const t = totals(exercises, bodyweightKg);
 
   return {
     screen: 'session',

@@ -33,12 +33,14 @@ import {
   muscleTagsByWorkout,
 } from './queries';
 import { currentValues, recomputeForExercise } from './recordStore';
+import { getBodyweightKg } from '../lib/bodyweight';
 
-const asSetLike = (s: WorkoutSetRow): SetLike => ({
+const asSetLike = (s: WorkoutSetRow, kind?: 'weighted' | 'bodyweight'): SetLike => ({
   type: s.type as SetType,
   weight: s.weight,
   reps: s.reps,
   done: s.done !== 0,
+  kind,
 });
 
 // --- Reads ---
@@ -375,6 +377,17 @@ export async function finishWorkout(wid: string): Promise<WorkoutSummaryOut> {
     ? ((await db.select().from(schema.workoutSets).where(inArray(schema.workoutSets.workoutExerciseId, weIds))) as WorkoutSetRow[])
     : []);
 
+  // Bodyweight movements count their mover's mass toward volume. Snapshot the
+  // current bodyweight onto the workout so its volume is fixed at the mass it was
+  // performed at, and use it for this finish's totals + PR recompute.
+  const currentBw = await getBodyweightKg();
+  const kindRows = exerciseIds.length
+    ? await db.select({ id: schema.exercises.id, kind: schema.exercises.kind }).from(schema.exercises).where(inArray(schema.exercises.id, exerciseIds))
+    : [];
+  const kindByExerciseId = new Map(kindRows.map((e) => [e.id, e.kind as 'weighted' | 'bodyweight']));
+  const kindByWeId = new Map(wes.map((we) => [we.id, kindByExerciseId.get(we.exerciseId)]));
+  const setLike = (s: WorkoutSetRow): SetLike => asSetLike(s, kindByWeId.get(s.workoutExerciseId));
+
   const setIds = new Set(allSets.map((s) => s.id));
   const prs: { exerciseId: string; metric: string; display: string; deltaDisplay: string }[] = [];
   // Atomic: mark completed, materialise PRs, flag PR sets, and write prCount as one
@@ -392,8 +405,9 @@ export async function finishWorkout(wid: string): Promise<WorkoutSummaryOut> {
         status: 'completed',
         endedAt,
         durationSeconds: Math.max(0, Math.floor((endedAt - w.startedAt) / 1000)),
-        totalVolume: workoutVolume(allSets.map(asSetLike)),
-        totalSets: countWorkingSets(allSets.map(asSetLike)),
+        totalVolume: workoutVolume(allSets.map(setLike), currentBw ?? 0),
+        totalSets: countWorkingSets(allSets.map(setLike)),
+        bodyweightKg: currentBw,
         updatedAt: nowMs(),
       })
       .where(eq(schema.workouts.id, wid));
@@ -429,7 +443,7 @@ export async function finishWorkout(wid: string): Promise<WorkoutSummaryOut> {
   const volume_by_muscle = volumeByMuscle(
     wes.map((we) => ({
       muscleLabel: muscleLabel(exPrimaryById.get(we.exerciseId) ?? null),
-      sets: (setsByWe.get(we.id) ?? []).map(asSetLike),
+      sets: (setsByWe.get(we.id) ?? []).map((s) => asSetLike(s, kindByWeId.get(we.id))),
     })),
   );
 

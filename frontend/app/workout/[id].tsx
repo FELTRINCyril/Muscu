@@ -75,6 +75,7 @@ import {
   syncFinishedWorkout,
 } from '../../src/lib/healthSync';
 import { buildWatchState } from '../../src/lib/watchState';
+import { getBodyweightKg } from '../../src/lib/bodyweight';
 import type { WatchAction } from '../../modules/health';
 import { color, font } from '../../src/theme/tokens';
 import { EmptyWorkout } from '../../src/components/workout/EmptyWorkout';
@@ -198,6 +199,12 @@ export default function ActiveWorkout() {
   const [heartRate, setHeartRate] = useState<number | null>(null);
   // Live active energy the Watch streams alongside HR (was previously dropped).
   const [activeCal, setActiveCal] = useState<number | null>(null);
+  // Current bodyweight (kg) for live volume of bodyweight movements; null until
+  // loaded / unset, in which case they contribute 0 (unchanged behaviour).
+  const [bwKg, setBwKg] = useState<number | null>(null);
+  useEffect(() => {
+    void getBodyweightKg().then(setBwKg);
+  }, []);
   // True once the Watch streams metrics — it was then recording, so at finish the
   // phone lets the Watch be the primary HKWorkout writer and backfills only if the
   // Watch never confirms the save (see syncFinishedWorkout).
@@ -553,19 +560,27 @@ export default function ActiveWorkout() {
     };
   }, []);
 
-  // Derived stats: volume + set count over done, non-warmup sets.
+  // Derived stats: volume + set count over done, non-warmup sets. A bodyweight
+  // movement counts (bodyweight + added) × reps; with no bodyweight set it adds 0.
   const { volume, doneSets } = useMemo(() => {
     let vol = 0;
     let count = 0;
     for (const ex of exercises) {
       for (const s of ex.sets) {
         if (!s.done || s.type === 'warmup') continue;
-        vol += (parseWeight(s.weight) || 0) * (parseFloat(s.reps) || 0);
+        const reps = parseFloat(s.reps) || 0;
+        const added = parseWeight(s.weight) || 0;
+        if (ex.kind === 'bodyweight') {
+          const load = (bwKg ?? 0) + added;
+          if (load > 0) vol += load * reps;
+        } else {
+          vol += added * reps;
+        }
         count += 1;
       }
     }
     return { volume: Math.round(vol), doneSets: count };
-  }, [exercises]);
+  }, [exercises, bwKg]);
 
   // --- set mutations ---
   const patchSet = (exId: string, setId: string, patch: Partial<Exercise['sets'][number]>) =>
@@ -934,8 +949,9 @@ export default function ActiveWorkout() {
         { resting: restRemaining > 0, remaining: restRemaining, total: restTotal },
         (sets, i) => resolveSet(sets[i], carryFor(sets, i)),
         startedAt,
+        bwKg ?? 0,
       ),
-    [exercises, name, restRemaining, restTotal, startedAt],
+    [exercises, name, restRemaining, restTotal, startedAt, bwKg],
   );
   const watchStateRef = useRef(watchState);
   watchStateRef.current = watchState;

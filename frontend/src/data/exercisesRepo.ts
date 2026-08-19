@@ -17,6 +17,7 @@ import type {
   SetType,
 } from '../api/types';
 import { sessionMetric, type SetLike } from '../domain/stats';
+import { getBodyweightKg, resolveWorkoutBodyweight } from '../lib/bodyweight';
 import {
   groupDuplicates,
   type MergeCandidate,
@@ -150,19 +151,26 @@ export async function getExerciseChart(
   sessions = 6,
 ): Promise<ChartOut> {
   const done = (await completedSessionsFor(id)).slice().reverse(); // oldest first
+  // A bodyweight movement's volume counts the mover's mass; resolve it per day
+  // (snapshot, else current). Only the best_volume metric consumes it.
+  const exRow = (await db.select({ kind: schema.exercises.kind }).from(schema.exercises).where(eq(schema.exercises.id, id)))[0];
+  const kind = (exRow?.kind as 'weighted' | 'bodyweight') ?? 'weighted';
+  const currentBw = await getBodyweightKg();
   // Group by local day; sets that are done only (session_metric excludes undone).
   const byDay = new Map<string, SetLike[]>();
+  const bwByDay = new Map<string, number>();
   for (const s of done) {
     const key = localDay(s.startedAt);
     const list = byDay.get(key) ?? [];
     for (const set of s.sets) {
-      list.push({ type: set.type as SetType, weight: set.weight, reps: set.reps, done: set.done !== 0 });
+      list.push({ type: set.type as SetType, weight: set.weight, reps: set.reps, done: set.done !== 0, kind });
     }
     byDay.set(key, list);
+    bwByDay.set(key, resolveWorkoutBodyweight(s.bodyweightKg, currentBw));
   }
   const points: { label: string; value: number }[] = [];
   for (const [label, sets] of byDay) {
-    const v = sessionMetric(sets, metric);
+    const v = sessionMetric(sets, metric, bwByDay.get(label) ?? 0);
     if (v !== null) points.push({ label, value: v });
   }
   const last = points.slice(-sessions);

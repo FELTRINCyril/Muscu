@@ -22,6 +22,7 @@ public class HealthModule: Module {
   private var energyType: HKQuantityType? {
     HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)
   }
+  private var bodyMassType: HKQuantityType? { HKObjectType.quantityType(forIdentifier: .bodyMass) }
   private let bpmUnit = HKUnit.count().unitDivided(by: .minute())
 
   public func definition() -> ModuleDefinition {
@@ -48,6 +49,9 @@ public class HealthModule: Module {
       }
       if let hrType {
         read.insert(hrType)
+      }
+      if let bodyMassType {
+        read.insert(bodyMassType)
       }
       self.store.requestAuthorization(toShare: share, read: read) { granted, error in
         if let error {
@@ -244,6 +248,29 @@ public class HealthModule: Module {
           "energyKcal": energyKcal as Any?,
         ] as [String: Any?])
       }
+    }
+
+    /// The user's most recent body-mass sample, in kilograms — used to pull their
+    /// bodyweight from Health so bodyweight movements can count toward volume.
+    /// Resolves null when Health is unavailable, the type is missing, read access
+    /// was denied (HealthKit reports that as no data), or nothing was ever logged.
+    AsyncFunction("readBodyMass") { (promise: Promise) in
+      guard HKHealthStore.isHealthDataAvailable(), let bodyMassType = self.bodyMassType else {
+        promise.resolve(nil)
+        return
+      }
+      let sort = [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+      let query = HKSampleQuery(
+        sampleType: bodyMassType, predicate: nil, limit: 1, sortDescriptors: sort
+      ) { _, samples, _ in
+        guard let sample = samples?.first as? HKQuantitySample else {
+          promise.resolve(nil)
+          return
+        }
+        let kg = sample.quantity.doubleValue(for: .gramUnit(with: .kilo))
+        promise.resolve(kg)
+      }
+      self.store.execute(query)
     }
 
     /// Starts streaming heart-rate samples as they land in HealthKit, emitting

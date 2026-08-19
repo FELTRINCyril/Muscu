@@ -62,6 +62,50 @@ test('incomplete set has zero volume', () => {
   assert.equal(setVolume(s('normal', 60.0, 8, false)), 0.0);
 });
 
+// --- setVolume for bodyweight movements ---
+
+const bw = (weight: number | null, reps: number | null, done = true): SetLike => ({
+  type: 'normal',
+  weight,
+  reps,
+  done,
+  kind: 'bodyweight',
+});
+
+test('bodyweight set counts bodyweight + added load', () => {
+  // 80 kg mover, +10 kg belt, 8 reps -> (80+10)*8
+  assert.equal(setVolume(bw(10, 8), 80), 720);
+});
+
+test('pure bodyweight set uses the mover mass', () => {
+  // 80 kg mover, no added load, 12 reps -> 80*12
+  assert.equal(setVolume(bw(null, 12), 80), 960);
+});
+
+test('assisted bodyweight subtracts the assist, floored at zero', () => {
+  assert.equal(setVolume(bw(-30, 10), 80), 500); // (80-30)*10
+  assert.equal(setVolume(bw(-100, 10), 80), 0); // assist exceeds bodyweight -> 0
+});
+
+test('bodyweight set with unknown bodyweight falls back to added load only', () => {
+  assert.equal(setVolume(bw(null, 12)), 0); // no mass, no added -> 0 (pre-feature)
+  assert.equal(setVolume(bw(10, 8)), 80); // only the added load counts
+});
+
+test('warmup/incomplete bodyweight sets stay zero', () => {
+  assert.equal(setVolume({ type: 'warmup', weight: null, reps: 10, done: true, kind: 'bodyweight' }, 80), 0);
+  assert.equal(setVolume(bw(null, 10, false), 80), 0);
+});
+
+test('workout_volume includes bodyweight movements at the given mass', () => {
+  const sets = [s('normal', 60, 8), bw(null, 10), bw(10, 5)];
+  assert.equal(workoutVolume(sets, 80), 480 + 800 + 450);
+});
+
+test('best_volume session metric includes bodyweight mass', () => {
+  assert.equal(sessionMetric([bw(null, 10), bw(null, 8)], 'best_volume', 80), 1440);
+});
+
 // --- workoutVolume / countWorkingSets ---
 
 test('workout_volume sums only completed working sets', () => {

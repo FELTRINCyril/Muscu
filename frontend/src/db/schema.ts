@@ -102,6 +102,11 @@ export const workouts = sqliteTable('workouts', {
   prCount: integer('pr_count').notNull().default(0),
   avgHr: integer('avg_hr'),
   maxHr: integer('max_hr'),
+  // The user's bodyweight (kg) snapshotted at finish, so bodyweight movements
+  // count toward this workout's volume at the mass they were performed. Null on
+  // workouts finished before the feature (and pre-feature history); the volume
+  // math then falls back to the current bodyweight setting or contributes 0.
+  bodyweightKg: real('bodyweight_kg'),
   ...sync,
 });
 
@@ -147,5 +152,10 @@ export const settings = sqliteTable('settings', {
   autoStartRestTimer: integer('auto_start_rest_timer').notNull().default(1),
   restTimerAlerts: integer('rest_timer_alerts').notNull().default(1),
   hapticFeedback: integer('haptic_feedback').notNull().default(1),
+  // Legacy, unused (purely on-device — no sync). Kept mapped so the migration
+  // snapshot stays consistent; dropping them would rebuild the settings table on
+  // live data for no user-facing gain. The API type/repo no longer expose them.
+  serverUrl: text('server_url'),
+  lastSyncedAt: integer('last_synced_at'),
   ...sync,
 });

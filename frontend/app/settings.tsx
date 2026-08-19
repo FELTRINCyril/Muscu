@@ -5,7 +5,7 @@
  */
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { cacheDirectory, writeAsStringAsync } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -18,7 +18,11 @@ import {
   getSettings,
   updateSettings,
 } from '../src/api/workouts';
+import { DraggableSheet } from '../src/components/DraggableSheet';
+import { toDisplay, toKg } from '../src/domain/units';
+import { getBodyweightKg, setBodyweightKg } from '../src/lib/bodyweight';
 import { setHapticsEnabled } from '../src/lib/haptics';
+import { isAvailable as isHealthAvailable, readBodyMass, requestAuthorization as requestHealthAuth } from '../modules/health';
 import {
   BellIcon,
   ChevronRightIcon,
@@ -82,6 +86,15 @@ export default function Settings() {
   const [dupCount, setDupCount] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Bodyweight (kg): counts toward volume for bodyweight movements. Entered in the
+  // user's unit; stored + used in kg. `bwOpen`/`bwInput` drive the entry sheet.
+  const [bwKg, setBwKg] = useState<number | null>(null);
+  const [bwOpen, setBwOpen] = useState(false);
+  const [bwInput, setBwInput] = useState('');
+  useEffect(() => {
+    void getBodyweightKg().then(setBwKg);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,6 +170,44 @@ export default function Settings() {
     router.push('/import');
   };
 
+  // Bodyweight entry (in the user's unit). Blank input clears it.
+  const bwUnitLabel = settings.unit;
+  const bwDisplay = bwKg != null ? toDisplay(bwKg, settings.unit) : null;
+  const openBw = () => {
+    setBwInput(bwDisplay != null ? String(bwDisplay) : '');
+    setBwOpen(true);
+  };
+  const saveBw = async () => {
+    const trimmed = bwInput.trim();
+    if (trimmed === '') {
+      await setBodyweightKg(null);
+      setBwKg(null);
+      setBwOpen(false);
+      return;
+    }
+    const n = parseFloat(trimmed.replace(',', '.'));
+    if (!Number.isFinite(n)) {
+      setBwOpen(false);
+      return;
+    }
+    const kg = toKg(n, settings.unit);
+    await setBodyweightKg(kg);
+    setBwKg(await getBodyweightKg()); // re-read: rejects out-of-range, so UI mirrors what's stored
+    setBwOpen(false);
+  };
+  const pullBwFromHealth = async () => {
+    // Ensure the bodyweight read is offered — a user who connected Health before
+    // this existed won't have granted it, and iOS only prompts for undecided types.
+    await requestHealthAuth();
+    const kg = await readBodyMass();
+    if (kg == null) {
+      showToast('No bodyweight in Apple Health');
+      return;
+    }
+    const disp = toDisplay(kg, settings.unit);
+    setBwInput(disp != null ? String(Math.round(disp * 10) / 10) : '');
+  };
+
   return (
     <View style={styles.root}>
       <ScrollView
@@ -195,6 +246,14 @@ export default function Settings() {
             label="Haptic feedback"
             value={settings.haptic_feedback}
             onChange={(v) => patch({ haptic_feedback: v })}
+            isLast={false}
+          />
+          <LinkRow
+            icon={<BodyweightIcon size={20} color={color.text2} />}
+            label="Bodyweight"
+            sub="Counts toward volume for bodyweight moves"
+            value={bwDisplay != null ? `${bwDisplay} ${bwUnitLabel}` : 'Not set'}
+            onPress={openBw}
             isLast
           />
         </Section>
@@ -293,7 +352,71 @@ export default function Settings() {
           <Text style={styles.toastText}>{toast}</Text>
         </View>
       )}
+
+      <DraggableSheet
+        visible={bwOpen}
+        onClose={() => setBwOpen(false)}
+        sheetStyle={[styles.bwSheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
+      >
+        <View style={styles.bwGrabberWrap}>
+          <View style={styles.bwGrabber} />
+        </View>
+        <View style={styles.bwBody}>
+          <Text style={styles.bwTitle}>Bodyweight</Text>
+          <Text style={styles.bwText}>
+            Used to count bodyweight movements — pull-ups, dips, push-ups — toward your volume.
+            It&apos;s snapshotted onto each workout, so changing it never rewrites past sessions.
+          </Text>
+          <View style={styles.bwInputRow}>
+            <TextInput
+              style={styles.bwInput}
+              value={bwInput}
+              onChangeText={setBwInput}
+              keyboardType="decimal-pad"
+              placeholder="—"
+              placeholderTextColor={color.text3}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={saveBw}
+              accessibilityLabel="Bodyweight value"
+            />
+            <Text style={styles.bwUnit}>{bwUnitLabel}</Text>
+          </View>
+          {isHealthAvailable() && (
+            <Pressable
+              onPress={pullBwFromHealth}
+              style={({ pressed }) => [styles.bwHealth, pressed && styles.bwHealthPressed]}
+              accessibilityRole="button"
+            >
+              <HeartFilledIcon size={14} color={color.drop} />
+              <Text style={styles.bwHealthText}>Use Apple Health</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={saveBw}
+            style={({ pressed }) => [styles.bwSave, pressed && styles.bwSavePressed]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.bwSaveText}>Save</Text>
+          </Pressable>
+        </View>
+      </DraggableSheet>
     </View>
+  );
+}
+
+/** Bathroom-scale glyph for the Bodyweight row. */
+function BodyweightIcon({ size = 20, color: c }: { size?: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"
+        stroke={c}
+        strokeWidth={1.8}
+      />
+      <Path d="M12 8v2.5M9.5 8.5l2 2M14.5 8.5l-2 2" stroke={c} strokeWidth={1.8} strokeLinecap="round" />
+      <Circle cx={12} cy={11.5} r={1.2} fill={c} />
+    </Svg>
   );
 }
 
@@ -666,6 +789,68 @@ const styles = StyleSheet.create({
     color: color.text3,
     fontVariant: ['tabular-nums'],
   },
+
+  // Bodyweight entry sheet
+  bwSheet: {
+    backgroundColor: color.surface1,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderTopWidth: 1,
+    borderTopColor: color.border,
+  },
+  bwGrabberWrap: { alignItems: 'center', justifyContent: 'center', paddingTop: 12, paddingBottom: 4 },
+  bwGrabber: { width: 40, height: 5, borderRadius: 3, backgroundColor: color.surface3 },
+  bwBody: { paddingHorizontal: 20, paddingTop: 10 },
+  bwTitle: { fontFamily: font.titleSemi, fontSize: 19, letterSpacing: -0.19, color: color.text1 },
+  bwText: {
+    fontFamily: font.bodyRegular,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: color.text2,
+    marginTop: 8,
+    marginBottom: 18,
+  },
+  bwInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: color.surface2,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 56,
+  },
+  bwInput: {
+    flex: 1,
+    fontFamily: font.monoSemi,
+    fontSize: 26,
+    color: color.text1,
+    fontVariant: ['tabular-nums'],
+    padding: 0,
+  },
+  bwUnit: { fontFamily: font.monoMedium, fontSize: 14, color: color.text3 },
+  bwHealth: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    height: 44,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  bwHealthPressed: { opacity: 0.6 },
+  bwHealthText: { fontFamily: font.titleSemi, fontSize: 14, color: color.drop },
+  bwSave: {
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: color.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  bwSavePressed: { opacity: 0.9 },
+  bwSaveText: { fontFamily: font.displayBold, fontSize: 15, letterSpacing: -0.15, color: color.accentFg },
 
   // Accent count pill (Merge duplicates row)
   countPill: {

@@ -1,0 +1,1 @@
+ALTER TABLE `workouts` ADD `bodyweight_kg` real;
