@@ -13,11 +13,11 @@
       "supportsTablet": false,
       "bundleIdentifier": "app.ischys.mobile",
       "appleTeamId": "L3T79ZQ685",
-      "buildNumber": "6",
+      "buildNumber": "7",
       "infoPlist": {
         "NSSupportsLiveActivities": true,
         "ITSAppUsesNonExemptEncryption": false,
-        "NSHealthShareUsageDescription": "Ischys reads your heart rate during a workout when an Apple Watch is recording it.",
+        "NSHealthShareUsageDescription": "Ischys reads your heart rate during a workout when an Apple Watch is recording it, and your bodyweight when you choose to fill it in from Health.",
         "NSHealthUpdateUsageDescription": "Ischys saves your finished workouts to Apple Health so they appear in Fitness."
       },
       "entitlements": {
