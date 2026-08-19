@@ -471,6 +471,11 @@ export async function mergeExercises(
 
   let gainedPr: { metric: RecordMetric; display: string } | null = null;
 
+  // Resolve the bodyweight BEFORE the transaction — a SecureStore read inside an
+  // expo-sqlite transaction hangs it (that froze the merge). It flows into the
+  // survivor's PR recompute.
+  const currentBw = await getBodyweightKg();
+
   await db.transaction(async (tx) => {
     const baseline = await currentValues(survivorId, tx);
     const now = nowMs();
@@ -498,7 +503,7 @@ export async function mergeExercises(
     await tx.delete(schema.exercises).where(inArray(schema.exercises.id, losers));
 
     // 5. Recompute the survivor's PRs across everything it now owns.
-    await recomputeForExercise(survivorId, tx);
+    await recomputeForExercise(survivorId, tx, currentBw);
 
     // A record the survivor did not have (or beat) before this merge = gained.
     const after = await currentValues(survivorId, tx);

@@ -370,7 +370,8 @@ export async function deleteWorkout(wid: string): Promise<void> {
   if (weIds.length) await db.delete(schema.workoutSets).where(inArray(schema.workoutSets.workoutExerciseId, weIds));
   await db.delete(schema.workoutExercises).where(eq(schema.workoutExercises.workoutId, wid));
   await db.delete(schema.workouts).where(eq(schema.workouts.id, wid));
-  for (const eid of touched) await recomputeForExercise(eid); // PRs lose this evidence
+  const currentBw = await getBodyweightKg();
+  for (const eid of touched) await recomputeForExercise(eid, db, currentBw); // PRs lose this evidence
 }
 
 export async function uploadHeartRate(
@@ -436,7 +437,7 @@ export async function finishWorkout(wid: string): Promise<WorkoutSummaryOut> {
       .where(eq(schema.workouts.id, wid));
 
     for (const eid of exerciseIds) {
-      const computed = await recomputeForExercise(eid, tx);
+      const computed = await recomputeForExercise(eid, tx, currentBw);
       const deltas = detectPrs(baselines.get(eid) ?? {}, computed);
       for (const d of deltas) {
         if (d.value.workoutSetId && setIds.has(d.value.workoutSetId)) {

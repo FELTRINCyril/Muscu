@@ -9,7 +9,7 @@ import { db, type Executor } from '../db/client';
 import * as schema from '../db/schema';
 import type { RecordMetric } from '../api/types';
 import { computeRecords, type PRSession, type RecordValue } from '../domain/records';
-import { getBodyweightKg, resolveWorkoutBodyweight } from '../lib/bodyweight';
+import { resolveWorkoutBodyweight } from '../lib/bodyweight';
 import { LOCAL_USER_ID, newId, nowMs } from './ids';
 import { completedSessionsFor } from './queries';
 
@@ -27,10 +27,18 @@ export async function currentValues(
   return out;
 }
 
-/** Recompute + upsert an exercise's PRs from its completed history. */
+/**
+ * Recompute + upsert an exercise's PRs from its completed history.
+ *
+ * `currentBw` (the current bodyweight setting, kg) is passed in, NOT read here:
+ * this runs inside DB transactions (finish, merge, import), and a foreign async
+ * call like SecureStore inside an expo-sqlite transaction hangs it. Callers
+ * resolve the bodyweight before opening their transaction.
+ */
 export async function recomputeForExercise(
   exerciseId: string,
   exec: Executor = db,
+  currentBw: number | null = null,
 ): Promise<Partial<Record<RecordMetric, RecordValue>>> {
   const sessions = await completedSessionsFor(exerciseId, exec);
   // Bodyweight movements count the mover's mass toward volume. This exercise's
@@ -38,7 +46,6 @@ export async function recomputeForExercise(
   // falling back to the current setting for pre-feature history.
   const exRow = (await exec.select({ kind: schema.exercises.kind }).from(schema.exercises).where(eq(schema.exercises.id, exerciseId)))[0];
   const kind = (exRow?.kind as 'weighted' | 'bodyweight') ?? 'weighted';
-  const currentBw = await getBodyweightKg();
   const prSessions: PRSession[] = sessions.map((s) => ({
     id: s.workoutId,
     achievedAt: s.startedAt,
