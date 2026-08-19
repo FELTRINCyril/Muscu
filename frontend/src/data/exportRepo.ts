@@ -2,7 +2,7 @@
  * Export / import on-device. Export is the user's backup; import reads a workout
  * CSV file and creates completed workouts locally.
  */
-import { asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray, sql } from 'drizzle-orm';
 import { readAsStringAsync } from 'expo-file-system/legacy';
 
 import { db, type Executor } from '../db/client';
@@ -81,7 +81,14 @@ async function findOrCreateExercise(
   const key = name.trim().toLowerCase();
   const cached = cache.get(key);
   if (cached) return { id: cached, created: false };
-  const existing = await exec.select().from(schema.exercises).where(eq(schema.exercises.name, name.trim()));
+  // Match case-insensitively: SQLite's default `=` is case-sensitive, so an exact
+  // match created a duplicate custom exercise whenever an import's casing differed
+  // from the catalog ("bench press" vs "Bench Press"). Reuse the existing row.
+  const existing = await exec
+    .select()
+    .from(schema.exercises)
+    .where(sql`lower(trim(${schema.exercises.name})) = ${key}`)
+    .limit(1);
   if (existing[0]) {
     cache.set(key, existing[0].id);
     return { id: existing[0].id, created: false };

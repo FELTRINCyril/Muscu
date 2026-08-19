@@ -533,3 +533,43 @@ export async function mergeExercises(
     gainedPr,
   };
 }
+
+/**
+ * Fold exercises that share a name (case-insensitively) into one row. Import
+ * matched the catalog by exact case only, so any casing/whitespace difference
+ * spawned a duplicate custom exercise that split history and PRs across two rows
+ * for the same movement. This reunites them at the data layer.
+ *
+ * Safe to run on every launch: idempotent (a no-op once names are unique), and a
+ * shared name unambiguously means the same movement — the catalog holds no two
+ * exercises with the same name. The catalog entry is kept as the survivor; a
+ * group a live session is mid-use of is skipped (left for the manual merge tool).
+ * Best-effort per group — one failure never blocks the rest or the app start.
+ */
+export async function dedupeExercisesByName(): Promise<number> {
+  const all = await db
+    .select({ id: schema.exercises.id, name: schema.exercises.name, isCustom: schema.exercises.isCustom })
+    .from(schema.exercises);
+  const byKey = new Map<string, { id: string; isCustom: number }[]>();
+  for (const e of all) {
+    const key = e.name.trim().toLowerCase();
+    const list = byKey.get(key) ?? [];
+    list.push({ id: e.id, isCustom: e.isCustom });
+    byKey.set(key, list);
+  }
+  let folded = 0;
+  for (const group of byKey.values()) {
+    if (group.length < 2) continue;
+    // Keep the catalog row (isCustom 0) if present, else the first seen.
+    const survivor = group.find((g) => g.isCustom === 0) ?? group[0];
+    const losers = group.filter((g) => g.id !== survivor.id).map((g) => g.id);
+    if (losers.length === 0) continue;
+    try {
+      await mergeExercises(survivor.id, losers);
+      folded += losers.length;
+    } catch {
+      // ActiveSessionError or a transient failure — leave this group as-is.
+    }
+  }
+  return folded;
+}

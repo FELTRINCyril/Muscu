@@ -10,6 +10,7 @@ import * as schema from './schema';
 import type { Catalog } from './catalog/catalogTypes';
 import { seedCatalog } from './catalog/seedCatalog';
 import { db, useDbReady } from './client';
+import { dedupeExercisesByName } from '../data/exercisesRepo';
 
 /** Ensure the singleton settings row exists (column defaults fill the rest). */
 async function ensureLocalSettings(): Promise<void> {
@@ -29,6 +30,9 @@ export function useLocalDbBootstrap(): { ready: boolean; error: Error | null } {
       try {
         await seedCatalog(catalog as Catalog);
         await ensureLocalSettings();
+        // Fold import-created name duplicates into their catalog original. Best
+        // effort — never let a dedup hiccup keep the app from starting.
+        await dedupeExercisesByName().catch(() => 0);
       } catch (e) {
         setError(e instanceof Error ? e : new Error(String(e)));
       } finally {
