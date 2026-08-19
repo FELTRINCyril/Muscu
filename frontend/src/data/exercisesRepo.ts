@@ -17,9 +17,16 @@ import type {
   SetType,
 } from '../api/types';
 import { sessionMetric, type SetLike } from '../domain/stats';
+import {
+  groupDuplicates,
+  type MergeCandidate,
+  type MergeReason,
+  type PrCell,
+} from '../lib/mergeDuplicates';
 import { LOCAL_USER_ID, newId, nowMs } from './ids';
 import { toHistorySession, type ExerciseRow } from './map';
 import { completedSessionsFor, hydrateExercises, loadExercise } from './queries';
+import { currentValues, recomputeForExercise } from './recordStore';
 
 /** 'Incline Bench Press' -> 'IB' (port of serializers.initials_of). */
 export function initialsOf(name: string): string {
@@ -160,4 +167,356 @@ export async function getExerciseChart(
   }
   const last = points.slice(-sessions);
   return { metric, labels: last.map((p) => p.label), values: last.map((p) => p.value) };
+}
+
+// --- Merge duplicate exercises -------------------------------------------
+
+/** One candidate row in a duplicate group, with the stats the flow shows. */
+export type MergeMemberView = {
+  id: string;
+  name: string;
+  initials: string;
+  equipment: string;
+  isCatalog: boolean;
+  setCount: number;
+  workoutCount: number;
+  /** Distinct routines that reference this exercise (for the re-point preview). */
+  routineCount: number;
+  /** Epoch-ms of the first logged session, for the "since <date>" line. */
+  firstWorkoutMs: number | null;
+  /** Materialized PRs, for the M3 "best of each" preview. */
+  prs: PrCell[];
+};
+
+export type MergeGroupView = {
+  reason: MergeReason;
+  survivorId: string;
+  survivorReason: string;
+  members: MergeMemberView[];
+};
+
+/** Result of a merge write, for the M5 receipt. */
+export type MergeResult = {
+  survivorId: string;
+  survivorName: string;
+  /** Sets that changed parent (the discarded rows' logged sets). */
+  setsMoved: number;
+  /** Distinct routines that were re-pointed. */
+  routinesUpdated: number;
+  /** Survivor's logged-set total after the merge. */
+  totalSets: number;
+  /** A record the survivor gained from a discarded row, if any. */
+  gainedPr: { metric: RecordMetric; display: string } | null;
+};
+
+/** Thrown when a live workout references a candidate — the merge is blocked. */
+export class ActiveSessionError extends Error {
+  constructor() {
+    super('A workout is in progress that uses one of these exercises. Finish it first.');
+    this.name = 'ActiveSessionError';
+  }
+}
+
+type ExerciseStat = { setCount: number; workoutCount: number; firstWorkoutMs: number | null };
+
+/** Logged-set counts, workout counts and first-session dates, batched by exercise. */
+async function exerciseStats(ids: string[]): Promise<Map<string, ExerciseStat>> {
+  const out = new Map<string, ExerciseStat>();
+  for (const id of ids) out.set(id, { setCount: 0, workoutCount: 0, firstWorkoutMs: null });
+  if (ids.length === 0) return out;
+
+  const rows = await db
+    .select({
+      exerciseId: schema.workoutExercises.exerciseId,
+      workoutId: schema.workouts.id,
+      startedAt: schema.workouts.startedAt,
+      done: schema.workoutSets.done,
+    })
+    .from(schema.workouts)
+    .innerJoin(schema.workoutExercises, eq(schema.workoutExercises.workoutId, schema.workouts.id))
+    .innerJoin(schema.workoutSets, eq(schema.workoutSets.workoutExerciseId, schema.workoutExercises.id))
+    .where(and(inArray(schema.workoutExercises.exerciseId, ids), eq(schema.workouts.status, 'completed')));
+
+  const workoutsByEx = new Map<string, Set<string>>();
+  for (const r of rows) {
+    const stat = out.get(r.exerciseId);
+    if (!stat) continue;
+    if (r.done !== 0) stat.setCount += 1;
+    const seen = workoutsByEx.get(r.exerciseId) ?? new Set<string>();
+    seen.add(r.workoutId);
+    workoutsByEx.set(r.exerciseId, seen);
+    stat.firstWorkoutMs =
+      stat.firstWorkoutMs === null ? r.startedAt : Math.min(stat.firstWorkoutMs, r.startedAt);
+  }
+  for (const [id, seen] of workoutsByEx) {
+    const stat = out.get(id);
+    if (stat) stat.workoutCount = seen.size;
+  }
+  return out;
+}
+
+/** Distinct routines referencing each exercise, batched. */
+async function routineCountsByExercise(ids: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  for (const id of ids) out.set(id, 0);
+  if (ids.length === 0) return out;
+  const rows = await db
+    .select({ exerciseId: schema.routineExercises.exerciseId, routineId: schema.routineExercises.routineId })
+    .from(schema.routineExercises)
+    .where(inArray(schema.routineExercises.exerciseId, ids));
+  const byEx = new Map<string, Set<string>>();
+  for (const r of rows) {
+    const seen = byEx.get(r.exerciseId) ?? new Set<string>();
+    seen.add(r.routineId);
+    byEx.set(r.exerciseId, seen);
+  }
+  for (const [id, seen] of byEx) out.set(id, seen.size);
+  return out;
+}
+
+/** Materialized PR cells, batched by exercise. */
+async function prsByExercise(ids: string[]): Promise<Map<string, PrCell[]>> {
+  const out = new Map<string, PrCell[]>();
+  if (ids.length === 0) return out;
+  const rows = await db
+    .select()
+    .from(schema.personalRecords)
+    .where(inArray(schema.personalRecords.exerciseId, ids));
+  for (const r of rows) {
+    const list = out.get(r.exerciseId) ?? [];
+    list.push({ metric: r.metric as RecordMetric, value: r.value, display: r.display });
+    out.set(r.exerciseId, list);
+  }
+  return out;
+}
+
+/**
+ * Detect duplicate-exercise groups across the whole library. Runs on demand
+ * (the count is cheap at this scale; no background job). Pure grouping lives in
+ * lib/mergeDuplicates; this only assembles rows + stats and dresses the result.
+ */
+export async function findDuplicateGroups(): Promise<MergeGroupView[]> {
+  const rows = (await db.select().from(schema.exercises)) as (ExerciseRow & { userId: string | null })[];
+  const ids = rows.map((r) => r.id);
+  const [stats, prs, routineCounts] = await Promise.all([
+    exerciseStats(ids),
+    prsByExercise(ids),
+    routineCountsByExercise(ids),
+  ]);
+
+  const candidates: MergeCandidate[] = rows.map((r) => {
+    const stat = stats.get(r.id) ?? { setCount: 0, workoutCount: 0, firstWorkoutMs: null };
+    return {
+      id: r.id,
+      name: r.name,
+      equipment: r.equipment,
+      primaryMuscleId: r.primaryMuscleId,
+      source: r.source,
+      externalId: r.externalId,
+      isCatalog: r.userId === null && r.isCustom === 0,
+      initials: r.initials,
+      setCount: stat.setCount,
+      workoutCount: stat.workoutCount,
+      firstWorkoutMs: stat.firstWorkoutMs,
+    };
+  });
+
+  const groups = groupDuplicates(candidates);
+  const byId = new Map(candidates.map((c) => [c.id, c]));
+
+  return groups.map((g) => ({
+    reason: g.reason,
+    survivorId: g.survivorId,
+    survivorReason: g.survivorReason,
+    members: g.members.map((m) => {
+      const c = byId.get(m.id)!;
+      return {
+        id: c.id,
+        name: c.name,
+        initials: c.initials,
+        equipment: c.equipment,
+        isCatalog: c.isCatalog,
+        setCount: c.setCount,
+        workoutCount: c.workoutCount,
+        routineCount: routineCounts.get(c.id) ?? 0,
+        firstWorkoutMs: c.firstWorkoutMs,
+        prs: prs.get(c.id) ?? [],
+      };
+    }),
+  }));
+}
+
+/** Number of duplicate groups — the accent count pill in Settings → DATA. */
+export async function countDuplicateGroups(): Promise<number> {
+  return (await findDuplicateGroups()).length;
+}
+
+/** Total exercises in the library — the M6 "across all N exercises" copy. */
+export async function countExercises(): Promise<number> {
+  return (await db.select({ id: schema.exercises.id }).from(schema.exercises)).length;
+}
+
+/**
+ * Build a manual merge group from an explicit id set (library multi-select).
+ * User-asserted, so it skips the auto-detection signals, but still honours the
+ * hard guards: two catalog rows can't both survive, and a live session blocks
+ * it. Survivor defaults to catalog, else the row with more history.
+ */
+export async function buildManualGroup(ids: string[]): Promise<MergeGroupView | null> {
+  const unique = [...new Set(ids)];
+  if (unique.length < 2) return null;
+  const rows = (await db
+    .select()
+    .from(schema.exercises)
+    .where(inArray(schema.exercises.id, unique))) as (ExerciseRow & { userId: string | null })[];
+  if (rows.length < 2) return null;
+  // Two catalog rows must never be merged into one.
+  if (rows.filter((r) => r.userId === null && r.isCustom === 0).length > 1) return null;
+
+  const [stats, prs, routineCounts] = await Promise.all([
+    exerciseStats(unique),
+    prsByExercise(unique),
+    routineCountsByExercise(unique),
+  ]);
+  const members: MergeMemberView[] = rows.map((r) => {
+    const stat = stats.get(r.id) ?? { setCount: 0, workoutCount: 0, firstWorkoutMs: null };
+    return {
+      id: r.id,
+      name: r.name,
+      initials: r.initials,
+      equipment: r.equipment,
+      isCatalog: r.userId === null && r.isCustom === 0,
+      setCount: stat.setCount,
+      workoutCount: stat.workoutCount,
+      routineCount: routineCounts.get(r.id) ?? 0,
+      firstWorkoutMs: stat.firstWorkoutMs,
+      prs: prs.get(r.id) ?? [],
+    };
+  });
+
+  // Survivor: catalog, else most history (mirrors pickSurvivor's rule).
+  const catalog = members.filter((m) => m.isCatalog);
+  const ordered = [...members].sort((a, b) => {
+    if (b.workoutCount !== a.workoutCount) return b.workoutCount - a.workoutCount;
+    if (b.setCount !== a.setCount) return b.setCount - a.setCount;
+    return (a.firstWorkoutMs ?? Infinity) - (b.firstWorkoutMs ?? Infinity);
+  });
+  const survivor = catalog.length === 1 ? catalog[0] : ordered[0];
+  const sortedMembers = [survivor, ...ordered.filter((m) => m.id !== survivor.id)];
+
+  return {
+    reason: 'same_name',
+    survivorId: survivor.id,
+    survivorReason:
+      catalog.length === 1
+        ? 'Keeps images, how-to and muscle data'
+        : 'More history — fewer records move',
+    members: sortedMembers,
+  };
+}
+
+/** Ids referenced by a live (active) workout, among the given set. */
+async function activelyReferenced(ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await db
+    .select({ exerciseId: schema.workoutExercises.exerciseId })
+    .from(schema.workoutExercises)
+    .innerJoin(schema.workouts, eq(schema.workouts.id, schema.workoutExercises.workoutId))
+    .where(and(inArray(schema.workoutExercises.exerciseId, ids), eq(schema.workouts.status, 'active')));
+  return new Set(rows.map((r) => r.exerciseId));
+}
+
+/**
+ * Merge duplicates into one survivor. Re-points workout_exercises and
+ * routine_exercises to the survivor (sets never move — they hang off
+ * workout_exercise_id, so re-pointing the parent carries them), reconciles PRs
+ * by recomputing from the survivor's now-combined history, and deletes each
+ * discarded exercise plus its secondary-muscle links. Blocks if a live workout
+ * references any candidate. Atomic — a crash mid-merge leaves nothing half-done.
+ */
+export async function mergeExercises(
+  survivorId: string,
+  loserIds: string[],
+): Promise<MergeResult> {
+  const losers = [...new Set(loserIds)].filter((id) => id !== survivorId);
+  if (losers.length === 0) throw new Error('nothing to merge');
+
+  const survivorRow = (
+    await db.select().from(schema.exercises).where(eq(schema.exercises.id, survivorId))
+  )[0];
+  if (!survivorRow) throw new Error('survivor not found');
+
+  // Mid-workout guard — never re-point rows underneath a live session.
+  const active = await activelyReferenced([survivorId, ...losers]);
+  if (active.size > 0) throw new ActiveSessionError();
+
+  // How many logged sets belong to the discarded rows (for the receipt).
+  const loserStats = await exerciseStats(losers);
+  const setsMoved = losers.reduce((sum, id) => sum + (loserStats.get(id)?.setCount ?? 0), 0);
+
+  // Distinct routines that will be re-pointed.
+  const routineRows = await db
+    .select({ routineId: schema.routineExercises.routineId })
+    .from(schema.routineExercises)
+    .where(inArray(schema.routineExercises.exerciseId, losers));
+  const routinesUpdated = new Set(routineRows.map((r) => r.routineId)).size;
+
+  let gainedPr: { metric: RecordMetric; display: string } | null = null;
+
+  await db.transaction(async (tx) => {
+    const baseline = await currentValues(survivorId, tx);
+    const now = nowMs();
+
+    // 1. Re-point workout_exercises → survivor.
+    await tx
+      .update(schema.workoutExercises)
+      .set({ exerciseId: survivorId, updatedAt: now })
+      .where(inArray(schema.workoutExercises.exerciseId, losers));
+
+    // 2. Re-point routine_exercises → survivor.
+    await tx
+      .update(schema.routineExercises)
+      .set({ exerciseId: survivorId, updatedAt: now })
+      .where(inArray(schema.routineExercises.exerciseId, losers));
+
+    // 3. Drop the discarded rows' PRs; the survivor's are recomputed below from
+    //    the now-combined history, which keeps the higher value per metric.
+    await tx.delete(schema.personalRecords).where(inArray(schema.personalRecords.exerciseId, losers));
+
+    // 4. Delete the discarded exercises + their secondary-muscle links.
+    await tx
+      .delete(schema.exerciseSecondaryMuscles)
+      .where(inArray(schema.exerciseSecondaryMuscles.exerciseId, losers));
+    await tx.delete(schema.exercises).where(inArray(schema.exercises.id, losers));
+
+    // 5. Recompute the survivor's PRs across everything it now owns.
+    await recomputeForExercise(survivorId, tx);
+
+    // A record the survivor did not have (or beat) before this merge = gained.
+    const after = await currentValues(survivorId, tx);
+    const afterRows = await tx
+      .select()
+      .from(schema.personalRecords)
+      .where(eq(schema.personalRecords.exerciseId, survivorId));
+    const displayByMetric = new Map(afterRows.map((r) => [r.metric as RecordMetric, r.display]));
+    const HEADLINE: RecordMetric[] = ['best_set', 'est_1rm', 'max_reps', 'best_volume'];
+    for (const metric of HEADLINE) {
+      const before = baseline[metric];
+      const now2 = after[metric];
+      if (now2 !== undefined && (before === undefined || now2 > before)) {
+        gainedPr = { metric, display: displayByMetric.get(metric) ?? '' };
+        break;
+      }
+    }
+  });
+
+  const survivorStat = (await exerciseStats([survivorId])).get(survivorId);
+  return {
+    survivorId,
+    survivorName: survivorRow.name,
+    setsMoved,
+    routinesUpdated,
+    totalSets: survivorStat?.setCount ?? 0,
+    gainedPr,
+  };
 }

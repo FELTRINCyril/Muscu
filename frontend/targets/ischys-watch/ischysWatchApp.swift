@@ -60,22 +60,30 @@ struct RootView: View {
   }
 }
 
-/// The paged workout: Active Set ⇄ Metrics ⇄ Controls (native `.page` tabs),
-/// with Rest presented over the top while resting — matching the native Workout
-/// app's horizontal pages and the design's S2/S3/S4/S5 flow.
+/// The paged workout: Active Set ⇄ Metrics ⇄ Controls (native `.page` tabs).
+///
+/// Rest is a non-blocking banner pinned above the pager — chrome, not a page — so
+/// all three screens stay swipeable while resting (the hands-busy moment is the
+/// worst time to force a navigation). It enters and exits from the bottom edge,
+/// the same path the old full-screen `RestView` overlay used. Its 2px accent
+/// progress line replaces that overlay's 116pt ring as the glanceable read.
 struct SessionView: View {
   @EnvironmentObject var model: WorkoutModel
 
   var body: some View {
-    TabView {
-      ActiveSetView()
-      MetricsView()
-      ControlsView()
-    }
-    .tabViewStyle(.page)
-    .overlay {
+    ZStack(alignment: .bottom) {
+      TabView {
+        ActiveSetView()
+        MetricsView()
+        ControlsView()
+      }
+      .tabViewStyle(.page)
+
       if model.resting {
-        RestView()
+        RestBanner()
+          // left/right 10 per the board; lifted clear of the page dots (bottom 10).
+          .padding(.horizontal, 10)
+          .padding(.bottom, 20)
           .transition(.move(edge: .bottom))
       }
     }

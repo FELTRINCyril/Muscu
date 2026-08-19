@@ -52,6 +52,18 @@ final class WorkoutModel: ObservableObject {
   // S1 — Start
   @Published var routines: [RoutineItem] = []
 
+  /// Whether the paired iPhone is reachable over WatchConnectivity. Drives the
+  /// S-B start state: the "Synced with iPhone" chip flips to a warning and the
+  /// routine list dims, while Empty Workout stays enabled (the Watch owns the
+  /// HKWorkoutSession either way and reconciles when the phone returns).
+  /// Updated by `PhoneLink` on activation and reachability changes.
+  @Published var phoneReachable = true
+
+  /// The routine the user just tapped to start, while the phone spins it up
+  /// (S-C · handing off). Its row holds a pending state; the others dim. Cleared
+  /// once we leave the Start screen (a pushed `.session` state, or on reappear).
+  @Published var pendingRoutineId: String?
+
   // S2 — Active Set. `weight`/`reps` are Crown-editable locally, seeded by the
   // phone and sent back on Log Set.
   @Published var exerciseName = ""
@@ -88,6 +100,18 @@ final class WorkoutModel: ObservableObject {
 
   // S6 — Summary
   @Published var summary: SessionSummary?
+
+  // MARK: Derived state
+
+  /// E1 — every planned set is logged, so the Active Set page has nothing left
+  /// to log and shows the end-of-workout state instead. Derived from the
+  /// phone-pushed session counters. `setsTotal` is 0 until the phone reports a
+  /// plan, so an empty (unplanned) workout never trips this on its own.
+  var allSetsDone: Bool { setsTotal > 0 && setsDone >= setsTotal }
+
+  /// W3 — the rest countdown's final stretch, when the banner turns warm, the
+  /// countdown pulses, and Skip reads "Start set". Only meaningful while resting.
+  var restFinal: Bool { resting && restRemaining <= 10 }
 
   // MARK: Local ticks
 
@@ -162,6 +186,8 @@ final class WorkoutModel: ObservableObject {
     }
 
     screen = s.screen
+    // Once the phone has moved us off Start, any pending hand-off is resolved.
+    if s.screen != .start { pendingRoutineId = nil }
     routines = s.routines
     routineName = s.routineName
     equipment = s.equipment

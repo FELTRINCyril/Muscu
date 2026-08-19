@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ProfileOut, RecordOut, WorkoutListItem } from '../../src/api/types';
 import { getProfile, listRecentRecords, listWorkouts } from '../../src/api/workouts';
-import { HeartFilledIcon, SettingsIcon, StarIcon } from '../../src/components/icons';
+import { DeviceIcon, HeartFilledIcon, SettingsIcon, StarIcon } from '../../src/components/icons';
 import { fmtMonthYear, fmtVolumeLarge, metricLabel } from '../../src/lib/format';
 import { buildWeeklyBars, WEEK_BARS, type WeeklyBars } from '../../src/lib/weeklyBars';
 import { DEFAULT_NAME, setProfileName } from '../../src/lib/profileName';
@@ -14,10 +14,6 @@ import { color, font } from '../../src/theme/tokens';
 
 const BAR_MAX_HEIGHT = 56;
 const BAR_MIN_HEIGHT = 3;
-
-const SUCCESS_TINT_BG = 'rgba(45,216,129,0.06)';
-const SUCCESS_TINT_BORDER = 'rgba(45,216,129,0.22)';
-const SUCCESS_HALO = 'rgba(45,216,129,0.20)';
 
 /** Profile tab — identity, aggregate stats, weekly bars, PRs, sync status. */
 export default function Profile() {
@@ -227,10 +223,12 @@ export default function Profile() {
               ))}
             </View>
 
-            {/* Self-hosted status */}
+            {/* On-device status — neutral. Green now lives only on receipts,
+                where data is actually confirmed arriving; there is no synced
+                state to imply here. */}
             <View style={styles.statusCard}>
-              <View style={styles.statusHalo}>
-                <View style={styles.statusDot} />
+              <View style={styles.statusTile}>
+                <DeviceIcon size={19} color={color.text2} strokeWidth={2} />
               </View>
               <View style={styles.statusText}>
                 <Text style={styles.statusTitle}>On this device · not synced</Text>
@@ -529,32 +527,28 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
 
-  // Self-hosted status
+  // On-device status (neutral)
   statusCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 11,
-    backgroundColor: SUCCESS_TINT_BG,
+    gap: 12,
+    backgroundColor: color.surface1,
     borderWidth: 1,
-    borderColor: SUCCESS_TINT_BORDER,
+    borderColor: color.border,
     borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
   },
-  statusHalo: {
-    width: 17,
-    height: 17,
-    borderRadius: 999,
-    backgroundColor: SUCCESS_HALO,
+  statusTile: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: color.surface3,
+    borderWidth: 1,
+    borderColor: color.border,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-  },
-  statusDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 999,
-    backgroundColor: color.success,
   },
   statusText: { flex: 1, minWidth: 0 },
   statusTitle: {
@@ -571,7 +565,7 @@ const styles = StyleSheet.create({
   statusBadge: {
     fontFamily: font.monoRegular,
     fontSize: 11,
-    color: color.success,
+    color: color.text3,
     flexShrink: 0,
   },
 });

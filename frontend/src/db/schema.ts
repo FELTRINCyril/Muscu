@@ -147,8 +147,5 @@ export const settings = sqliteTable('settings', {
   autoStartRestTimer: integer('auto_start_rest_timer').notNull().default(1),
   restTimerAlerts: integer('rest_timer_alerts').notNull().default(1),
   hapticFeedback: integer('haptic_feedback').notNull().default(1),
-  // `serverUrl` and `lastSyncedAt` are retained but unused (purely on-device).
-  serverUrl: text('server_url'),
-  lastSyncedAt: integer('last_synced_at'),
   ...sync,
 });

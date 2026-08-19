@@ -26,29 +26,42 @@ struct ActiveSetView: View {
       Spacer(minLength: 4)
       valueBlock
       Spacer(minLength: 4)
-      setDots
-      logButton
+      // While resting, the non-blocking banner (in SessionView) takes this slot —
+      // the set is already logged, so Log Set is redundant. Reserve its height so
+      // the value block doesn't jump when the banner comes and goes.
+      if model.resting {
+        Color.clear.frame(height: 52)
+      } else {
+        setDots
+        logButton
+      }
     }
   }
 
   var body: some View {
-    content
-      .focusable(true)
-      .focused($crownFocused)
-      // 0.5 granularity: weight snaps to 0.5 kg, reps round to whole (below).
-      .digitalCrownRotation(
-        $crownValue, from: 0, through: 999, by: 0.5,
-        sensitivity: .medium, isContinuous: false, isHapticFeedbackEnabled: true
-      )
-      .onChange(of: crownValue) { _, v in applyCrown(v) }
-      // Re-seed whenever the phone replaced the values — a new set, or an edit
-      // to the one we are on. Keyed on the model's seed counter rather than
-      // `setNum`, which missed the second case entirely (#30).
-      .onChange(of: model.valueSeed) { _, _ in seedCrown() }
-      .onAppear {
-        seedCrown()
-        crownFocused = true
-      }
+    // E1 — nothing left to log: the page becomes the end-of-workout state rather
+    // than stranding the user on a Log Set button with no set to log.
+    if model.allSetsDone {
+      EndOfWorkoutState()
+    } else {
+      content
+        .focusable(true)
+        .focused($crownFocused)
+        // 0.5 granularity: weight snaps to 0.5 kg, reps round to whole (below).
+        .digitalCrownRotation(
+          $crownValue, from: 0, through: 999, by: 0.5,
+          sensitivity: .medium, isContinuous: false, isHapticFeedbackEnabled: true
+        )
+        .onChange(of: crownValue) { _, v in applyCrown(v) }
+        // Re-seed whenever the phone replaced the values — a new set, or an edit
+        // to the one we are on. Keyed on the model's seed counter rather than
+        // `setNum`, which missed the second case entirely (#30).
+        .onChange(of: model.valueSeed) { _, _ in seedCrown() }
+        .onAppear {
+          seedCrown()
+          crownFocused = true
+        }
+    }
   }
 
   private func select(_ field: Field) {
@@ -134,10 +147,20 @@ struct ActiveSetView: View {
       }
       .buttonStyle(.plain)
 
-      Text(prevLabel)
-        .font(Ischys.mono(11.5)).foregroundStyle(Ischys.text3)
-        .padding(.top, 2)
+      // While resting the just-logged value stands in for the previous-set hint,
+      // labelled LOGGED in success. The whole block dims to 0.45 (W1).
+      if model.resting {
+        Text("LOGGED")
+          .font(Ischys.mono(10.5)).tracking(1.5)
+          .foregroundStyle(Ischys.success)
+          .padding(.top, 2)
+      } else {
+        Text(prevLabel)
+          .font(Ischys.mono(11.5)).foregroundStyle(Ischys.text3)
+          .padding(.top, 2)
+      }
     }
+    .opacity(model.resting ? 0.45 : 1)
   }
 
   private var prevLabel: String {
@@ -170,6 +193,97 @@ struct ActiveSetView: View {
       .frame(height: 38)
       .foregroundStyle(Ischys.accentFg)
       .background(Ischys.accent, in: RoundedRectangle(cornerRadius: 18))
+    }
+    .buttonStyle(.plain)
+  }
+}
+
+/// E1 — end of workout. Shown on the Active Set page (the dots stay; this is not a
+/// new screen) once every planned set is logged. A success disc, the count, then
+/// the two end actions.
+///
+/// DECISION 1 (recommended): the actions are **Finish Workout** + **Add from
+/// iPhone**. Finishing is what the user came to do, so it takes the accent; adding
+/// hands off to the phone, which is the only place the exercise library lives.
+///
+/// DECISION 2 (resolved): this Finish button and `ControlsView` both call the same
+/// `PhoneLink.endWorkout()`, which SAVES the workout. They now read the same —
+/// **"Finish" in accent** in both places. ControlsView's old "End" in error red was
+/// inverted (red implies loss, but the losing action is Discard), so Discard took
+/// the error red there and Finish took the accent. One action, one name, one colour.
+struct EndOfWorkoutState: View {
+  @EnvironmentObject var model: WorkoutModel
+
+  private var statLine: String {
+    let name = model.routineName.isEmpty ? "Workout" : model.routineName
+    return "\(name) · \(model.setsDone) sets · \(Ischys.clock(model.elapsedSec))"
+  }
+
+  var body: some View {
+    VStack(spacing: 0) {
+      ZStack {
+        Circle().fill(Ischys.success.opacity(0.15))
+        Image(systemName: "checkmark")
+          .font(.system(size: 28, weight: .bold))
+          .foregroundStyle(Ischys.success)
+      }
+      .frame(width: 62, height: 62)
+
+      Text("All sets done")
+        .font(Ischys.ui(21, .bold))
+        .foregroundStyle(Ischys.text1)
+        .padding(.top, 12)
+
+      Text(statLine)
+        .font(Ischys.mono(11.5))
+        .foregroundStyle(Ischys.text3)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .padding(.top, 5)
+
+      Spacer(minLength: 12)
+
+      VStack(spacing: 8) {
+        finishButton
+        addFromPhoneButton
+      }
+    }
+    .padding(.top, 8)
+  }
+
+  private var finishButton: some View {
+    Button {
+      // Save the Watch's HKWorkoutSession, then tell the phone to finish — the
+      // same end path ControlsView calls "End". See DECISION 2 above.
+      WorkoutManager.shared.end()
+      PhoneLink.shared.endWorkout()
+    } label: {
+      HStack(spacing: 7) {
+        Image(systemName: "stop.fill").font(.system(size: 15))
+        Text("Finish Workout").font(Ischys.ui(16, .bold))
+      }
+      .frame(maxWidth: .infinity)
+      .frame(height: 50)
+      .foregroundStyle(Ischys.accentFg)
+      .background(Ischys.accent, in: RoundedRectangle(cornerRadius: 17))
+    }
+    .buttonStyle(.plain)
+  }
+
+  private var addFromPhoneButton: some View {
+    Button {
+      // The Watch can't browse the exercise library, so this hands off: the phone
+      // appends a set the user can then edit there.
+      PhoneLink.shared.addSet()
+    } label: {
+      HStack(spacing: 7) {
+        Image(systemName: "iphone").font(.system(size: 13)).foregroundStyle(Ischys.water)
+        Text("Add from iPhone").font(Ischys.ui(13.5, .semibold)).foregroundStyle(Ischys.text2)
+      }
+      .frame(maxWidth: .infinity)
+      .frame(height: 44)
+      .background(Ischys.surface2, in: RoundedRectangle(cornerRadius: 15))
+      .overlay(RoundedRectangle(cornerRadius: 15).stroke(Ischys.border, lineWidth: 1))
     }
     .buttonStyle(.plain)
   }

@@ -153,13 +153,9 @@ export default function ExerciseDetail() {
           <Text style={styles.title} numberOfLines={1}>
             {title}
           </Text>
-          <Pressable
-            onPress={() => {
-              /* right slot reserved */
-            }}
-            style={styles.iconBtn}
-            hitSlop={8}
-          />
+          {/* Layout spacer only — balances the back button so the title stays
+              centred. Not a button: no background, no press target. */}
+          <View style={styles.headerSpacer} />
         </View>
 
         <View style={styles.tabs}>
@@ -530,6 +526,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerSpacer: { width: 34, height: 34 },
   title: {
     fontFamily: font.titleSemi,
     fontSize: 15,

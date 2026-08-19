@@ -864,11 +864,10 @@ export default function ActiveWorkout() {
     else router.replace('/(tabs)');
   };
 
+  // Confirmation now lives in WorkoutHeader's bottom-sheet (reusing the app's
+  // sheet pattern); this just performs the discard once the user confirms there.
   const onDiscard = () => {
-    Alert.alert('Discard workout?', 'Nothing from this session will be saved.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Discard', style: 'destructive', onPress: () => void discardAndLeave() },
-    ]);
+    void discardAndLeave();
   };
 
   const setRest = (exId: string, seconds: number) => {

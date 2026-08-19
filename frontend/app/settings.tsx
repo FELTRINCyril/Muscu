@@ -3,16 +3,21 @@
  * about links. Pushed onto the root Stack from Profile.
  * Source of truth: export/ischys-app/Settings.dc.html.
  */
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { cacheDirectory, writeAsStringAsync } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { SettingsOut, SettingsUpdate, Unit } from '../src/api/types';
-import { exportData, getSettings, updateSettings } from '../src/api/workouts';
+import {
+  countDuplicateGroups,
+  exportData,
+  getSettings,
+  updateSettings,
+} from '../src/api/workouts';
 import { setHapticsEnabled } from '../src/lib/haptics';
 import {
   BellIcon,
@@ -34,9 +39,6 @@ const DEFAULT_SETTINGS: SettingsOut = {
   auto_start_rest_timer: true,
   rest_timer_alerts: true,
   haptic_feedback: true,
-  sync_frequency: 'live',
-  server_url: '',
-  last_synced_at: null,
 };
 
 type SegmentOption<T extends string> = { label: string; value: T };
@@ -45,6 +47,16 @@ const UNIT_OPTIONS: SegmentOption<Unit>[] = [
   { label: 'KG', value: 'kg' },
   { label: 'LB', value: 'lb' },
 ];
+
+/** Merge glyph: two overlapping circles (icons.tsx is owned by another stream). */
+function MergeIcon({ size = 19, color: strokeColor, strokeWidth = 2 }: { size?: number; color: string; strokeWidth?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx={8} cy={8} r={5} stroke={strokeColor} strokeWidth={strokeWidth} fill="none" />
+      <Circle cx={16} cy={16} r={5} stroke={strokeColor} strokeWidth={strokeWidth} fill="none" />
+    </Svg>
+  );
+}
 
 /** Slim chevron-left glyph matching the design (viewBox 0 0 9 15). */
 function BackChevronLeftIcon({ color: strokeColor }: { color: string }) {
@@ -67,6 +79,7 @@ export default function Settings() {
   const insets = useSafeAreaInsets();
 
   const [settings, setSettings] = useState<SettingsOut>(DEFAULT_SETTINGS);
+  const [dupCount, setDupCount] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -85,6 +98,21 @@ export default function Settings() {
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
   }, []);
+
+  // Refresh the duplicate count on focus — it changes after a merge lands.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      countDuplicateGroups()
+        .then((n) => {
+          if (!cancelled) setDupCount(n);
+        })
+        .catch(() => {});
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   /** Local optimistic update + fire-and-forget PATCH; failures are silently ignored. */
   const patch = (delta: SettingsUpdate) => {
@@ -195,8 +223,9 @@ export default function Settings() {
             label="Import workout"
             value="CSV / JSON"
             onPress={onImport}
-            isLast
+            isLast={false}
           />
+          <MergeRow count={dupCount} onPress={() => router.push('/merge-duplicates')} />
         </Section>
 
         {/* ABOUT */}
@@ -455,6 +484,32 @@ function LinkRow({
   );
 }
 
+/**
+ * Merge-duplicates row (board M1): sub-labelled, with an accent count pill that
+ * appears only when duplicates were detected, plus a chevron. Last in DATA.
+ */
+function MergeRow({ count, onPress }: { count: number; onPress: () => void }) {
+  return (
+    <RowShell
+      icon={<MergeIcon size={19} color={color.text2} />}
+      label="Merge duplicates"
+      sub="Same lift saved twice"
+      isLast
+      onPress={onPress}
+      right={
+        <View style={styles.linkRight}>
+          {count > 0 && (
+            <View style={styles.countPill}>
+              <Text style={styles.countPillText}>{count}</Text>
+            </View>
+          )}
+          <ChevronRightIcon size={15} color={color.text3} strokeWidth={2.2} />
+        </View>
+      }
+    />
+  );
+}
+
 // --- Styles ---------------------------------------------------------------
 
 const styles = StyleSheet.create({
@@ -609,6 +664,22 @@ const styles = StyleSheet.create({
     fontFamily: font.monoRegular,
     fontSize: 12.5,
     color: color.text3,
+    fontVariant: ['tabular-nums'],
+  },
+
+  // Accent count pill (Merge duplicates row)
+  countPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,74,28,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,74,28,0.3)',
+  },
+  countPillText: {
+    fontFamily: font.monoSemi,
+    fontSize: 11.5,
+    color: color.accent,
     fontVariant: ['tabular-nums'],
   },
 

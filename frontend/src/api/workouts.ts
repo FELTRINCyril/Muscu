@@ -46,8 +46,19 @@ export {
   getExerciseHistory,
   getExerciseRecords,
   getExerciseChart,
+  findDuplicateGroups,
+  countDuplicateGroups,
+  countExercises,
+  buildManualGroup,
+  mergeExercises,
+  ActiveSessionError,
+} from '../data/exercisesRepo';
+export type {
+  MergeGroupView,
+  MergeMemberView,
+  MergeResult,
 } from '../data/exercisesRepo';
 
 export { getProfile, listRecentRecords, getDashboard } from '../data/profileRepo';
-export { getSettings, updateSettings, triggerSync } from '../data/settingsRepo';
+export { getSettings, updateSettings } from '../data/settingsRepo';
 export { exportData, importFile } from '../data/exportRepo';

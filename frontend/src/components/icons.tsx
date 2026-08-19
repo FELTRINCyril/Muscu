@@ -109,6 +109,36 @@ export function ReorderIcon({ size = 15, color, strokeWidth = 2.2 }: IconProps) 
   );
 }
 
+/**
+ * Up/down reorder arrow pair — the "moved / set-count changed" marker in the
+ * routine-update diff (Need 2). Lifted verbatim from `boards/Routine Update.dc.html`.
+ */
+export function ReorderArrowsIcon({ size = 13, color, strokeWidth = 2.2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M8 4v16M8 4L5 7M8 4l3 3M16 20V4M16 20l3-3M16 20l-3-3"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        {...common}
+      />
+    </Svg>
+  );
+}
+
+/**
+ * Phone/device glyph — the on-device status tile on Profile. Reuses HapticIcon's
+ * geometry (rect x7 y3 w10 h18 rx2 + M11 18h2) so the two read as one device.
+ */
+export function DeviceIcon({ size = 19, color, strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Rect x={7} y={3} width={10} height={18} rx={2} stroke={color} strokeWidth={strokeWidth} fill="none" />
+      <Path d="M11 18h2" stroke={color} strokeWidth={strokeWidth} {...common} />
+    </Svg>
+  );
+}
+
 export function TrashIcon({ size = 15, color, strokeWidth = 2.2 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">

@@ -1,8 +1,10 @@
-/** Fixed top header: back, title/status, Finish, and the TIME/VOLUME/SETS strip. */
-import { useEffect, useRef } from 'react';
+/** Fixed top header: back, discard, title/status, Finish, and the TIME/VOLUME/SETS/HR/CAL strip. */
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { color, font } from '../../theme/tokens';
+import { color, font, TAP_TARGET } from '../../theme/tokens';
+import { DraggableSheet } from '../DraggableSheet';
 import { PressableScale } from '../PressableScale';
 import { BackChevronIcon, HeartFilledIcon, TrashIcon } from '../icons';
 
@@ -18,14 +20,14 @@ type Props = {
   onFinish: () => void;
   /** Abandon the session without recording it. Omitted → no discard control. */
   onDiscard?: () => void;
-  /** Live heart-rate BPM; when supplied renders the HR chip before Finish. */
+  /** Live heart-rate BPM. Non-null implies a paired Watch → HR + CAL columns show. */
   heartRate?: number | null;
-  /** Live active energy (kcal) a Watch is burning; renders a chip beside HR. */
+  /** Live active energy (kcal) a Watch is burning; shown beside HR. */
   activeCal?: number | null;
 };
 
-/** Pulsing heart used inside the HR overlay. Scale 1 → 1.28 → 1 over 1s loop. */
-function PulsingHeart() {
+/** Pulsing heart glyph. Scale 1 → 1.28 → 1 over a 1s loop. */
+function PulsingHeart({ size = 9 }: { size?: number }) {
   const scale = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -49,8 +51,59 @@ function PulsingHeart() {
   }, [scale]);
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
-      <HeartFilledIcon size={13} color={color.error} />
+      <HeartFilledIcon size={size} color={color.error} />
     </Animated.View>
+  );
+}
+
+/**
+ * Discard is irreversible, so it needs a confirmation. The design wires the button
+ * to a trigger but leaves the sheet undrawn — this reuses the app's bottom-sheet
+ * pattern (grabber, drag-to-dismiss, 0.55 backdrop) and keeps the copy specific
+ * about exactly what is lost.
+ */
+function ConfirmDiscardSheet({
+  visible,
+  onCancel,
+  onConfirm,
+}: {
+  visible: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <DraggableSheet
+      visible={visible}
+      onClose={onCancel}
+      sheetStyle={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
+    >
+      <View style={styles.grabberWrap}>
+        <View style={styles.grabber} />
+      </View>
+      <View style={styles.sheetBody}>
+        <Text style={styles.sheetTitle}>Discard this workout?</Text>
+        <Text style={styles.sheetText}>
+          Every set you&apos;ve logged, plus your time and volume, is deleted for good. This
+          can&apos;t be undone, and nothing is saved to your history.
+        </Text>
+        <Pressable
+          onPress={onConfirm}
+          style={({ pressed }) => [styles.sheetDiscard, pressed && styles.sheetDiscardPressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Discard workout"
+        >
+          <Text style={styles.sheetDiscardText}>Discard workout</Text>
+        </Pressable>
+        <Pressable
+          onPress={onCancel}
+          style={({ pressed }) => [styles.sheetCancel, pressed && styles.sheetCancelPressed]}
+          accessibilityRole="button"
+        >
+          <Text style={styles.sheetCancelText}>Keep going</Text>
+        </Pressable>
+      </View>
+    </DraggableSheet>
   );
 }
 
@@ -68,41 +121,36 @@ export function WorkoutHeader({
   heartRate,
   activeCal,
 }: Props) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // A Watch feeding live HR is the signal a Watch is connected; HR + CAL ride
+  // in the data strip (mono label + tabular value) instead of tinted chips.
+  const watchConnected = heartRate != null;
+
   return (
     <View style={[styles.header, { paddingTop: topInset }]}>
       <View style={styles.topRow}>
         <Pressable onPress={onBack} style={styles.back} hitSlop={6}>
           <BackChevronIcon color={color.text2} strokeWidth={2.2} />
         </Pressable>
+        {onDiscard && (
+          <Pressable
+            onPress={() => setConfirmOpen(true)}
+            style={({ pressed }) => [styles.discard, pressed && styles.discardPressed]}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Discard workout"
+          >
+            {({ pressed }) => (
+              <TrashIcon size={16} color={pressed ? color.error : color.text3} strokeWidth={2.2} />
+            )}
+          </Pressable>
+        )}
         <View style={styles.titleWrap}>
           <Text style={styles.name} numberOfLines={1}>
             {name}
           </Text>
           <Text style={styles.status}>{status}</Text>
         </View>
-        {heartRate != null && (
-          <View style={styles.hrChip} accessibilityLabel={`Heart rate ${heartRate} bpm`}>
-            <PulsingHeart />
-            <Text style={styles.hrValue}>{String(heartRate)}</Text>
-          </View>
-        )}
-        {activeCal != null && activeCal > 0 && (
-          <View style={styles.calChip} accessibilityLabel={`Active energy ${activeCal} calories`}>
-            <Text style={styles.calValue}>{String(activeCal)}</Text>
-            <Text style={styles.calUnit}>cal</Text>
-          </View>
-        )}
-        {onDiscard && (
-          <Pressable
-            onPress={onDiscard}
-            style={({ pressed }) => [styles.discard, pressed && styles.discardPressed]}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel="Discard workout"
-          >
-            <TrashIcon size={16} color={color.text3} strokeWidth={2.2} />
-          </Pressable>
-        )}
         <PressableScale onPress={onFinish} style={styles.finish}>
           <Text style={styles.finishText}>Finish</Text>
         </PressableScale>
@@ -124,7 +172,33 @@ export function WorkoutHeader({
           <Text style={styles.statLabel}>SETS</Text>
           <Text style={styles.statValue}>{sets}</Text>
         </View>
+        {watchConnected && (
+          <>
+            <View style={styles.statHr}>
+              <View style={styles.hrLabelRow}>
+                <PulsingHeart size={9} />
+                <Text style={styles.statLabel}>HR</Text>
+              </View>
+              <Text style={styles.statValue}>{String(heartRate)}</Text>
+            </View>
+            <View style={styles.statCal}>
+              <Text style={styles.statLabel}>CAL</Text>
+              <Text style={styles.statValue}>{String(activeCal ?? 0)}</Text>
+            </View>
+          </>
+        )}
       </View>
+
+      {onDiscard && (
+        <ConfirmDiscardSheet
+          visible={confirmOpen}
+          onCancel={() => setConfirmOpen(false)}
+          onConfirm={() => {
+            setConfirmOpen(false);
+            onDiscard();
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -147,17 +221,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  titleWrap: { flex: 1, minWidth: 0 },
-  name: { fontFamily: font.titleSemi, fontSize: 17, letterSpacing: -0.17, color: color.text1 },
-  status: { fontFamily: font.monoRegular, fontSize: 11.5, color: color.text3 },
+  // Far left, beside the collapse chevron — opposite end from the primary Finish.
   discard: {
     width: 34,
     height: 34,
     borderRadius: 9,
+    backgroundColor: color.surface1,
+    borderWidth: 1,
+    borderColor: color.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  discardPressed: { opacity: 0.6 },
+  discardPressed: { borderColor: 'rgba(255,77,77,0.4)' },
+  titleWrap: { flex: 1, minWidth: 0 },
+  name: { fontFamily: font.titleSemi, fontSize: 17, letterSpacing: -0.17, color: color.text1 },
+  status: { fontFamily: font.monoRegular, fontSize: 11.5, color: color.text3 },
   finish: {
     height: 34,
     paddingHorizontal: 18,
@@ -168,57 +246,13 @@ const styles = StyleSheet.create({
   },
   finishText: { fontFamily: font.titleSemi, fontSize: 14, color: color.accentFg },
 
-  // Live heart-rate overlay (visible only when Read HR permission is on).
-  hrChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: 34,
-    paddingHorizontal: 11,
-    borderRadius: 9,
-    backgroundColor: 'rgba(255,77,77,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,77,77,0.24)',
-    flexShrink: 0,
-    marginRight: 8,
-  },
-  hrValue: {
-    fontFamily: font.monoSemi,
-    fontSize: 13,
-    fontWeight: '600',
-    color: color.text1,
-    fontVariant: ['tabular-nums'],
-  },
-  calChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    height: 34,
-    paddingHorizontal: 11,
-    borderRadius: 9,
-    backgroundColor: 'rgba(255,149,0,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,149,0,0.24)',
-    flexShrink: 0,
-    marginRight: 8,
-  },
-  calValue: {
-    fontFamily: font.monoSemi,
-    fontSize: 13,
-    fontWeight: '600',
-    color: color.text1,
-    fontVariant: ['tabular-nums'],
-  },
-  calUnit: {
-    fontFamily: font.monoSemi,
-    fontSize: 10,
-    color: color.text3,
-  },
-
   strip: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
   statTime: { flex: 1, flexDirection: 'column', gap: 2 },
   statVolume: { flex: 1.3, flexDirection: 'column', gap: 2 },
   statSets: { flex: 0.8, flexDirection: 'column', gap: 2 },
+  statHr: { flex: 0.85, flexDirection: 'column', gap: 2 },
+  statCal: { flex: 0.85, flexDirection: 'column', gap: 2 },
+  hrLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statLabel: {
     fontFamily: font.monoMedium,
     fontSize: 9.5,
@@ -235,5 +269,68 @@ const styles = StyleSheet.create({
     fontFamily: font.monoMedium,
     fontSize: 11,
     color: color.text3,
+  },
+
+  // Confirm-discard sheet
+  sheet: {
+    backgroundColor: color.surface1,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderTopWidth: 1,
+    borderTopColor: color.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -20 },
+    shadowOpacity: 0.8,
+    shadowRadius: 50,
+    elevation: 20,
+  },
+  grabberWrap: { alignItems: 'center', justifyContent: 'center', paddingTop: 12, paddingBottom: 4 },
+  grabber: { width: 40, height: 5, borderRadius: 3, backgroundColor: color.surface3 },
+  sheetBody: { paddingHorizontal: 20, paddingTop: 10 },
+  sheetTitle: {
+    fontFamily: font.titleSemi,
+    fontSize: 19,
+    letterSpacing: -0.19,
+    color: color.text1,
+  },
+  sheetText: {
+    fontFamily: font.bodyRegular,
+    fontSize: 14,
+    lineHeight: 21,
+    color: color.text2,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  sheetDiscard: {
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: color.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: TAP_TARGET,
+  },
+  sheetDiscardPressed: { opacity: 0.9 },
+  sheetDiscardText: {
+    fontFamily: font.displayBold,
+    fontSize: 15,
+    letterSpacing: -0.15,
+    color: '#FFFFFF',
+  },
+  sheetCancel: {
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: color.surface2,
+    borderWidth: 1,
+    borderColor: color.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    minHeight: TAP_TARGET,
+  },
+  sheetCancelPressed: { borderColor: color.text3 },
+  sheetCancelText: {
+    fontFamily: font.titleSemi,
+    fontSize: 14.5,
+    color: color.text1,
   },
 });

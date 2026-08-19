@@ -8,6 +8,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import * as Health from '../../modules/health';
 import { uploadHeartRate } from '../api/workouts';
+import { recordReadReceipt } from './healthReceipts';
 
 // Plausible human heart-rate bounds. A stray sample outside this range is
 // dropped rather than persisted.
@@ -136,6 +137,16 @@ export async function syncFinishedWorkout(
 
     const metrics = await Health.readWorkoutMetrics(startedAtMs, endedAtMs);
 
+    // Honest read-receipts: HealthKit hides read grants, so the Health screen
+    // shows when data last actually ARRIVED instead of a fake granted/denied.
+    // A metric coming back non-null here is a real read from HealthKit.
+    if (metrics.avgHr != null && metrics.avgHr >= HR_MIN && metrics.avgHr <= HR_MAX) {
+      await recordReadReceipt('readHR', `${Math.round(metrics.avgHr)} bpm`);
+    }
+    if (metrics.energyKcal != null && metrics.energyKcal > 0) {
+      await recordReadReceipt('readEnergy', `${Math.round(metrics.energyKcal)} cal`);
+    }
+
     if (prefOn(writePref)) {
       // The Watch owns the write only when it confirms it saved. If it was
       // recording but never confirms (auth failure, crash, an odd end), waiting
@@ -237,6 +248,9 @@ export function subscribeLiveHeartRate(onBpm: (bpm: number) => void): () => void
   if (!Health.isAvailable()) return () => {};
   let stop: (() => void) | null = null;
   let cancelled = false;
+  // Stamp a read-receipt on the first live sample only — the screen wants "last
+  // received", not a write per beat hammering SecureStore.
+  let receiptStamped = false;
 
   void (async () => {
     const [connected, hrPref] = await Promise.all([
@@ -244,7 +258,13 @@ export function subscribeLiveHeartRate(onBpm: (bpm: number) => void): () => void
       SecureStore.getItemAsync(HEALTH_KEYS.readHR),
     ]);
     if (cancelled || connected !== '1' || !prefOn(hrPref)) return;
-    stop = Health.onHeartRate(onBpm);
+    stop = Health.onHeartRate((bpm) => {
+      if (!receiptStamped && bpm >= HR_MIN && bpm <= HR_MAX) {
+        receiptStamped = true;
+        void recordReadReceipt('readHR', `${Math.round(bpm)} bpm`);
+      }
+      onBpm(bpm);
+    });
   })();
 
   return () => {

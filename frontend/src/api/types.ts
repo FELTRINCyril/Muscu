@@ -252,7 +252,6 @@ export type RoutineExerciseIn = {
 // --- Settings ---
 
 export type Unit = 'kg' | 'lb';
-export type SyncFrequency = 'live' | 'interval' | 'manual';
 
 /** Full locally-persisted settings payload. */
 export type SettingsOut = {
@@ -260,9 +259,6 @@ export type SettingsOut = {
   auto_start_rest_timer: boolean;
   rest_timer_alerts: boolean;
   haptic_feedback: boolean;
-  sync_frequency: SyncFrequency;
-  server_url: string;
-  last_synced_at?: string | null;
 };
 
 /** Any subset — the fields to change when updating settings. */

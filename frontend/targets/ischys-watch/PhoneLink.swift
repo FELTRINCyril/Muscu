@@ -161,7 +161,21 @@ final class PhoneLink: NSObject, WCSessionDelegate {
     _ session: WCSession,
     activationDidCompleteWith activationState: WCSessionActivationState,
     error: Error?
-  ) {}
+  ) {
+    updateReachability(session)
+  }
+
+  // Reachability drives the S-B start state. `isReachable` flips as the phone app
+  // comes and goes; mirror it onto the model so StartView can dim its routines and
+  // warn, without any view touching WCSession directly.
+  func sessionReachabilityDidChange(_ session: WCSession) {
+    updateReachability(session)
+  }
+
+  private func updateReachability(_ session: WCSession) {
+    let reachable = session.isReachable
+    Task { @MainActor in WorkoutModel.shared.phoneReachable = reachable }
+  }
 
   // Latest full state — the phone coalesces rapid updates into this.
   func session(_ session: WCSession, didReceiveApplicationContext context: [String: Any]) {

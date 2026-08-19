@@ -1,10 +1,17 @@
 import SwiftUI
 
 /// S5 — Controls. A 2×2 grid of circular actions for the running session:
-/// End and Discard both close the Watch's `HKWorkoutSession` before telling the
-/// phone what to do with the workout; Pause holds the session; Add asks the
+/// Finish and Discard both close the Watch's `HKWorkoutSession` before telling
+/// the phone what to do with the workout; Pause holds the session; Add asks the
 /// phone to append a set. The phone remains the source of truth for the data —
 /// these buttons only send intents (see `PhoneLink`).
+///
+/// DECISION 2 (resolved — see `EndOfWorkoutState` in `ActiveSetView`): this was
+/// "End" in error red, but `endWorkout()` SAVES the workout to history — red
+/// implies loss, and the button that actually loses data is Discard. Colours were
+/// inverted. Unified with the E1 end-state: this is **Finish** in accent (the
+/// primary, saving action), **Discard** now carries the error red, and **Add**
+/// moves to `water` to match E1's "Add from iPhone" and keep accent to one action.
 struct ControlsView: View {
   @EnvironmentObject var model: WorkoutModel
 
@@ -14,18 +21,18 @@ struct ControlsView: View {
       Spacer()
 
       LazyVGrid(columns: [GridItem(spacing: 12), GridItem(spacing: 12)], spacing: 12) {
-        controlButton(color: Ischys.error, icon: "stop.fill", label: "End") {
+        controlButton(color: Ischys.accent, icon: "stop.fill", label: "Finish") {
           WorkoutManager.shared.end()
           PhoneLink.shared.endWorkout()
         }
         controlButton(color: Ischys.warning, icon: "pause.fill", label: "Pause") {
           WorkoutManager.shared.pause()
         }
-        controlButton(color: Ischys.text2, icon: "trash", label: "Discard") {
+        controlButton(color: Ischys.error, icon: "trash", label: "Discard") {
           WorkoutManager.shared.discard()
           PhoneLink.shared.discardWorkout()
         }
-        controlButton(color: Ischys.accent, icon: "plus", label: "Add") {
+        controlButton(color: Ischys.water, icon: "plus", label: "Add") {
           PhoneLink.shared.addSet()
         }
       }

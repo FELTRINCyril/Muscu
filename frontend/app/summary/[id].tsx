@@ -7,8 +7,9 @@
  * Source of truth: `export/ischys-app/Workout Summary.dc.html`.
  */
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,13 +21,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import type {
+  RoutineExerciseIn,
+  RoutineOut,
   WorkoutOut,
   WorkoutSetOut,
   WorkoutSummaryOut,
 } from '../../src/api/types';
 import { getWorkout, saveAsRoutine } from '../../src/api/workouts';
+import { deleteRoutine, getRoutine, updateRoutine } from '../../src/api/routines';
 import { parseServerDate } from '../../src/lib/serverTime';
-import { CheckIcon, StarIcon } from '../../src/components/icons';
+import { CheckIcon, ReorderArrowsIcon, StarIcon } from '../../src/components/icons';
 import { PressableScale } from '../../src/components/PressableScale';
 import { ShareWorkoutSheet } from '../../src/components/ShareWorkoutSheet';
 import { fmtDateOnly, fmtDuration } from '../../src/lib/format';
@@ -79,6 +83,139 @@ function computeMuscleFromWorkout(w: WorkoutOut): { name: string; sets: number }
   return Array.from(tally.entries())
     .map(([name, sets]) => ({ name, sets }))
     .sort((a, b) => b.sets - a.sets);
+}
+
+// --- Routine-update prompt (Need 2) -----------------------------------------
+
+/**
+ * Workouts whose routine-update prompt has already been resolved (updated, kept,
+ * or saved-as-new) this app session. Module scope = the session — re-entering the
+ * same Summary won't re-ask, but the next session's changes are a fresh question.
+ * Deliberately keyed by workout, not routine ("remembered per session, not per
+ * routine" — declining once must not suppress the prompt for that routine forever).
+ */
+const resolvedPrompts = new Set<string>();
+
+/** Non-warmup ("working") set count — the unit the diff compares, matching how
+ *  `bestSetLine` already excludes warm-ups from what counts. */
+function workingSetCount(sets: { type: string }[]): number {
+  return sets.filter((s) => s.type !== 'warmup').length;
+}
+
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
+/** Values kept in the longest common subsequence of two id sequences — used to
+ *  tell which common exercises actually moved vs. were merely shifted by others. */
+function lcsKept(a: string[], b: string[]): Set<string> {
+  const n = a.length;
+  const m = b.length;
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i -= 1) {
+    for (let j = m - 1; j >= 0; j -= 1) {
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const keep = new Set<string>();
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) {
+      keep.add(a[i]);
+      i += 1;
+      j += 1;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      i += 1;
+    } else {
+      j += 1;
+    }
+  }
+  return keep;
+}
+
+type DiffMarker = 'added' | 'removed' | 'changed';
+type DiffRow = { key: string; marker: DiffMarker; name: string; detail: string };
+
+/**
+ * STRUCTURE-ONLY diff of what the workout did vs. the routine it started from:
+ * exercises added / removed / reordered and set-count changes. Never logged
+ * actuals (weights, reps) — actuals differ from targets almost every session,
+ * so prompting on them would fire every workout and get dismissed reflexively.
+ *
+ * DECISION (Decision B / Option B open question): only Option A (structure only)
+ * is implemented. Option B ("also prompt on edited targets") is NOT possible with
+ * today's schema: a workout has a single value per set (`workout_sets.weight/reps`)
+ * with no separate "edited target" column, so an edited target can't be told apart
+ * from a logged actual. Implementing B needs a schema change — flag for the founder.
+ */
+function buildRoutineDiff(routine: RoutineOut, workout: WorkoutOut): DiffRow[] {
+  const rExs = routine.exercises;
+  const wExs = workout.exercises;
+  const rIds = rExs.map((e) => e.exercise.id);
+  const wIds = wExs.map((e) => e.exercise.id);
+  const rHas = new Set(rIds);
+  const wHas = new Set(wIds);
+  const rById = new Map(rExs.map((e) => [e.exercise.id, e]));
+
+  // Which common exercises genuinely moved (not just shifted by add/remove).
+  const commonR = rIds.filter((id) => wHas.has(id));
+  const commonW = wIds.filter((id) => rHas.has(id));
+  const kept = lcsKept(commonR, commonW);
+
+  const added: DiffRow[] = [];
+  const changed: DiffRow[] = [];
+  for (const we of wExs) {
+    const id = we.exercise.id;
+    if (!rHas.has(id)) {
+      added.push({
+        key: `add-${we.id}`,
+        marker: 'added',
+        name: we.exercise.name,
+        detail: plural(workingSetCount(we.sets), 'set'),
+      });
+      continue;
+    }
+    const re = rById.get(id);
+    if (!re) continue;
+    const wCount = workingSetCount(we.sets);
+    const rCount = workingSetCount(re.sets);
+    if (wCount !== rCount) {
+      changed.push({
+        key: `set-${we.id}`,
+        marker: 'changed',
+        name: we.exercise.name,
+        detail: `${rCount} → ${wCount} sets`,
+      });
+    } else if (!kept.has(id)) {
+      changed.push({ key: `move-${we.id}`, marker: 'changed', name: we.exercise.name, detail: 'moved' });
+    }
+  }
+
+  const removed: DiffRow[] = rExs
+    .filter((re) => !wHas.has(re.exercise.id))
+    .map((re) => ({ key: `rm-${re.id}`, marker: 'removed' as const, name: re.exercise.name, detail: 'removed' }));
+
+  return [...added, ...removed, ...changed];
+}
+
+/** Map a full routine payload back to the update-input shape (for Undo). */
+function routineToInput(routine: RoutineOut): RoutineExerciseIn[] {
+  return routine.exercises.map((re) => ({
+    exercise_id: re.exercise.id,
+    rest_seconds: re.rest_seconds,
+    note: re.note ?? null,
+    sets: re.sets.map((s) => ({ type: s.type, target_weight: s.target_weight, target_reps: s.target_reps })),
+  }));
+}
+
+/** Map the finished workout's structure to the update-input shape (Update routine
+ *  writes the plan to match what was just done — mirrors saveAsRoutine's mapping). */
+function workoutToInput(workout: WorkoutOut): RoutineExerciseIn[] {
+  return workout.exercises.map((we) => ({
+    exercise_id: we.exercise.id,
+    rest_seconds: we.rest_seconds,
+    note: we.note ?? null,
+    sets: we.sets.map((s) => ({ type: s.type, target_weight: s.weight, target_reps: s.reps })),
+  }));
 }
 
 function CloseIcon({ size = 16, tint }: { size?: number; tint: string }) {
@@ -180,6 +317,109 @@ export default function WorkoutSummary() {
     dismiss();
   };
 
+  // --- Routine-update prompt (Need 2) ---------------------------------------
+  // Only on the cached-summary path: the routine-backed workout is the mirror of
+  // the `!routine_id` Save-as-Routine button. The degraded getWorkout fallback
+  // has no diff available, so it never prompts (routineId stays null there).
+  const routineId = summary ? summary.workout.routine_id ?? null : null;
+  const [routine, setRoutine] = useState<RoutineOut | null>(null);
+  const [routineDeleted, setRoutineDeleted] = useState(false);
+  const [promptState, setPromptState] = useState<'prompt' | 'updated' | 'saved-new' | 'kept'>(
+    'prompt',
+  );
+  const [expanded, setExpanded] = useState(false);
+  const [receiptName, setReceiptName] = useState('');
+  const undoRef = useRef<(() => Promise<void>) | null>(null);
+  const receiptFade = useRef(new Animated.Value(0)).current;
+  // Resolved on a previous visit this session → don't re-ask on re-entry.
+  const alreadyResolved = useRef(resolvedPrompts.has(workoutId ?? ''));
+
+  // Load the source routine to diff against. A throw means it was deleted
+  // mid-session → leave `routine` null so we fall back to Save as Routine.
+  useEffect(() => {
+    if (!routineId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await getRoutine(routineId);
+        if (!cancelled) setRoutine(r);
+      } catch {
+        // Deleted source routine — never offer to update something gone; fall
+        // back to the Save as Routine button instead.
+        if (!cancelled) setRoutineDeleted(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [routineId]);
+
+  const diff = useMemo(
+    () => (routine && summary ? buildRoutineDiff(routine, summary.workout) : []),
+    [routine, summary],
+  );
+
+  const showReceipt = (state: 'updated' | 'saved-new') => {
+    resolvedPrompts.add(workoutId ?? '');
+    setPromptState(state);
+    receiptFade.setValue(0);
+    Animated.timing(receiptFade, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const onUpdateRoutine = async () => {
+    if (!routineId || !routine || !summary) return;
+    const snapshot = routineToInput(routine); // captured for Undo
+    setReceiptName(routine.name);
+    undoRef.current = async () => {
+      try {
+        await updateRoutine(routineId, { exercises: snapshot });
+      } catch {
+        // best-effort revert
+      }
+    };
+    try {
+      await updateRoutine(routineId, { exercises: workoutToInput(summary.workout) });
+    } catch {
+      // best-effort — still show the receipt so the action isn't a silent no-op
+    }
+    showReceipt('updated');
+  };
+
+  const onKeepAsIs = () => {
+    // A no-op write — nothing to confirm. Dismiss in place and remember for the
+    // session (a green "success" receipt here would misuse the confirmed-data colour).
+    resolvedPrompts.add(workoutId ?? '');
+    setPromptState('kept');
+  };
+
+  const onSaveAsNew = async () => {
+    if (!workoutId || !summary) return;
+    const created = await saveAsRoutine(workoutId).catch(() => null);
+    setReceiptName(created?.name ?? summary.workout.name);
+    undoRef.current = created
+      ? async () => {
+          try {
+            await deleteRoutine(created.id);
+          } catch {
+            // best-effort
+          }
+        }
+      : null;
+    showReceipt('saved-new');
+  };
+
+  const onUndo = async () => {
+    const fn = undoRef.current;
+    undoRef.current = null;
+    if (fn) await fn();
+    resolvedPrompts.delete(workoutId ?? '');
+    setPromptState('prompt');
+  };
+
   // Empty shell while the fallback is loading (or if it never loads).
   if (!view) {
     return (
@@ -189,7 +429,8 @@ export default function WorkoutSummary() {
             <CloseIcon tint={color.text2} />
           </Pressable>
           <Text style={styles.headerTitle}>WORKOUT COMPLETE</Text>
-          <View style={styles.headerBtn} />
+          {/* Layout spacer only — no surface fill, no press target. */}
+          <View style={styles.headerSpacer} />
         </View>
       </View>
     );
@@ -197,6 +438,12 @@ export default function WorkoutSummary() {
 
   const { workout, prs, muscles } = view;
   const maxSets = muscles.length > 0 ? Math.max(...muscles.map((m) => m.sets)) : 0;
+
+  // The prompt is eligible only for a routine-backed workout on the cached path
+  // whose structure actually changed and that hasn't been resolved this session.
+  const canPrompt = !alreadyResolved.current && !!summary && !!routineId && !!routine && diff.length > 0;
+  const visibleRows = expanded ? diff : diff.slice(0, 3);
+  const hiddenCount = diff.length - visibleRows.length;
 
   return (
     <View style={styles.root}>
@@ -315,12 +562,82 @@ export default function WorkoutSummary() {
 
         {/* ACTIONS */}
         <View style={styles.actions}>
+          {/* Routine-update prompt sits directly above Done — the question
+              arrives as the user is leaving, not while reading their PRs. */}
+          {canPrompt && promptState === 'prompt' && (
+            <View style={styles.routineCard}>
+              <View style={styles.routineHeader}>
+                <View style={styles.routineDot} />
+                <Text style={styles.routineTitle}>You changed this routine</Text>
+                <Text style={styles.routineCount}>{plural(diff.length, 'change')}</Text>
+              </View>
+              <View style={styles.routineRows}>
+                {visibleRows.map((row) => (
+                  <View key={row.key} style={styles.routineRow}>
+                    <View style={styles.routineMarker}>
+                      {row.marker === 'added' && <Text style={styles.markerAdd}>+</Text>}
+                      {row.marker === 'removed' && <Text style={styles.markerRemove}>{'−'}</Text>}
+                      {row.marker === 'changed' && (
+                        <ReorderArrowsIcon size={13} color={color.text2} strokeWidth={2.2} />
+                      )}
+                    </View>
+                    <Text style={styles.routineName} numberOfLines={1} ellipsizeMode="tail">
+                      {row.name}
+                    </Text>
+                    <Text style={row.marker === 'changed' ? styles.routineDetailStrong : styles.routineDetail}>
+                      {row.detail}
+                    </Text>
+                  </View>
+                ))}
+                {hiddenCount > 0 && (
+                  <Pressable style={styles.routineMoreRow} onPress={() => setExpanded(true)}>
+                    <View style={styles.routineMarker} />
+                    <Text style={styles.routineMore}>{`and ${hiddenCount} more change${hiddenCount === 1 ? '' : 's'}`}</Text>
+                  </Pressable>
+                )}
+              </View>
+              <View style={styles.routineActions}>
+                <Pressable style={styles.updateBtn} onPress={() => void onUpdateRoutine()}>
+                  <Text style={styles.updateBtnText}>Update routine</Text>
+                </Pressable>
+                <Pressable style={styles.keepBtn} onPress={onKeepAsIs}>
+                  <Text style={styles.keepBtnText}>Keep as-is</Text>
+                </Pressable>
+              </View>
+              <Pressable onPress={() => void onSaveAsNew()} hitSlop={6}>
+                <Text style={styles.saveNewLink}>Save as a new routine instead</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {canPrompt && (promptState === 'updated' || promptState === 'saved-new') && (
+            <Animated.View style={[styles.receiptCard, { opacity: receiptFade }]}>
+              <View style={styles.receiptCheck}>
+                <CheckIcon size={14} color={color.success} strokeWidth={3.2} />
+              </View>
+              <View style={styles.receiptText}>
+                <Text style={styles.receiptTitle}>
+                  {promptState === 'updated' ? 'Routine updated' : 'Saved as new routine'}
+                </Text>
+                <Text style={styles.receiptSub}>
+                  {promptState === 'updated'
+                    ? `${receiptName} · ${plural(diff.length, 'change')} saved`
+                    : `${receiptName} · added to routines`}
+                </Text>
+              </View>
+              <Pressable onPress={() => void onUndo()} hitSlop={8}>
+                <Text style={styles.receiptUndo}>Undo</Text>
+              </Pressable>
+            </Animated.View>
+          )}
+
           <PressableScale style={styles.doneBtn} onPress={onDone}>
             <Text style={styles.doneBtnText}>Done</Text>
           </PressableScale>
           {/* A session started from a routine already has one; offering to save
-              it again would just duplicate that routine. */}
-          {!workout.routine_id && (
+              it again would just duplicate that routine. Exception: the source
+              routine was deleted mid-session — then this is the correct fallback. */}
+          {(!workout.routine_id || routineDeleted) && (
             <Pressable style={styles.saveRoutineBtn} onPress={onSaveAsRoutine}>
               <Text style={styles.saveRoutineBtnText}>Save as Routine</Text>
             </Pressable>
@@ -390,6 +707,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerSpacer: { width: 34, height: 34 },
   headerTitle: {
     fontFamily: font.monoRegular,
     fontSize: 11,
@@ -667,5 +985,184 @@ const styles = StyleSheet.create({
     fontFamily: font.titleSemi,
     fontSize: 14,
     color: color.text1,
+  },
+
+  // ROUTINE-UPDATE PROMPT (Need 2)
+  routineCard: {
+    backgroundColor: color.surface1,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: 16,
+    padding: 16,
+  },
+  routineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  routineDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: color.accent,
+    flexShrink: 0,
+  },
+  routineTitle: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: font.titleSemi,
+    fontSize: 15,
+    letterSpacing: -0.15,
+    color: color.text1,
+  },
+  routineCount: {
+    fontFamily: font.monoRegular,
+    fontSize: 11.5,
+    color: color.text3,
+    flexShrink: 0,
+  },
+  routineRows: {
+    gap: 9,
+    marginTop: 14,
+  },
+  routineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  routineMarker: {
+    width: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  markerAdd: {
+    fontFamily: font.monoSemi,
+    fontSize: 14,
+    color: color.success,
+    textAlign: 'center',
+  },
+  markerRemove: {
+    fontFamily: font.monoSemi,
+    fontSize: 14,
+    color: color.error,
+    textAlign: 'center',
+  },
+  routineName: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: font.bodyMedium,
+    fontSize: 13.5,
+    color: color.text1,
+  },
+  routineDetail: {
+    fontFamily: font.monoRegular,
+    fontSize: 11.5,
+    color: color.text3,
+    flexShrink: 0,
+    fontVariant: tabular,
+  },
+  routineDetailStrong: {
+    fontFamily: font.monoRegular,
+    fontSize: 11.5,
+    color: color.text2,
+    flexShrink: 0,
+    fontVariant: tabular,
+  },
+  routineMoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingTop: 3,
+  },
+  routineMore: {
+    fontFamily: font.monoRegular,
+    fontSize: 12,
+    color: color.text3,
+    textDecorationLine: 'underline',
+  },
+  routineActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  updateBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: color.surface3,
+    borderWidth: 1,
+    borderColor: color.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  updateBtnText: {
+    fontFamily: font.titleSemi,
+    fontSize: 14.5,
+    color: color.text1,
+  },
+  keepBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: color.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  keepBtnText: {
+    fontFamily: font.titleSemi,
+    fontSize: 14.5,
+    color: color.text2,
+  },
+  saveNewLink: {
+    textAlign: 'center',
+    marginTop: 13,
+    fontFamily: font.bodyMedium,
+    fontSize: 13,
+    color: color.text3,
+    textDecorationLine: 'underline',
+  },
+
+  // RESOLVED RECEIPT (R3)
+  receiptCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    backgroundColor: 'rgba(45,216,129,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(45,216,129,0.26)',
+    borderRadius: 16,
+    paddingVertical: 15,
+    paddingHorizontal: 16,
+  },
+  receiptCheck: {
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    backgroundColor: 'rgba(45,216,129,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  receiptText: { flex: 1, minWidth: 0 },
+  receiptTitle: {
+    fontFamily: font.titleSemi,
+    fontSize: 14.5,
+    color: color.text1,
+  },
+  receiptSub: {
+    fontFamily: font.monoRegular,
+    fontSize: 11.5,
+    color: color.text3,
+    marginTop: 2,
+  },
+  receiptUndo: {
+    fontFamily: font.titleSemi,
+    fontSize: 13,
+    color: color.text2,
+    textDecorationLine: 'underline',
+    flexShrink: 0,
   },
 });

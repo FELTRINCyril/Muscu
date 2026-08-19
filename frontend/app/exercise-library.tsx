@@ -17,6 +17,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { CategoryOut, ExerciseOut } from '../src/api/types';
@@ -34,6 +35,16 @@ import { color, font } from '../src/theme/tokens';
 
 const ALL = 'All';
 const DEFAULT_REST_SECONDS = 120;
+
+/** Merge glyph: two overlapping circles (icons.tsx is owned by another stream). */
+function MergeGlyph({ size = 16, color: stroke }: { size?: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx={8} cy={8} r={5} stroke={stroke} strokeWidth={2} fill="none" />
+      <Circle cx={16} cy={16} r={5} stroke={stroke} strokeWidth={2} fill="none" />
+    </Svg>
+  );
+}
 
 type Group = { letter: string; items: ExerciseOut[] };
 
@@ -329,12 +340,24 @@ export default function ExerciseLibrary() {
         </ScrollView>
       </View>
 
-      {/* Floating "Add N" CTA. */}
+      {/* Floating CTA — Add N, plus a Merge affordance when 2+ are picked. */}
       {selCount > 0 ? (
         <View
           pointerEvents="box-none"
           style={[styles.ctaWrap, { bottom: 24 + insets.bottom }]}
         >
+          {selCount >= 2 ? (
+            <PressableScale
+              onPress={() => {
+                const ids = [...selected.keys()].join(',');
+                router.push(`/merge-duplicates?ids=${ids}`);
+              }}
+              style={styles.mergeCta}
+            >
+              <MergeGlyph size={16} color={color.text1} />
+              <Text style={styles.mergeCtaText}>{`Merge ${selCount}`}</Text>
+            </PressableScale>
+          ) : null}
           <PressableScale
             onPress={handleAdd}
             disabled={adding}
@@ -643,6 +666,23 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     zIndex: 30,
+    gap: 10,
+  },
+  mergeCta: {
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: color.surface2,
+    borderWidth: 1,
+    borderColor: color.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  mergeCtaText: {
+    fontFamily: font.titleSemi,
+    fontSize: 14.5,
+    color: color.text1,
   },
   cta: {
     height: 52,
