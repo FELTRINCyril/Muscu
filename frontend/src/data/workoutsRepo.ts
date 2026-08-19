@@ -95,10 +95,16 @@ export async function getPrevious(_wid: string, weId: string): Promise<PreviousS
   return sets.map((s) => ({ position: s.position, type: s.type as SetType, weight: s.weight, reps: s.reps }));
 }
 
-/** The most recent non-empty note left on this exercise before `beforeMs`. */
+/**
+ * The note left on this exercise in the immediately-previous completed session
+ * (null if that session had none). Mirrors how sets prefill from the last time —
+ * so a note you change or clear this session is what carries forward next time,
+ * rather than the most recent non-empty note ever, which made a once-set note
+ * (e.g. from an imported sample) impossible to get rid of.
+ */
 async function previousNote(exerciseId: string, beforeMs: number): Promise<string | null> {
-  const rows = await db
-    .select({ note: schema.workoutExercises.note, startedAt: schema.workouts.startedAt })
+  const row = (await db
+    .select({ note: schema.workoutExercises.note })
     .from(schema.workoutExercises)
     .innerJoin(schema.workouts, eq(schema.workoutExercises.workoutId, schema.workouts.id))
     .where(
@@ -108,20 +114,33 @@ async function previousNote(exerciseId: string, beforeMs: number): Promise<strin
         lt(schema.workouts.startedAt, beforeMs),
       ),
     )
-    .orderBy(desc(schema.workouts.startedAt));
-  for (const r of rows) {
-    const n = r.note?.trim();
-    if (n) return n;
-  }
-  return null;
+    .orderBy(desc(schema.workouts.startedAt))
+    .limit(1))[0];
+  const n = row?.note?.trim();
+  return n && n.length > 0 ? n : null;
 }
 
-/** Previous-session note for this workout-exercise, to show as a placeholder. */
+/**
+ * Placeholder note for a workout-exercise: your last session's note, else the
+ * routine's own note for this exercise (a deliberately-authored template hint).
+ * It is only ever a hint — never a saved value — so it can't get stuck.
+ */
 export async function getPreviousNote(weId: string): Promise<string | null> {
   const we = (await db.select().from(schema.workoutExercises).where(eq(schema.workoutExercises.id, weId)))[0];
   if (!we) return null;
   const w = (await db.select().from(schema.workouts).where(eq(schema.workouts.id, we.workoutId)))[0];
-  return previousNote(we.exerciseId, w ? w.startedAt : nowMs());
+  const prev = await previousNote(we.exerciseId, w ? w.startedAt : nowMs());
+  if (prev) return prev;
+  if (w?.routineId) {
+    const re = (await db
+      .select({ note: schema.routineExercises.note })
+      .from(schema.routineExercises)
+      .where(and(eq(schema.routineExercises.routineId, w.routineId), eq(schema.routineExercises.exerciseId, we.exerciseId)))
+      .limit(1))[0];
+    const n = re?.note?.trim();
+    if (n && n.length > 0) return n;
+  }
+  return null;
 }
 
 /** Persist an exercise's note within a workout. Empty/whitespace clears it. */
@@ -170,7 +189,11 @@ export async function startWorkout(body: { routine_id?: string; name?: string })
         exerciseId: re.exerciseId,
         position: re.position,
         restSeconds: re.restSeconds,
-        note: re.note,
+        // The routine's note is a template hint, surfaced via getPreviousNote as a
+        // placeholder — not frozen onto the session as a value. Freezing it meant a
+        // routine's note (e.g. inherited from an imported sample) reappeared every
+        // workout and edits never stuck, since they never wrote back to the routine.
+        note: null,
         updatedAt: nowMs(),
       });
       const rsets = await db
