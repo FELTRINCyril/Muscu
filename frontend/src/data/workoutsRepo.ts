@@ -34,6 +34,7 @@ import {
 } from './queries';
 import { currentValues, recomputeForExercise } from './recordStore';
 import { getBodyweightKg } from '../lib/bodyweight';
+import { getCountWarmups } from '../lib/warmupVolume';
 
 const asSetLike = (s: WorkoutSetRow, kind?: 'weighted' | 'bodyweight'): SetLike => ({
   type: s.type as SetType,
@@ -371,7 +372,8 @@ export async function deleteWorkout(wid: string): Promise<void> {
   await db.delete(schema.workoutExercises).where(eq(schema.workoutExercises.workoutId, wid));
   await db.delete(schema.workouts).where(eq(schema.workouts.id, wid));
   const currentBw = await getBodyweightKg();
-  for (const eid of touched) await recomputeForExercise(eid, db, currentBw); // PRs lose this evidence
+  const countWarmups = await getCountWarmups();
+  for (const eid of touched) await recomputeForExercise(eid, db, currentBw, countWarmups); // PRs lose this evidence
 }
 
 export async function uploadHeartRate(
@@ -405,6 +407,9 @@ export async function finishWorkout(wid: string): Promise<WorkoutSummaryOut> {
   // current bodyweight onto the workout so its volume is fixed at the mass it was
   // performed at, and use it for this finish's totals + PR recompute.
   const currentBw = await getBodyweightKg();
+  // Whether warmups count toward volume — resolved BEFORE the transaction (a
+  // SecureStore read inside an expo-sqlite transaction hangs it), threaded down.
+  const countWarmups = await getCountWarmups();
   const kindRows = exerciseIds.length
     ? await db.select({ id: schema.exercises.id, kind: schema.exercises.kind }).from(schema.exercises).where(inArray(schema.exercises.id, exerciseIds))
     : [];
@@ -429,7 +434,7 @@ export async function finishWorkout(wid: string): Promise<WorkoutSummaryOut> {
         status: 'completed',
         endedAt,
         durationSeconds: Math.max(0, Math.floor((endedAt - w.startedAt) / 1000)),
-        totalVolume: workoutVolume(allSets.map(setLike), currentBw ?? 0),
+        totalVolume: workoutVolume(allSets.map(setLike), currentBw ?? 0, countWarmups),
         totalSets: countWorkingSets(allSets.map(setLike)),
         bodyweightKg: currentBw,
         updatedAt: nowMs(),
@@ -437,7 +442,7 @@ export async function finishWorkout(wid: string): Promise<WorkoutSummaryOut> {
       .where(eq(schema.workouts.id, wid));
 
     for (const eid of exerciseIds) {
-      const computed = await recomputeForExercise(eid, tx, currentBw);
+      const computed = await recomputeForExercise(eid, tx, currentBw, countWarmups);
       const deltas = detectPrs(baselines.get(eid) ?? {}, computed);
       for (const d of deltas) {
         if (d.value.workoutSetId && setIds.has(d.value.workoutSetId)) {

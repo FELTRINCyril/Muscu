@@ -18,6 +18,7 @@ import type {
 } from '../api/types';
 import { sessionMetric, type SetLike } from '../domain/stats';
 import { getBodyweightKg, resolveWorkoutBodyweight } from '../lib/bodyweight';
+import { getCountWarmups } from '../lib/warmupVolume';
 import {
   groupDuplicates,
   type MergeCandidate,
@@ -156,6 +157,7 @@ export async function getExerciseChart(
   const exRow = (await db.select({ kind: schema.exercises.kind }).from(schema.exercises).where(eq(schema.exercises.id, id)))[0];
   const kind = (exRow?.kind as 'weighted' | 'bodyweight') ?? 'weighted';
   const currentBw = await getBodyweightKg();
+  const countWarmups = await getCountWarmups();
   // Group by local day; sets that are done only (session_metric excludes undone).
   const byDay = new Map<string, SetLike[]>();
   const bwByDay = new Map<string, number>();
@@ -170,7 +172,7 @@ export async function getExerciseChart(
   }
   const points: { label: string; value: number }[] = [];
   for (const [label, sets] of byDay) {
-    const v = sessionMetric(sets, metric, bwByDay.get(label) ?? 0);
+    const v = sessionMetric(sets, metric, bwByDay.get(label) ?? 0, countWarmups);
     if (v !== null) points.push({ label, value: v });
   }
   const last = points.slice(-sessions);
@@ -471,10 +473,11 @@ export async function mergeExercises(
 
   let gainedPr: { metric: RecordMetric; display: string } | null = null;
 
-  // Resolve the bodyweight BEFORE the transaction — a SecureStore read inside an
-  // expo-sqlite transaction hangs it (that froze the merge). It flows into the
-  // survivor's PR recompute.
+  // Resolve the bodyweight and warmup-volume flag BEFORE the transaction — a
+  // SecureStore read inside an expo-sqlite transaction hangs it (that froze the
+  // merge). Both flow into the survivor's PR recompute.
   const currentBw = await getBodyweightKg();
+  const countWarmups = await getCountWarmups();
 
   await db.transaction(async (tx) => {
     const baseline = await currentValues(survivorId, tx);
@@ -503,7 +506,7 @@ export async function mergeExercises(
     await tx.delete(schema.exercises).where(inArray(schema.exercises.id, losers));
 
     // 5. Recompute the survivor's PRs across everything it now owns.
-    await recomputeForExercise(survivorId, tx, currentBw);
+    await recomputeForExercise(survivorId, tx, currentBw, countWarmups);
 
     // A record the survivor did not have (or beat) before this merge = gained.
     const after = await currentValues(survivorId, tx);

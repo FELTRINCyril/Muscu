@@ -90,6 +90,19 @@ test('best_volume is the max single-session volume', () => {
   assert.equal(bv.display, '1,300 kg');
 });
 
+test('best_volume excludes warmups by default but includes them when countWarmups is on', () => {
+  // Each session's warmup is 30 × 10 = 300.
+  const off = computeRecords(benchHistory()).best_volume!;
+  assert.equal(off.value, 1300); // warmup excluded
+  assert.equal(off.workoutId, 'w2');
+
+  const on = computeRecords(benchHistory(), true).best_volume!;
+  // w1: 1253 + 300 = 1553; w2: 1300 + 300 = 1600 -> w2 still wins.
+  assert.equal(on.value, 1600);
+  assert.equal(on.workoutId, 'w2');
+  assert.equal(on.display, '1,600 kg');
+});
+
 test('max_reps tracks the highest-rep set', () => {
   const mr = computeRecords([
     session('w', 1, [wset('a', 'normal', 60, 8), wset('b', 'normal', 40, 15)]),

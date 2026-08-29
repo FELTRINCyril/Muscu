@@ -53,6 +53,18 @@ test('warmup volume is zero', () => {
   assert.equal(setVolume(s('warmup', 60.0, 10)), 0.0);
 });
 
+test('warmup counts toward volume when countWarmups is on', () => {
+  // Off (default) -> 0; on -> weight × reps like any working set.
+  assert.equal(setVolume(s('warmup', 60.0, 10), 0, false), 0.0);
+  assert.equal(setVolume(s('warmup', 60.0, 10), 0, true), 600.0);
+});
+
+test('warmup bodyweight set counts the mover mass only when countWarmups is on', () => {
+  const warmupBw: SetLike = { type: 'warmup', weight: null, reps: 10, done: true, kind: 'bodyweight' };
+  assert.equal(setVolume(warmupBw, 80, false), 0);
+  assert.equal(setVolume(warmupBw, 80, true), 800);
+});
+
 test('bodyweight set has zero kg volume', () => {
   // Pull Up: reps logged, no weight -> contributes 0 to kg volume.
   assert.equal(setVolume(s('normal', null, 10)), 0.0);
@@ -119,6 +131,22 @@ test('workout_volume sums only completed working sets', () => {
   assert.equal(workoutVolume(sets), 960.0);
 });
 
+test('workout_volume includes warmups only when countWarmups is on', () => {
+  const sets = [
+    s('warmup', 30.0, 10), // 300 when counted
+    s('normal', 60.0, 8), // 480
+  ];
+  assert.equal(workoutVolume(sets), 480.0); // default off
+  assert.equal(workoutVolume(sets, 0, false), 480.0);
+  assert.equal(workoutVolume(sets, 0, true), 780.0); // 300 + 480
+});
+
+test('countWarmups does not change the working-set count', () => {
+  const sets = [s('warmup', 30.0, 10), s('normal', 60.0, 8)];
+  // The SETS stat stays working-only regardless — only VOLUME counts warmups.
+  assert.equal(countWorkingSets(sets), 1);
+});
+
 test('count_working_sets excludes warmups and undone', () => {
   const sets = [
     s('warmup', 30.0, 10),
@@ -154,6 +182,17 @@ test('session_metric est_1rm is max Epley', () => {
 test('session_metric best_volume sums working sets', () => {
   // 480 + 300 + 960, warmup excluded.
   assert.equal(sessionMetric(session(), 'best_volume'), 1740.0);
+});
+
+test('session_metric best_volume adds the warmup when countWarmups is on', () => {
+  // The warmup is 40 × 10 = 400 on top of 1740.
+  assert.equal(sessionMetric(session(), 'best_volume', 0, true), 2140.0);
+});
+
+test('session_metric best_volume counts a warmup-only session when countWarmups is on', () => {
+  const sets = [s('warmup', 40.0, 10)];
+  assert.equal(sessionMetric(sets, 'best_volume'), null); // off: nothing to plot
+  assert.equal(sessionMetric(sets, 'best_volume', 0, true), 400.0);
 });
 
 test('session_metric max_reps is top working reps', () => {

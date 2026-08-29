@@ -45,11 +45,12 @@ export function estimated1rm(weight: number | null, reps: number | null): number
  * Kilograms of volume for a single set. `bodyweightKg` is the mover's mass used
  * for bodyweight movements (0 = unknown → they contribute nothing).
  *
- * Zero for warmups, incomplete sets, or sets missing reps (or, for weighted
- * sets, missing weight).
+ * Zero for warmups (unless `countWarmups` is true), incomplete sets, or sets
+ * missing reps (or, for weighted sets, missing weight).
  */
-export function setVolume(s: SetLike, bodyweightKg = 0): number {
-  if (!s.done || s.type === 'warmup' || s.reps === null) return 0;
+export function setVolume(s: SetLike, bodyweightKg = 0, countWarmups = false): number {
+  if (!s.done || s.reps === null) return 0;
+  if (s.type === 'warmup' && !countWarmups) return 0;
   if (s.kind === 'bodyweight') {
     // (bodyweight + added) × reps. A non-positive total load — no bodyweight set
     // and/or an assist that cancels it — contributes nothing.
@@ -62,9 +63,9 @@ export function setVolume(s: SetLike, bodyweightKg = 0): number {
 
 const isWorking = (s: SetLike): boolean => s.done && s.type !== 'warmup';
 
-/** Total kg volume across completed, non-warmup sets. */
-export function workoutVolume(sets: SetLike[], bodyweightKg = 0): number {
-  return sets.reduce((total, s) => total + setVolume(s, bodyweightKg), 0);
+/** Total kg volume across completed sets (warmups excluded unless `countWarmups`). */
+export function workoutVolume(sets: SetLike[], bodyweightKg = 0, countWarmups = false): number {
+  return sets.reduce((total, s) => total + setVolume(s, bodyweightKg, countWarmups), 0);
 }
 
 /** Number of completed, non-warmup sets (the 'SETS' stat). */
@@ -86,14 +87,22 @@ export function countWorkingSets(sets: SetLike[]): number {
  * (e.g. bodyweight-only sets for a weight metric), so the caller drops it.
  * An unknown metric falls back to `est_1rm`.
  */
-export function sessionMetric(sets: SetLike[], metric: string, bodyweightKg = 0): number | null {
-  const working = sets.filter(isWorking);
-  if (working.length === 0) return null;
-
+export function sessionMetric(
+  sets: SetLike[],
+  metric: string,
+  bodyweightKg = 0,
+  countWarmups = false,
+): number | null {
+  // best_volume sums over volume-eligible sets (done && (not warmup || countWarmups)) —
+  // setVolume already returns 0 for the rest — so it isn't gated on there being a
+  // working set: a warmup-only session still has volume when countWarmups is on.
   if (metric === 'best_volume') {
-    const vol = working.reduce((total, s) => total + setVolume(s, bodyweightKg), 0);
+    const vol = sets.reduce((total, s) => total + setVolume(s, bodyweightKg, countWarmups), 0);
     return vol > 0 ? round1(vol) : null;
   }
+
+  const working = sets.filter(isWorking);
+  if (working.length === 0) return null;
 
   if (metric === 'max_reps') {
     const reps = working.map((s) => s.reps).filter((r): r is number => r !== null);

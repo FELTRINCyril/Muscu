@@ -75,9 +75,15 @@ export type WatchState = {
  */
 const parseWeight = (s: string): number => parseFloat(String(s ?? '').replace(',', '.'));
 
-/** Session totals: volume + set counts over done, non-warmup sets. A bodyweight
- *  movement counts (bodyweight + added) × reps; 0 bodyweight means it adds 0. */
-function totals(exercises: readonly (ExerciseLike & { id: string })[], bodyweightKg: number) {
+/** Session totals: volume + set counts over done sets. Warmups are excluded from
+ *  volume unless `countWarmups`, but never from the set count (matching the
+ *  domain: only VOLUME counts warmups). A bodyweight movement counts
+ *  (bodyweight + added) × reps; 0 bodyweight means it adds 0. */
+function totals(
+  exercises: readonly (ExerciseLike & { id: string })[],
+  bodyweightKg: number,
+  countWarmups = false,
+) {
   let volumeKg = 0;
   let setsDone = 0;
   let setsTotal = 0;
@@ -85,6 +91,9 @@ function totals(exercises: readonly (ExerciseLike & { id: string })[], bodyweigh
     for (const s of ex.sets) {
       setsTotal += 1;
       if (s.done && s.type !== 'warmup') {
+        setsDone += 1;
+      }
+      if (s.done && (s.type !== 'warmup' || countWarmups)) {
         const reps = parseFloat(s.reps) || 0;
         const added = parseWeight(s.weight) || 0;
         if (ex.kind === 'bodyweight') {
@@ -93,7 +102,6 @@ function totals(exercises: readonly (ExerciseLike & { id: string })[], bodyweigh
         } else {
           volumeKg += added * reps;
         }
-        setsDone += 1;
       }
     }
   }
@@ -113,6 +121,8 @@ export function buildWatchState(
   startedAt: number | null = null,
   /** Current bodyweight (kg) for bodyweight-movement volume; 0 = unknown. */
   bodyweightKg = 0,
+  /** Whether warmup sets count toward the live volume; default off. */
+  countWarmups = false,
 ): WatchState | null {
   const current = locateNextSet(exercises);
   if (!current) return null;
@@ -125,7 +135,7 @@ export function buildWatchState(
     s.done ? 'done' : i === index ? 'active' : 'pending',
   );
 
-  const t = totals(exercises, bodyweightKg);
+  const t = totals(exercises, bodyweightKg, countWarmups);
 
   return {
     screen: 'session',

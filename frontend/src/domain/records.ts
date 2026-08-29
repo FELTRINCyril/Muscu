@@ -29,8 +29,9 @@ function estimated1rm(weight: number | null, reps: number | null): number | null
 }
 
 /** Kg of volume for one set; bodyweight movements add `bodyweightKg` (mirrors domain/stats.ts). */
-function setVolume(s: SetLike, bodyweightKg = 0): number {
-  if (!s.done || s.type === 'warmup' || s.reps === null) return 0;
+function setVolume(s: SetLike, bodyweightKg = 0, countWarmups = false): number {
+  if (!s.done || s.reps === null) return 0;
+  if (s.type === 'warmup' && !countWarmups) return 0;
   if (s.kind === 'bodyweight') {
     const load = bodyweightKg + (s.weight ?? 0);
     return load > 0 ? load * s.reps : 0;
@@ -71,7 +72,10 @@ const grouped = (x: number): string =>
 
 const isWorking = (s: PRSet): boolean => s.done && s.type !== 'warmup';
 
-export function computeRecords(sessions: PRSession[]): Partial<Record<RecordMetric, RecordValue>> {
+export function computeRecords(
+  sessions: PRSession[],
+  countWarmups = false,
+): Partial<Record<RecordMetric, RecordValue>> {
   const working: { sess: PRSession; s: PRSet }[] = [];
   for (const sess of sessions) for (const s of sess.sets) if (isWorking(s)) working.push({ sess, s });
   if (working.length === 0) return {};
@@ -126,7 +130,7 @@ export function computeRecords(sessions: PRSession[]): Partial<Record<RecordMetr
   let bestVol = 0;
   let bestAt: number | null = null;
   for (const sess of sessions) {
-    const vol = sess.sets.reduce((sum, s) => sum + setVolume(s, sess.bodyweightKg ?? 0), 0);
+    const vol = sess.sets.reduce((sum, s) => sum + setVolume(s, sess.bodyweightKg ?? 0, countWarmups), 0);
     if (vol > bestVol) {
       bestSessId = sess.id;
       bestVol = vol;

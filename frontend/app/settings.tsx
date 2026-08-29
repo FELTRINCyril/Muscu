@@ -21,6 +21,7 @@ import {
 import { DraggableSheet } from '../src/components/DraggableSheet';
 import { toDisplay, toKg } from '../src/domain/units';
 import { getBodyweightKg, setBodyweightKg } from '../src/lib/bodyweight';
+import { getCountWarmups, setCountWarmups } from '../src/lib/warmupVolume';
 import { setHapticsEnabled } from '../src/lib/haptics';
 import { isAvailable as isHealthAvailable, readBodyMass, requestAuthorization as requestHealthAuth } from '../modules/health';
 import {
@@ -94,6 +95,13 @@ export default function Settings() {
   const [bwInput, setBwInput] = useState('');
   useEffect(() => {
     void getBodyweightKg().then(setBwKg);
+  }, []);
+
+  // Warmups-in-volume flag: SecureStore-backed (not a DB `patch()` toggle), loaded
+  // once on mount. When on, warmup sets contribute to volume and the best_volume PR.
+  const [countWarmups, setCountWarmupsState] = useState(false);
+  useEffect(() => {
+    void getCountWarmups().then(setCountWarmupsState);
   }, []);
 
   useEffect(() => {
@@ -246,6 +254,16 @@ export default function Settings() {
             label="Haptic feedback"
             value={settings.haptic_feedback}
             onChange={(v) => patch({ haptic_feedback: v })}
+            isLast={false}
+          />
+          <ToggleRow
+            icon={<WarmupIcon size={20} color={color.text2} />}
+            label="Count warmups in volume"
+            value={countWarmups}
+            onChange={(v) => {
+              setCountWarmupsState(v);
+              void setCountWarmups(v);
+            }}
             isLast={false}
           />
           <LinkRow
@@ -402,6 +420,20 @@ export default function Settings() {
         </View>
       </DraggableSheet>
     </View>
+  );
+}
+
+/** Flame glyph for the Count-warmups-in-volume row. */
+function WarmupIcon({ size = 20, color: c }: { size?: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 3c1 3-1.5 4.5-1.5 7A3.5 3.5 0 0 0 14 13c.3-.7.3-1.5 0-2 2 1 3.5 3 3.5 5.5a5.5 5.5 0 1 1-11 0C6.5 8.5 12 8 12 3Z"
+        stroke={c}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+    </Svg>
   );
 }
 

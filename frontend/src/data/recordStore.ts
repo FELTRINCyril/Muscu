@@ -30,15 +30,17 @@ export async function currentValues(
 /**
  * Recompute + upsert an exercise's PRs from its completed history.
  *
- * `currentBw` (the current bodyweight setting, kg) is passed in, NOT read here:
- * this runs inside DB transactions (finish, merge, import), and a foreign async
- * call like SecureStore inside an expo-sqlite transaction hangs it. Callers
- * resolve the bodyweight before opening their transaction.
+ * `currentBw` (the current bodyweight setting, kg) and `countWarmups` (whether
+ * warmups count toward volume) are passed in, NOT read here: this runs inside DB
+ * transactions (finish, merge, import), and a foreign async call like SecureStore
+ * inside an expo-sqlite transaction hangs it. Callers resolve both before opening
+ * their transaction.
  */
 export async function recomputeForExercise(
   exerciseId: string,
   exec: Executor = db,
   currentBw: number | null = null,
+  countWarmups = false,
 ): Promise<Partial<Record<RecordMetric, RecordValue>>> {
   const sessions = await completedSessionsFor(exerciseId, exec);
   // Bodyweight movements count the mover's mass toward volume. This exercise's
@@ -59,7 +61,7 @@ export async function recomputeForExercise(
       kind,
     })),
   }));
-  const computed = computeRecords(prSessions);
+  const computed = computeRecords(prSessions, countWarmups);
 
   const existing = await exec
     .select()

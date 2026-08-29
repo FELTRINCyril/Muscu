@@ -14,6 +14,7 @@ import { toWorkoutCsv, parseWorkoutCsv, type ExportWorkout } from './workoutCsv'
 import { parseServerDate } from '../lib/serverTime';
 import { initialsOf } from './exercisesRepo';
 import { recomputeForExercise } from './recordStore';
+import { getCountWarmups } from '../lib/warmupVolume';
 
 type FullSet = { position: number; type: string; weight: number | null; reps: number | null; done: boolean; isPr: boolean };
 type FullExercise = { name: string; note: string | null; supersetGroup: number | null; sets: FullSet[] };
@@ -136,6 +137,10 @@ async function importWorkoutCsv(text: string): Promise<ImportResult> {
     ),
   );
 
+  // Resolve BEFORE the transaction — SecureStore inside an expo-sqlite
+  // transaction hangs it. Threads into per-workout volume + the PR recompute.
+  const countWarmups = await getCountWarmups();
+
   // All-or-nothing: an interrupted import must not leave half-written workouts
   // (which the idempotency check above would then permanently skip on retry).
   await db.transaction(async (tx) => {
@@ -176,12 +181,12 @@ async function importWorkoutCsv(text: string): Promise<ImportResult> {
         }
       }
       await tx.update(schema.workouts).set({
-        totalVolume: workoutVolume(allSets), totalSets: countWorkingSets(allSets), updatedAt: nowMs(),
+        totalVolume: workoutVolume(allSets, 0, countWarmups), totalSets: countWorkingSets(allSets), updatedAt: nowMs(),
       }).where(eq(schema.workouts.id, wid));
       workoutsCreated++;
     }
 
-    for (const exId of touched) await recomputeForExercise(exId, tx);
+    for (const exId of touched) await recomputeForExercise(exId, tx, null, countWarmups);
   });
 
   if (duplicatesSkipped > 0) {
@@ -235,6 +240,9 @@ async function importJsonBackup(text: string): Promise<ImportResult> {
       (w) => `${w.name}@@${w.startedAt}`,
     ),
   );
+
+  // Resolved before the transaction (SecureStore inside it hangs the transaction).
+  const countWarmups = await getCountWarmups();
 
   await db.transaction(async (tx) => {
     for (const w of workoutsIn) {
@@ -310,12 +318,12 @@ async function importJsonBackup(text: string): Promise<ImportResult> {
       }
       await tx
         .update(schema.workouts)
-        .set({ totalVolume: workoutVolume(allSets), totalSets: countWorkingSets(allSets), updatedAt: nowMs() })
+        .set({ totalVolume: workoutVolume(allSets, 0, countWarmups), totalSets: countWorkingSets(allSets), updatedAt: nowMs() })
         .where(eq(schema.workouts.id, wid));
       workoutsCreated++;
     }
 
-    for (const exId of touched) await recomputeForExercise(exId, tx);
+    for (const exId of touched) await recomputeForExercise(exId, tx, null, countWarmups);
   });
 
   if (duplicatesSkipped > 0) {
