@@ -138,9 +138,10 @@ type DiffRow = { key: string; marker: DiffMarker; name: string; detail: string }
 
 /**
  * STRUCTURE-ONLY diff of what the workout did vs. the routine it started from:
- * exercises added / removed / reordered and set-count changes. Never logged
- * actuals (weights, reps) — actuals differ from targets almost every session,
- * so prompting on them would fire every workout and get dismissed reflexively.
+ * exercises added / removed / reordered, set-count changes, and rest-timer
+ * changes. Never logged actuals (weights, reps) — actuals differ from targets
+ * almost every session, so prompting on them would fire every workout and get
+ * dismissed reflexively.
  *
  * DECISION (Decision B / Option B open question): only Option A (structure only)
  * is implemented. Option B ("also prompt on edited targets") is NOT possible with
@@ -148,6 +149,11 @@ type DiffRow = { key: string; marker: DiffMarker; name: string; detail: string }
  * with no separate "edited target" column, so an edited target can't be told apart
  * from a logged actual. Implementing B needs a schema change — flag for the founder.
  */
+/** Rest duration for the diff row: "1:30", "45s". */
+function restLabel(s: number): string {
+  return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
+}
+
 function buildRoutineDiff(routine: RoutineOut, workout: WorkoutOut): DiffRow[] {
   const rExs = routine.exercises;
   const wExs = workout.exercises;
@@ -185,6 +191,13 @@ function buildRoutineDiff(routine: RoutineOut, workout: WorkoutOut): DiffRow[] {
         marker: 'changed',
         name: we.exercise.name,
         detail: `${rCount} → ${wCount} sets`,
+      });
+    } else if (we.rest_seconds !== re.rest_seconds) {
+      changed.push({
+        key: `rest-${we.id}`,
+        marker: 'changed',
+        name: we.exercise.name,
+        detail: `rest ${restLabel(re.rest_seconds)} → ${restLabel(we.rest_seconds)}`,
       });
     } else if (!kept.has(id)) {
       changed.push({ key: `move-${we.id}`, marker: 'changed', name: we.exercise.name, detail: 'moved' });

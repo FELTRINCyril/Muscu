@@ -153,6 +153,18 @@ export async function setWorkoutExerciseNote(weId: string, note: string | null):
     .where(eq(schema.workoutExercises.id, weId));
 }
 
+/**
+ * Persist a mid-workout change to an exercise's rest duration. Without this the
+ * change lived only in screen state, so the finish-time routine diff (which reads
+ * the DB) never saw it.
+ */
+export async function setWorkoutExerciseRest(weId: string, seconds: number): Promise<void> {
+  await db
+    .update(schema.workoutExercises)
+    .set({ restSeconds: seconds, updatedAt: nowMs() })
+    .where(eq(schema.workoutExercises.id, weId));
+}
+
 // --- Writes ---
 
 export async function startWorkout(body: { routine_id?: string; name?: string }): Promise<WorkoutOut> {

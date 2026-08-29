@@ -40,6 +40,7 @@ import {
   getPrevious,
   getPreviousNote,
   setWorkoutExerciseNote as setNoteApi,
+  setWorkoutExerciseRest as setRestApi,
   getWorkout,
   patchSet as patchSetApi,
   removeWorkoutExercise,
@@ -77,6 +78,7 @@ import { getBodyweightKg } from '../../src/lib/bodyweight';
 import { getCountWarmups } from '../../src/lib/warmupVolume';
 import type { WatchAction } from '../../modules/health';
 import { color, font } from '../../src/theme/tokens';
+import { CheckIcon } from '../../src/components/icons';
 import { EmptyWorkout } from '../../src/components/workout/EmptyWorkout';
 import { ExerciseCard } from '../../src/components/workout/ExerciseCard';
 import { ReorderExercises } from '../../src/components/workout/ReorderExercises';
@@ -599,6 +601,18 @@ export default function ActiveWorkout() {
     return { volume: Math.round(vol), doneSets: count };
   }, [exercises, bwKg, countWarmups]);
 
+  // Every planned set is logged — surface the end-of-workout card (#45), mirroring
+  // the watch's end state (Finish + Add). `locateNextSet` returns null when nothing
+  // is left to log.
+  const allSetsDone = useMemo(
+    () =>
+      !loading &&
+      exercises.length > 0 &&
+      exercises.some((e) => e.sets.length > 0) &&
+      !locateNextSet(exercises),
+    [loading, exercises],
+  );
+
   // --- set mutations ---
   const patchSet = (exId: string, setId: string, patch: Partial<Exercise['sets'][number]>) =>
     setExercises((prev) =>
@@ -921,6 +935,9 @@ export default function ActiveWorkout() {
 
   const setRest = (exId: string, seconds: number) => {
     setExercises((prev) => prev.map((ex) => (ex.id === exId ? { ...ex, rest: seconds } : ex)));
+    // Persist so the finish-time routine diff can see a changed rest (#46) and so
+    // it survives a reload; local-only before.
+    if (persist) write(setRestApi(exId, seconds));
 
     // A rest already counting down for this exercise adopts the new duration
     // now, rather than only on the next set. Re-anchored on when the rest
@@ -1143,6 +1160,24 @@ export default function ActiveWorkout() {
             />
           ))}
 
+          {/* Every set logged — the phone's end-of-workout state (#45), mirroring
+              the watch: a success check, the session line, then Finish. Inline
+              (not a modal) so the user can still scroll up and edit a set. */}
+          {allSetsDone && (
+            <View style={styles.doneCard}>
+              <View style={styles.doneCheck}>
+                <CheckIcon size={20} color={color.success} strokeWidth={3} />
+              </View>
+              <Text style={styles.doneTitle}>All sets done</Text>
+              <Text style={styles.doneStat}>
+                {`${doneSets} ${doneSets === 1 ? 'set' : 'sets'} · ${volume} kg · ${fmtClock(elapsed)}`}
+              </Text>
+              <PressableScale style={styles.doneFinish} onPress={() => void onFinish()}>
+                <Text style={styles.doneFinishText}>Finish Workout</Text>
+              </PressableScale>
+            </View>
+          )}
+
           <PressableScale
             style={styles.addExercise}
             onPress={() => {
@@ -1233,6 +1268,57 @@ const styles = StyleSheet.create({
   },
   addExercisePlus: { fontFamily: font.titleSemi, fontSize: 20, lineHeight: 20, color: color.accent },
   addExerciseText: { fontFamily: font.titleSemi, fontSize: 15, color: color.text1 },
+
+  // End-of-workout card (#45)
+  doneCard: {
+    marginTop: 10,
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: color.border,
+    backgroundColor: color.surface1,
+  },
+  doneCheck: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(45,216,129,0.15)',
+  },
+  doneTitle: {
+    marginTop: 12,
+    fontFamily: font.titleSemi,
+    fontSize: 18,
+    letterSpacing: -0.18,
+    color: color.text1,
+  },
+  doneStat: {
+    marginTop: 5,
+    fontFamily: font.monoRegular,
+    fontSize: 11.5,
+    color: color.text3,
+    fontVariant: ['tabular-nums'],
+  },
+  doneFinish: {
+    marginTop: 16,
+    width: '100%',
+    height: 50,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: color.accent,
+  },
+  doneFinishText: {
+    fontFamily: font.displayBold,
+    fontSize: 15,
+    letterSpacing: -0.15,
+    color: color.accentFg,
+  },
   spacer: { height: 90 },
   kbdAccessory: {
     position: 'absolute',
