@@ -58,10 +58,8 @@ import { parseServerDate } from '../../src/lib/serverTime';
 import {
   forgetActiveWorkout,
   rememberActiveWorkout,
-  rememberRest,
-  recallRest,
-  forgetRest,
 } from '../../src/lib/activeWorkout';
+import { saveRest, loadRest, clearRest } from '../../src/lib/restSession';
 import { onRestAction, onWorkoutChanged, type RestAction } from '../../src/lib/liveActivityBridge';
 import type { ExerciseOut } from '../../src/api/types';
 import { saveSummary } from '../../src/lib/summaryCache';
@@ -76,6 +74,7 @@ import {
 } from '../../src/lib/healthSync';
 import { buildWatchState } from '../../src/lib/watchState';
 import { getBodyweightKg } from '../../src/lib/bodyweight';
+import { getCountWarmups } from '../../src/lib/warmupVolume';
 import type { WatchAction } from '../../modules/health';
 import { color, font } from '../../src/theme/tokens';
 import { EmptyWorkout } from '../../src/components/workout/EmptyWorkout';
@@ -205,6 +204,12 @@ export default function ActiveWorkout() {
   useEffect(() => {
     void getBodyweightKg().then(setBwKg);
   }, []);
+  // Whether warmup sets count toward volume (Settings toggle, default off). Loaded
+  // once; the live header + watch mirror both respect it.
+  const [countWarmups, setCountWarmups] = useState(false);
+  useEffect(() => {
+    void getCountWarmups().then(setCountWarmups);
+  }, []);
   // True once the Watch streams metrics — it was then recording, so at finish the
   // phone lets the Watch be the primary HKWorkout writer and backfills only if the
   // Watch never confirms the save (see syncFinishedWorkout).
@@ -247,12 +252,16 @@ export default function ActiveWorkout() {
       setStartedAt(parseServerDate(w.started_at));
       setElapsed(w.duration_seconds);
       setExercises(w.exercises.map((we, i) => mapExercise(we, prev[i], prevNotes[i])));
-      // Restore an in-flight rest countdown if the app was killed mid-rest.
-      const savedRest = recallRest(w.id);
+      // Restore an in-flight rest countdown if the screen was unmounted (minimise
+      // / navigate away) or the app was killed mid-rest. The countdown is derived
+      // from the stored absolute end timestamp, so it's correct however long we
+      // were gone.
+      const savedRest = loadRest(w.id);
       if (savedRest) {
         setRestTotal(savedRest.total);
         setRestEndsAt(savedRest.endsAt);
         setRestStartedAt(savedRest.endsAt - savedRest.total * 1000);
+        setRestExId(savedRest.exerciseId);
         setRestRemaining(restRemainingSeconds(savedRest.endsAt, Date.now()));
       }
       setLoading(false);
@@ -404,17 +413,21 @@ export default function ActiveWorkout() {
       setRestStartedAt(null);
       setRestEndsAt(null);
       setRestExId(null);
+      if (workoutId) clearRest(workoutId); // the rest is over — don't restore it
       haptics.commit(); // rest's up
     }
   }, [restRemaining, restEndsAt]);
 
-  // Persist the in-flight rest so a mid-rest app *kill* (not just background)
-  // can restore the countdown on reopen — it lives only in component state.
+  // Persist the in-flight rest so leaving the screen (minimise / navigate away)
+  // or a mid-rest app kill can restore the countdown on return — it otherwise
+  // lives only in this component's state. Only *saved* here; the rest is cleared
+  // explicitly when it's skipped, ends, or the workout is finished/discarded, so
+  // this effect firing with no rest on mount can't wipe a rest we're about to
+  // restore.
   useEffect(() => {
-    if (!persist || !workoutId) return;
-    if (restEndsAt != null) rememberRest(workoutId, restEndsAt, restTotal);
-    else forgetRest();
-  }, [persist, workoutId, restEndsAt, restTotal]);
+    if (!persist || !workoutId || restEndsAt == null) return;
+    saveRest(workoutId, { endsAt: restEndsAt, total: restTotal, exerciseId: restExId });
+  }, [persist, workoutId, restEndsAt, restTotal, restExId]);
 
   // The Lock Screen card. Memoised on the state it actually shows, so the 1 Hz
   // tick cannot push an ActivityKit update every second — the widget's own
@@ -567,7 +580,11 @@ export default function ActiveWorkout() {
     let count = 0;
     for (const ex of exercises) {
       for (const s of ex.sets) {
-        if (!s.done || s.type === 'warmup') continue;
+        if (!s.done) continue;
+        const isWarmup = s.type === 'warmup';
+        // Warmups add volume only when the setting is on; the SETS count always
+        // stays working-only (matches the domain: setVolume vs countWorkingSets).
+        if (isWarmup && !countWarmups) continue;
         const reps = parseFloat(s.reps) || 0;
         const added = parseWeight(s.weight) || 0;
         if (ex.kind === 'bodyweight') {
@@ -576,11 +593,11 @@ export default function ActiveWorkout() {
         } else {
           vol += added * reps;
         }
-        count += 1;
+        if (!isWarmup) count += 1;
       }
     }
     return { volume: Math.round(vol), doneSets: count };
-  }, [exercises, bwKg]);
+  }, [exercises, bwKg, countWarmups]);
 
   // --- set mutations ---
   const patchSet = (exId: string, setId: string, patch: Partial<Exercise['sets'][number]>) =>
@@ -679,6 +696,7 @@ export default function ActiveWorkout() {
     setRestEndsAt(null);
     setRestExId(null);
     restEndsRef.current = null;
+    if (workoutId) clearRest(workoutId); // skipped — nothing to restore
     const pending = restAlertId.current;
     restAlertId.current = null;
     void cancelRestAlert(pending);
@@ -757,23 +775,38 @@ export default function ActiveWorkout() {
     }
   };
 
-  const addSet = async (exId: string) => {
-    const ex = exercises.find((e) => e.id === exId);
+  const addSet = (exId: string) => {
+    const ex = exercisesRef.current.find((e) => e.id === exId);
     const last = ex?.sets[ex.sets.length - 1];
     const fresh = makeSet(last?.prevWeight, last?.prevReps);
-    // Persist FIRST under the set's own id, then show it — so a fast tap on its
-    // checkmark can never hit a not-yet-inserted row (the old temp-id swap could
-    // lose that write). No swap needed: the DB row already carries `fresh.id`.
-    if (persist && workoutId) {
-      try {
-        await addSetApi(workoutId, exId, { id: fresh.id, type: 'normal', done: false });
-      } catch {
-        return; // insert failed — don't show a set that isn't persisted
-      }
-    }
+    // Show the row on *this* tap. The previous version awaited the DB insert
+    // before rendering, so every tap's row appeared only after the write landed;
+    // behind a backlog of serialised SQLite writes (debounced weight/reps edits,
+    // done-toggles) that lag was long enough that a tap looked like it did
+    // nothing — so you tapped again, and several rows landed at once (#44).
+    // Rendering first, under the set's own id, keeps the write ordered: the
+    // insert is enqueued here, before any checkmark/edit on the new row could
+    // enqueue its patch, so persist-first's "no patch before the row exists"
+    // guarantee still holds (the DB runs writes in call order).
     setExercises((prev) =>
       prev.map((e) => (e.id === exId ? { ...e, sets: [...e.sets, fresh] } : e)),
     );
+    if (persist && workoutId) {
+      write(
+        addSetApi(workoutId, exId, { id: fresh.id, type: 'normal', done: false }).catch(
+          (err) => {
+            // Insert failed — take the optimistic row back out so we never show a
+            // set the store doesn't hold.
+            setExercises((prev) =>
+              prev.map((e) =>
+                e.id === exId ? { ...e, sets: e.sets.filter((s) => s.id !== fresh.id) } : e,
+              ),
+            );
+            throw err;
+          },
+        ),
+      );
+    }
   };
 
   const setNote = (exId: string, note: string) => {
@@ -868,6 +901,7 @@ export default function ActiveWorkout() {
     void LiveActivity.end();
     stopWatchSession({ discard: true });
     forgetActiveWorkout();
+    if (workoutId) clearRest(workoutId);
     try {
       if (persist && workoutId) await discardWorkout(workoutId);
     } catch {
@@ -916,6 +950,7 @@ export default function ActiveWorkout() {
     void LiveActivity.end();
     stopWatchSession();
     forgetActiveWorkout();
+    if (workoutId) clearRest(workoutId);
     // Mirror the session to Apple Health (best-effort; never blocks finishing).
     // `startedAt` is the same stored origin the elapsed clock uses. When the Watch
     // was recording, this waits briefly for it to confirm its save and writes the
@@ -930,7 +965,9 @@ export default function ActiveWorkout() {
         await flushPending();
         const summary = await finishWorkout(workoutId);
         saveSummary(workoutId, summary);
-        router.replace(`/summary/${workoutId}`);
+        // `justFinished=1` distinguishes a real finish from viewing a past
+        // workout's summary, so the review nudge (#48) only fires on a finish.
+        router.replace(`/summary/${workoutId}?justFinished=1`);
         return;
       } catch {
         // fall through — best-effort fallback below
@@ -950,8 +987,9 @@ export default function ActiveWorkout() {
         (sets, i) => resolveSet(sets[i], carryFor(sets, i)),
         startedAt,
         bwKg ?? 0,
+        countWarmups,
       ),
-    [exercises, name, restRemaining, restTotal, startedAt, bwKg],
+    [exercises, name, restRemaining, restTotal, startedAt, bwKg, countWarmups],
   );
   const watchStateRef = useRef(watchState);
   watchStateRef.current = watchState;
