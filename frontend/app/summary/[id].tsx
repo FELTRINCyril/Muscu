@@ -34,6 +34,7 @@ import { CheckIcon, ReorderArrowsIcon, StarIcon } from '../../src/components/ico
 import { PressableScale } from '../../src/components/PressableScale';
 import { ShareWorkoutSheet } from '../../src/components/ShareWorkoutSheet';
 import { fmtDateOnly, fmtDuration } from '../../src/lib/format';
+import { maybeRequestReviewAfterFinish } from '../../src/lib/reviewPrompt';
 import { getSummary } from '../../src/lib/summaryCache';
 import { color, font } from '../../src/theme/tokens';
 
@@ -251,8 +252,18 @@ function ShareIcon({ size = 14, tint }: { size?: number; tint: string }) {
 export default function WorkoutSummary() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; justFinished?: string }>();
   const workoutId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const justFinished =
+    (Array.isArray(params.justFinished) ? params.justFinished[0] : params.justFinished) === '1';
+
+  // Ask for an App Store review only after a *genuine* finish (justFinished=1),
+  // never when viewing a past workout's summary from History. Fired best-effort
+  // after mount — non-blocking, and it can never throw into this render.
+  useEffect(() => {
+    if (!justFinished || !workoutId) return;
+    void maybeRequestReviewAfterFinish(workoutId);
+  }, [justFinished, workoutId]);
 
   const [summary, setSummary] = useState<WorkoutSummaryOut | null>(() =>
     workoutId ? getSummary(workoutId) : null,
