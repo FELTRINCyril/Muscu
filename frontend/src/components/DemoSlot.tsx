@@ -164,6 +164,10 @@ function EmptyTile({
         <View style={styles.tileImage}>
           <ExerciseArt frames={art.frames} viewBox={art.viewBox} size={170} />
         </View>
+        {/* The drawing identifies the movement; the HOW TO steps below it are the
+            actual form guidance. Saying so keeps a schematic figure from being
+            read as coaching. */}
+        <Text style={styles.artNote}>Illustration for reference — follow the steps below for form.</Text>
         <Pressable onPress={onPasteUrl} hitSlop={6}>
           <Text style={styles.addDemoLink}>Add a demo video →</Text>
         </Pressable>
@@ -439,6 +443,15 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: color.text3,
     marginTop: 8,
+  },
+  artNote: {
+    fontFamily: font.bodyRegular,
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: color.text3,
+    textAlign: 'center',
+    marginTop: 10,
+    paddingHorizontal: 8,
   },
   addDemoLink: {
     fontFamily: font.monoRegular,
