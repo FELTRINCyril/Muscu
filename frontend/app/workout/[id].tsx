@@ -84,6 +84,7 @@ import { EmptyWorkout } from '../../src/components/workout/EmptyWorkout';
 import { ExerciseCard } from '../../src/components/workout/ExerciseCard';
 import { ReorderExercises } from '../../src/components/workout/ReorderExercises';
 import { RestBar } from '../../src/components/workout/RestBar';
+import { DraggableSheet } from '../../src/components/DraggableSheet';
 import { PressableScale } from '../../src/components/PressableScale';
 import { RestPickerSheet } from '../../src/components/workout/RestPickerSheet';
 import { carryFor, completionPatch, resolveSet } from '../../src/components/workout/setCarry';
@@ -626,9 +627,8 @@ export default function ActiveWorkout() {
     return { volume: Math.round(vol), doneSets: count };
   }, [exercises, bwKg, countWarmups]);
 
-  // Every planned set is logged — surface the end-of-workout card (#45), mirroring
-  // the watch's end state (Finish + Add). `locateNextSet` returns null when nothing
-  // is left to log.
+  // Every planned set is logged. `locateNextSet` returns null when nothing is
+  // left to log.
   const allSetsDone = useMemo(
     () =>
       !loading &&
@@ -637,6 +637,23 @@ export default function ActiveWorkout() {
       !locateNextSet(exercises),
     [loading, exercises],
   );
+
+  // Prompt to finish once the last set lands (#45). A sheet rather than a card
+  // further down the list: after logging the final set the list is scrolled to
+  // wherever you were, so anything appended below is off-screen and the moment
+  // passes unnoticed. Dismissible — adding another exercise is still valid — and
+  // it re-arms only after there is something left to log again, so dismissing it
+  // doesn't make it reappear on every re-render.
+  const [donePromptOpen, setDonePromptOpen] = useState(false);
+  const donePromptArmed = useRef(true);
+  useEffect(() => {
+    if (allSetsDone && donePromptArmed.current) {
+      donePromptArmed.current = false;
+      setDonePromptOpen(true);
+    } else if (!allSetsDone) {
+      donePromptArmed.current = true;
+    }
+  }, [allSetsDone]);
 
   // --- set mutations ---
   const patchSet = (exId: string, setId: string, patch: Partial<Exercise['sets'][number]>) =>
@@ -1189,24 +1206,6 @@ export default function ActiveWorkout() {
             />
           ))}
 
-          {/* Every set logged — the phone's end-of-workout state (#45), mirroring
-              the watch: a success check, the session line, then Finish. Inline
-              (not a modal) so the user can still scroll up and edit a set. */}
-          {allSetsDone && (
-            <View style={styles.doneCard}>
-              <View style={styles.doneCheck}>
-                <CheckIcon size={20} color={color.success} strokeWidth={3} />
-              </View>
-              <Text style={styles.doneTitle}>All sets done</Text>
-              <Text style={styles.doneStat}>
-                {`${doneSets} ${doneSets === 1 ? 'set' : 'sets'} · ${volume} kg · ${fmtClock(elapsed)}`}
-              </Text>
-              <PressableScale style={styles.doneFinish} onPress={() => void onFinish()}>
-                <Text style={styles.doneFinishText}>Finish Workout</Text>
-              </PressableScale>
-            </View>
-          )}
-
           <PressableScale
             style={styles.addExercise}
             onPress={() => {
@@ -1261,6 +1260,45 @@ export default function ActiveWorkout() {
         onClose={() => setRestSheetExId(null)}
       />
 
+      <DraggableSheet
+        visible={donePromptOpen}
+        onClose={() => setDonePromptOpen(false)}
+        sheetStyle={[styles.doneSheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
+      >
+        <View style={styles.doneGrabberWrap}>
+          <View style={styles.doneGrabber} />
+        </View>
+        <View style={styles.doneBody}>
+          <View style={styles.doneCheck}>
+            <CheckIcon size={20} color={color.success} strokeWidth={3} />
+          </View>
+          <Text style={styles.doneTitle}>All sets done</Text>
+          <Text style={styles.doneStat}>
+            {`${doneSets} ${doneSets === 1 ? 'set' : 'sets'} · ${volume} kg · ${fmtClock(elapsed)}`}
+          </Text>
+          <PressableScale
+            style={styles.doneFinish}
+            onPress={() => {
+              setDonePromptOpen(false);
+              void onFinish();
+            }}
+          >
+            <Text style={styles.doneFinishText}>Finish Workout</Text>
+          </PressableScale>
+          <Pressable
+            onPress={() => {
+              setDonePromptOpen(false);
+              const id = workoutId ?? routeId;
+              router.push(id ? `/exercise-library?workoutId=${id}` : '/exercise-library');
+            }}
+            style={({ pressed }) => [styles.doneAdd, pressed && styles.doneAddPressed]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.doneAddText}>Add another exercise</Text>
+          </Pressable>
+        </View>
+      </DraggableSheet>
+
       <ReorderExercises
         visible={reordering}
         exercises={exercises}
@@ -1298,19 +1336,22 @@ const styles = StyleSheet.create({
   addExercisePlus: { fontFamily: font.titleSemi, fontSize: 20, lineHeight: 20, color: color.accent },
   addExerciseText: { fontFamily: font.titleSemi, fontSize: 15, color: color.text1 },
 
-  // End-of-workout card (#45)
-  doneCard: {
-    marginTop: 10,
-    width: '100%',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 18,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: color.border,
+  // End-of-workout prompt (#45)
+  doneSheet: {
     backgroundColor: color.surface1,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderTopWidth: 1,
+    borderTopColor: color.border,
   },
+  doneGrabberWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  doneGrabber: { width: 40, height: 5, borderRadius: 3, backgroundColor: color.surface3 },
+  doneBody: { alignItems: 'center', paddingHorizontal: 20, paddingTop: 12 },
   doneCheck: {
     width: 44,
     height: 44,
@@ -1334,9 +1375,9 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   doneFinish: {
-    marginTop: 16,
+    marginTop: 18,
     width: '100%',
-    height: 50,
+    height: 52,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1348,6 +1389,19 @@ const styles = StyleSheet.create({
     letterSpacing: -0.15,
     color: color.accentFg,
   },
+  doneAdd: {
+    marginTop: 10,
+    width: '100%',
+    height: 50,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: color.surface2,
+    borderWidth: 1,
+    borderColor: color.border,
+  },
+  doneAddPressed: { borderColor: color.text3 },
+  doneAddText: { fontFamily: font.titleSemi, fontSize: 14.5, color: color.text1 },
   spacer: { height: 90 },
   kbdAccessory: {
     position: 'absolute',
