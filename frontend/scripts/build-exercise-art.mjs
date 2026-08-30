@@ -90,6 +90,36 @@ const ALLOWED_EXTRAS = new Set([
   'two', 'close', 'wide', 'medium', 'grip', 'version', 'style', 'standing', 'seated',
 ]);
 
+/**
+ * Gym names write these as one word about as often as two ("Pullups" vs
+ * "Pull-Up"), and the upstream art always uses the hyphenated form — so without
+ * splitting them, popular movements silently missed their illustration.
+ */
+const COMPOUNDS = new Map([
+  ['pullup', 'pull up'],
+  ['pushup', 'push up'],
+  ['chinup', 'chin up'],
+  ['situp', 'sit up'],
+  ['stepup', 'step up'],
+  ['signup', 'signup'], // guard: never split a non-movement word
+]);
+
+/**
+ * Reduce a plural to its singular so "Leg Extensions" reaches `leg-extension`.
+ * Deliberately conservative: words ending in a double `s` (press) are left
+ * alone, and short words are untouched.
+ */
+function singularize(w) {
+  if (w.length <= 3 || w.endsWith('ss')) return w;
+  if (w.endsWith('ies')) return `${w.slice(0, -3)}y`; // flies -> fly
+  // crunches -> crunch, presses -> press. The stem must end in a sibilant
+  // cluster, NOT a single `s`: "raises" ends in "ses" but is raise + s, and
+  // stripping "es" there gave "rais" and lost the match.
+  if (/(ch|sh|x|z|ss)es$/.test(w)) return w.slice(0, -2);
+  if (w.endsWith('s')) return w.slice(0, -1);
+  return w;
+}
+
 function tokenize(name) {
   return String(name)
     .toLowerCase()
@@ -97,7 +127,78 @@ function tokenize(name) {
     .replace(/[-/]/g, ' ')
     .split(/\s+/)
     .map((w) => w.replace(/[^a-z0-9]/g, ''))
+    .map(singularize)
+    .flatMap((w) => (COMPOUNDS.get(w) ?? w).split(' '))
     .filter((w) => w.length > 0 && !STOPWORDS.has(w));
+}
+
+/**
+ * Naming differences token matching cannot bridge: the catalog and the artwork
+ * call the same movement different things ("Barbell Curl" / `bicep-curl`,
+ * "Hyperextensions" / `back-extension`).
+ *
+ * Each entry asserts *the same movement*, not merely a similar one — the rule
+ * everywhere else here is that a wrong illustration is worse than none. Ordered:
+ * the first pattern that matches wins, so put the specific ones first. Only
+ * consulted after strict token matching finds nothing.
+ */
+const ALIASES = [
+  // Pulls
+  [/\bbent[- ]over\b.*\brow\b/i, 'barbell-row'],
+  [/\bt[- ]bar row\b/i, 't-bar-row'],
+  [/\bpendlay\b/i, 'pendlay-row'],
+  [/\bseated cable row\b/i, 'single-arm-cable-row'],
+  [/\bhyperextension/i, 'back-extension'],
+  [/\bchin[- ]?up/i, 'chin-up'],
+  // Presses
+  [/\bbehind the neck\b/i, null], // a different movement; leave it unillustrated
+  [/\b(shoulder|military|overhead) press\b/i, 'overhead-press'],
+  [/\bpush press\b/i, 'overhead-press'],
+  [/\bchest press\b/i, 'machine-chest-press'],
+  // Flyes / pec. Rear-delt work is a different movement from a chest fly, so it
+  // is matched first and the chest patterns explicitly exclude it.
+  [/\b(rear|back)\b.*\bfly(e)?s?\b/i, 'rear-delt-fly'],
+  [/\brear delt\b/i, 'rear-delt-fly'],
+  [/\bpec deck\b|\bbutterfly\b/i, 'pec-deck'],
+  [/\bcable crossover\b/i, 'cable-fly'],
+  [/\bfly(e)?s?\b/i, 'dumbbell-fly'],
+  // Arms. An overhead extension and a pushdown are different movements.
+  [/\boverhead\b.*\btricep(s)? extension\b/i, 'dumbbell-overhead-tricep-extension'],
+  [/\bpushdown\b/i, 'rope-tricep-pushdown'],
+  [/\bskull ?crusher\b/i, 'dumbbell-skull-crusher'],
+  [/\b(barbell|dumbbell|standing|seated) curl\b/i, 'bicep-curl'],
+  // Legs. A reverse/rear lunge is not a forward lunge.
+  [/\b(reverse|rear)\b.*\blunge\b/i, 'reverse-lunge'],
+  [/\b(walking|forward|barbell|dumbbell|bodyweight)\b.*\blunge\b|^lunge/i, 'forward-lunge'],
+  // "Dips - Chest Version", "Parallel Bar Dip", "Ring Dips". Excludes the jerk
+  // dip, which is a squat-pattern lift that merely shares the word.
+  [/\bdips?\b(?!.*squat)/i, 'dip'],
+  [/\bstep[- ]ups?\b/i, 'step-up'],
+  [/\bwall sit\b/i, 'wall-sit'],
+  [/\bglute bridge\b/i, 'glute-bridge'],
+  // Core / conditioning
+  [/\bbicycle\b.*\b(crunch|kick)/i, 'bicycle-crunch'],
+  [/\b(lying|flat bench|hanging)\b.*\bleg raise\b/i, 'lying-leg-raise'],
+  [/\bhanging\b.*\bknee raise\b|\bcaptain.?s chair\b/i, 'hanging-knee-raise'],
+  [/\bsuperman\b/i, 'superman'],
+  [/\bburpee\b/i, 'burpee'],
+  [/\bjump rope\b|\brope jump/i, 'jump-rope'],
+  [/\bjumping jack\b/i, 'jumping-jack'],
+  [/\bmountain climber\b/i, 'high-knees'],
+];
+
+/**
+ * The aliased slug for a name, when we actually ship that artwork.
+ * A `null` slug is a veto: the pattern claims the name and deliberately leaves
+ * it unillustrated, stopping a looser pattern below from mismatching it.
+ */
+function aliasSlug(name, available) {
+  for (const [pattern, slug] of ALIASES) {
+    if (!pattern.test(name)) continue;
+    if (slug === null) return null;
+    if (available.has(slug)) return slug;
+  }
+  return null;
 }
 
 /**
@@ -422,6 +523,7 @@ async function main() {
   let exactlyOne = 0;
   let ambiguous = 0;
   let overrideAdds = 0;
+  let aliasAdds = 0;
   let overrideExcludes = 0;
   const overridesSeen = new Set();
 
@@ -446,7 +548,18 @@ async function main() {
 
     const ourTokens = tokenize(ex.name);
     const candidates = upstreamSlugs.filter((slug) => isSafeMatch(ourTokens, upstreamTokens.get(slug)));
-    if (candidates.length === 0) continue;
+    if (candidates.length === 0) {
+      // Token matching can't bridge a naming difference — our catalog says
+      // "Barbell Curl" where the artwork says "bicep-curl". These are the same
+      // movement under a different name, so match on the phrase instead.
+      const alias = aliasSlug(ex.name, upstreamSet);
+      if (alias) {
+        byExerciseId[ex.id] = alias;
+        pairs.push([ex.name, alias, 'alias']);
+        aliasAdds++;
+      }
+      continue;
+    }
 
     if (candidates.length === 1) exactlyOne++;
     else ambiguous++;
