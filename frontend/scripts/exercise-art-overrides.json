@@ -1,0 +1,3 @@
+{
+  "_README": "Hand-curated overrides for build-exercise-art.mjs. Keys are exercise names EXACTLY as they appear in assets/catalog/catalog.json (.exercises[].name). Values are either a workout-guide slug (string) to force that illustration, or null to force-exclude an exercise the matcher would otherwise accept. Overrides always win over the automatic matcher. Slugs must exist upstream (packages/workout-guide/assets/<slug>/frame-1..3.svg) or the build fails loudly. Keys starting with an underscore are ignored. Example: { \"Barbell Squat\": \"squat\", \"Smith Machine Squat\": null }"
+}

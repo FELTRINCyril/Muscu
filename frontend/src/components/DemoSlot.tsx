@@ -34,7 +34,9 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 
 import { patchExercise } from '../api/workouts';
 import { getDemoUrl, setDemoUrl } from '../lib/exerciseDemoStore';
+import { exerciseArt } from '../lib/exerciseArt';
 import { color, font } from '../theme/tokens';
+import { ExerciseArt } from './ExerciseArt';
 
 /** A demo URL the video player can load. Http(s) only. */
 const isHttpUrl = (u: string) => /^https?:\/\//i.test(u);
@@ -121,6 +123,7 @@ export function DemoSlot({ exerciseId, initialUrl, fallbackImageUrl, imageAuthor
           onPasteUrl={() => setEditorOpen(true)}
           fallbackImageUrl={fallbackImageUrl}
           imageAuthor={imageAuthor}
+          exerciseId={exerciseId}
         />
       )}
       <UrlEditorModal
@@ -141,13 +144,32 @@ function EmptyTile({
   onPasteUrl,
   fallbackImageUrl,
   imageAuthor,
+  exerciseId,
 }: {
   onPasteUrl: () => void;
   fallbackImageUrl?: string | null;
   imageAuthor?: string | null;
+  exerciseId: string;
 }) {
   const onUpload = () =>
     Alert.alert('Coming soon', 'Local file upload will be added in a later release.');
+
+  // Bundled line-art loop, when we have artwork for this movement. Only a subset
+  // of the catalog is covered, so this is a bonus over the empty state, not a
+  // replacement for it — everything else still falls through below.
+  const art = exerciseArt(exerciseId);
+  if (art) {
+    return (
+      <>
+        <View style={styles.tileImage}>
+          <ExerciseArt frames={art.frames} viewBox={art.viewBox} size={170} />
+        </View>
+        <Pressable onPress={onPasteUrl} hitSlop={6}>
+          <Text style={styles.addDemoLink}>Add a demo video →</Text>
+        </Pressable>
+      </>
+    );
+  }
 
   if (fallbackImageUrl) {
     return (

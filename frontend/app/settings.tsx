@@ -331,18 +331,21 @@ export default function Settings() {
           <LinkRow
             icon={<InfoIcon size={20} color={color.text2} />}
             label="About Ischys"
-            value="v0.1"
+            value="v0.2"
             onPress={() => {
               Alert.alert(
                 'Ischys · ΙΣΧΥΣ',
-                'Self-hosted, privacy-first workout tracker.\n\nversion 0.1.0\n\nΙσχύς — strength.',
+                'Private, on-device workout tracker.\n\nversion 0.2.0\n\n' +
+                  'Exercise artwork by Workout Guide and Everkinetic, licensed\n' +
+                  'CC BY-SA 4.0 (creativecommons.org/licenses/by-sa/4.0).\n\n' +
+                  'Ισχύς — strength.',
               );
             }}
             isLast
           />
         </Section>
 
-        <Text style={styles.footer}>Ischys · ΙΣΧΥΣ · v0.1.0</Text>
+        <Text style={styles.footer}>Ischys · ΙΣΧΥΣ · v0.2.0</Text>
       </ScrollView>
 
       {/* Header (absolute, blurred solid) */}

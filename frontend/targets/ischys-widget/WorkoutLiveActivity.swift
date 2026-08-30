@@ -238,10 +238,17 @@ private struct LockScreenCard: View {
   // Exercise row: `padding: 12px 17px 15px` · `gap: 13px` · `align-items: center`.
   private var exerciseRow: some View {
     HStack(alignment: .center, spacing: 13) {
-      // 46×46 image slot, radius 12. No bundled image yet → white placeholder.
+      // 46×46 slot, radius 12. A solid white block read as a broken image, so the
+      // slot shows the exercise's initials — the same monogram the app falls back
+      // to wherever it has no artwork.
       RoundedRectangle(cornerRadius: 12)
-        .fill(Color.white)
+        .fill(Color.white.opacity(0.12))
         .frame(width: 46, height: 46)
+        .overlay(
+          Text(Self.initials(of: context.state.exerciseName))
+            .font(.custom("JetBrainsMono-SemiBold", size: 15))
+            .foregroundStyle(.white.opacity(0.85))
+        )
 
       VStack(alignment: .leading, spacing: 2) {
         Text(context.state.exerciseName)
@@ -260,6 +267,21 @@ private struct LockScreenCard: View {
     .padding(.top, 7)
     .padding(.horizontal, 17)
     .padding(.bottom, 9)
+  }
+
+  /// First letters of the first two words, e.g. "Incline Bench Press" → "IB".
+  /// Mirrors `initialsOf` in `src/data/exercisesRepo.ts` so the Lock Screen and
+  /// the app show the same monogram for an exercise.
+  static func initials(of name: String) -> String {
+    let words = name
+      .replacingOccurrences(of: "(", with: " ")
+      .split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" })
+      .filter { $0.first?.isLetter == true || $0.first?.isNumber == true }
+    let letters = words.prefix(2).compactMap { $0.first }
+    if letters.isEmpty {
+      return String(name.prefix(2)).uppercased()
+    }
+    return String(letters).uppercased()
   }
 }
 
