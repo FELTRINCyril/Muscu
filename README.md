@@ -37,8 +37,19 @@ tap away, and the accent colour reserved for a single action — completing a se
   on the Lock Screen, and **Apple Health** (heart-rate read, workout write).
 - **Export / import** — a JSON or workout CSV, for backup or moving in
   from another tracker.
-- **736-exercise catalog** bundled in the app (from
-  [free-exercise-db](https://github.com/yuhonas/free-exercise-db), public domain).
+- **Bodyweight movements count toward volume** — set your weight manually or pull
+  it from Apple Health, snapshotted per workout so past sessions keep their numbers.
+- **Merge duplicate exercises** without losing history or PRs.
+- **736-exercise catalog** bundled in the app — names, muscles and instructions
+  from [free-exercise-db](https://github.com/yuhonas/free-exercise-db) (public
+  domain). Its exercise *photographs* are deliberately not used; see
+  [NOTICE](NOTICE).
+- **Line-art illustrations** for the common movements, animated through the rep,
+  on the exercise screen and the Lock Screen card. Artwork from
+  [Workout Guide](https://github.com/bryllim/workout-guide) /
+  [Everkinetic](https://github.com/everkinetic/data), CC BY-SA 4.0. Coverage is
+  partial on purpose: an illustration is only shown when it depicts that exact
+  movement, so the rest of the catalog shows initials rather than a wrong picture.
 
 ## Platform support
 
@@ -89,4 +100,17 @@ UTC and a non-UTC timezone) gate every change.
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE). Third-party attributions in [NOTICE](NOTICE).
+**The code is MIT** — see [LICENSE](LICENSE). Clone it, build it, ship it.
+
+**The bundled exercise artwork is not MIT.** It is
+[Workout Guide](https://github.com/bryllim/workout-guide) /
+[Everkinetic](https://github.com/everkinetic/data) line art under
+[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), which permits
+commercial use but asks for credit, a link to the licence, a note of what you
+changed, and that adaptations of the artwork stay under CC BY-SA 4.0. If you
+reuse this repo, carry that attribution across — it applies to
+`frontend/src/data/exerciseArt.generated.ts` and the widget's `ExerciseArt`
+image set, not to the code around them.
+
+Fonts are under the SIL Open Font License. Full details and the exact changes
+made to each are in [NOTICE](NOTICE).
