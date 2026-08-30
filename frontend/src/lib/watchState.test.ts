@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildWatchState } from './watchState.ts';
+import { buildFinishedWatchState, buildWatchState } from './watchState.ts';
 
 const set = (id: string, weight: string, reps: string, done = false, type = 'normal') => ({
   id,
@@ -60,7 +60,7 @@ test('carries the numbers forward for the active set', () => {
   assert.equal(s?.reps, '12');
 });
 
-test('volume and set counts cover done, non-warmup sets only', () => {
+test('volume excludes warmups, but the set counts include them', () => {
   const s = buildWatchState(
     legPress(
       set('w', '40', '10', true, 'warmup'),
@@ -73,8 +73,27 @@ test('volume and set counts cover done, non-warmup sets only', () => {
     resolve,
   );
   assert.equal(s?.volumeKg, 1000); // 2 working sets × 100 × 5; warmup excluded
-  assert.equal(s?.setsDone, 2);
+  // Both counters count warmups. The Watch derives "nothing left to log" from
+  // setsDone >= setsTotal, so counting one side and not the other made that
+  // impossible to reach.
+  assert.equal(s?.setsDone, 3);
   assert.equal(s?.setsTotal, 4);
+});
+
+test('a workout with warmups can actually reach done on the Watch', () => {
+  const allDone = legPress(
+    set('w', '40', '10', true, 'warmup'),
+    set('a', '100', '5', true),
+    set('b', '100', '5', true),
+  );
+  // Nothing left to log, so the live builder yields null and the caller pushes
+  // the finished snapshot instead.
+  assert.equal(buildWatchState(allDone, 'R', rest, resolve), null);
+
+  const done = buildFinishedWatchState(allDone, 'R');
+  assert.ok(done);
+  // This is exactly the Watch's `allSetsDone` test.
+  assert.ok(done.setsTotal > 0 && done.setsDone >= done.setsTotal);
 });
 
 /**

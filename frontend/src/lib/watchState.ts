@@ -90,7 +90,13 @@ function totals(
   for (const ex of exercises) {
     for (const s of ex.sets) {
       setsTotal += 1;
-      if (s.done && s.type !== 'warmup') {
+      // Every logged set counts, warmups included. `setsTotal` counts them too,
+      // and the Watch derives "nothing left to log" from `setsDone >= setsTotal`
+      // — so excluding warmups here made that unreachable for any workout with a
+      // warmup set, and the Watch's end-of-workout screen could never appear.
+      // Counting both sides the same way also matches `locateNextSet`, which the
+      // phone, the Lock Screen and the Watch are all supposed to agree on.
+      if (s.done) {
         setsDone += 1;
       }
       if (s.done && (s.type !== 'warmup' || countWarmups)) {
