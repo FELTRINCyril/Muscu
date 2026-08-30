@@ -18,6 +18,25 @@
  * `main` on a first run.
  *
  * No dependencies: plain Node ESM, global fetch, node:fs.
+ *
+ * Provenance, so the next person changing the art source doesn't have to redo
+ * the homework. The chain is bryllim/workout-guide -> Everkinetic, and BOTH are
+ * CC BY-SA 4.0 — so the licence outcome holds even though workout-guide credits
+ * Everkinetic for only some of its frames. Our permission comes from that
+ * licence; the attribution it requires lives in the repo's NOTICE.
+ *
+ * Corroborating the reading (not the basis for it), Everkinetic's maintainer
+ * answered the commercial-use question publicly, for a fitness app:
+ *   https://github.com/everkinetic/data/issues/7
+ *   "You could use it commercially but you have to give credit. In case you
+ *    change or transform parts of it you have to share them (and only them, not
+ *    your whole software) under the same license."
+ * i.e. share-alike attaches to the artwork, not to the app around it. CC
+ * licences are also irrevocable, so a dormant upstream does not change this.
+ *
+ * What we deliberately do NOT use: free-exercise-db's exercise photographs. Its
+ * Unlicense covers that project's JSON; upstream (wrkout/exercises.json) states
+ * the images were taken off the internet and advises against commercial use.
  */
 
 import fs from 'node:fs';
