@@ -22,6 +22,12 @@ import { DraggableSheet } from '../src/components/DraggableSheet';
 import { toDisplay, toKg } from '../src/domain/units';
 import { getBodyweightKg, setBodyweightKg } from '../src/lib/bodyweight';
 import { syncBodyweightFromHealth } from '../src/lib/healthSync';
+import {
+  getWeeklyTarget,
+  setWeeklyTarget,
+  MAX_WEEKLY_TARGET,
+  MIN_WEEKLY_TARGET,
+} from '../src/lib/weeklyTarget';
 import { getCountWarmups, setCountWarmups } from '../src/lib/warmupVolume';
 import { setHapticsEnabled } from '../src/lib/haptics';
 import { isAvailable as isHealthAvailable, readBodyMass, requestAuthorization as requestHealthAuth } from '../modules/health';
@@ -101,6 +107,12 @@ export default function Settings() {
       await syncBodyweightFromHealth();
       setBwKg(await getBodyweightKg());
     })();
+  }, []);
+
+  // Weekly workout goal — the denominator in Home's "2 / 4". Was hard-coded.
+  const [weeklyTarget, setWeeklyTargetState] = useState(4);
+  useEffect(() => {
+    void getWeeklyTarget().then(setWeeklyTargetState);
   }, []);
 
   // Warmups-in-volume flag: SecureStore-backed (not a DB `patch()` toggle), loaded
@@ -269,6 +281,14 @@ export default function Settings() {
             onChange={(v) => {
               setCountWarmupsState(v);
               void setCountWarmups(v);
+            }}
+            isLast={false}
+          />
+          <TargetRow
+            value={weeklyTarget}
+            onChange={(n) => {
+              setWeeklyTargetState(n);
+              void setWeeklyTarget(n);
             }}
             isLast={false}
           />
@@ -442,6 +462,71 @@ function WarmupIcon({ size = 20, color: c }: { size?: number; color: string }) {
         strokeWidth={1.8}
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+/**
+ * Weekly-goal row: − value + . A stepper rather than a segmented control
+ * because the sensible range (1–14) is far too wide to lay out as options.
+ */
+function TargetRow({
+  value,
+  onChange,
+  isLast,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  isLast: boolean;
+}) {
+  const step = (delta: number) => {
+    const next = Math.min(MAX_WEEKLY_TARGET, Math.max(MIN_WEEKLY_TARGET, value + delta));
+    if (next !== value) onChange(next);
+  };
+  const atMin = value <= MIN_WEEKLY_TARGET;
+  const atMax = value >= MAX_WEEKLY_TARGET;
+  return (
+    <RowShell
+      icon={<TargetIcon size={20} color={color.text2} />}
+      label="Weekly goal"
+      sub="Workouts a week, shown on Home"
+      isLast={isLast}
+      right={
+        <View style={styles.stepper}>
+          <Pressable
+            onPress={() => step(-1)}
+            disabled={atMin}
+            hitSlop={6}
+            style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Decrease weekly goal"
+          >
+            <Text style={[styles.stepGlyph, atMin && styles.stepGlyphOff]}>−</Text>
+          </Pressable>
+          <Text style={styles.stepValue}>{value}</Text>
+          <Pressable
+            onPress={() => step(1)}
+            disabled={atMax}
+            hitSlop={6}
+            style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Increase weekly goal"
+          >
+            <Text style={[styles.stepGlyph, atMax && styles.stepGlyphOff]}>+</Text>
+          </Pressable>
+        </View>
+      }
+    />
+  );
+}
+
+/** Concentric-rings target glyph for the Weekly goal row. */
+function TargetIcon({ size = 20, color: c }: { size?: number; color: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={9} stroke={c} strokeWidth={1.8} />
+      <Circle cx={12} cy={12} r={4.5} stroke={c} strokeWidth={1.8} />
+      <Circle cx={12} cy={12} r={1.2} fill={c} />
     </Svg>
   );
 }
@@ -828,6 +913,30 @@ const styles = StyleSheet.create({
     fontFamily: font.monoRegular,
     fontSize: 12.5,
     color: color.text3,
+    fontVariant: ['tabular-nums'],
+  },
+
+  // Weekly-goal stepper
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0 },
+  stepBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: color.surface2,
+    borderWidth: 1,
+    borderColor: color.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBtnPressed: { borderColor: color.text3 },
+  stepGlyph: { fontFamily: font.titleSemi, fontSize: 16, lineHeight: 19, color: color.text1 },
+  stepGlyphOff: { color: color.text3 },
+  stepValue: {
+    minWidth: 26,
+    textAlign: 'center',
+    fontFamily: font.monoSemi,
+    fontSize: 15,
+    color: color.text1,
     fontVariant: ['tabular-nums'],
   },
 

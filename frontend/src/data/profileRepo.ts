@@ -20,6 +20,7 @@ import { getProfileName } from '../lib/profileName';
 import { LOCAL_USER_ID } from './ids';
 import { toWorkoutListItem, type WorkoutRow } from './map';
 import { muscleTagsByWorkout } from './queries';
+import { getWeeklyTarget } from '../lib/weeklyTarget';
 
 const WEEK_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -121,7 +122,7 @@ export async function getDashboard(): Promise<Dashboard> {
     date: ymd(today),
     stats: {
       workouts_done: weekRows.length,
-      workouts_target: 4,
+      workouts_target: await getWeeklyTarget(),
       volume: Math.round(weekVol.reduce((a, b) => a + b, 0) * 10) / 10,
       sets,
       time_seconds: timeS,
