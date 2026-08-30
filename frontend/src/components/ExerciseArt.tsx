@@ -68,9 +68,23 @@ export function ExerciseArt({
       opacities.current.forEach((v, i) => v.setValue(i === 0 ? 1 : 0));
       return;
     }
-    let active = 0;
+    // Play the frames out and back — 0,1,2,1 — not 0,1,2,0. The frames are
+    // positions through a rep (start, middle, end), so cycling straight from the
+    // end back to the start snaps the figure through the movement backwards; a
+    // squat teleports upright. Reversing through the middle reads as the rep
+    // returning, which is what the movement actually does. Two frames alternate
+    // naturally and need no reversal.
+    const order =
+      frames.length > 2
+        ? [...frames.map((_, i) => i), ...frames.map((_, i) => i).slice(1, -1).reverse()]
+        : frames.map((_, i) => i);
+
+    let step = 0;
     const timer = setInterval(() => {
-      const next = (active + 1) % frames.length;
+      const active = order[step % order.length];
+      const next = order[(step + 1) % order.length];
+      step += 1;
+      if (next === active) return;
       Animated.parallel([
         Animated.timing(opacities.current[next], {
           toValue: 1,
@@ -83,7 +97,6 @@ export function ExerciseArt({
           useNativeDriver: true,
         }),
       ]).start();
-      active = next;
     }, HOLD_MS);
     return () => clearInterval(timer);
   }, [looping, frames.length]);
