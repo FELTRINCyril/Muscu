@@ -47,9 +47,15 @@ import {
 } from '../src/components/icons';
 import { color, font } from '../src/theme/tokens';
 
-/** The shipped version, read from the build rather than retyped — these strings
- *  silently went stale across a release before. */
-const APP_VERSION = Constants.expoConfig?.version ?? '';
+/**
+ * The shipped version, read from the build rather than retyped — these strings
+ * silently said 0.1.0 through the whole 0.2.0 release.
+ *
+ * `nativeAppVersion` is CFBundleShortVersionString straight from the bundle,
+ * which is the number the App Store actually shows; `expoConfig` is the manifest
+ * and can be null in a bare release build.
+ */
+const APP_VERSION = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? '';
 
 const DEFAULT_SETTINGS: SettingsOut = {
   unit: 'kg',
