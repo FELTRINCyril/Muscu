@@ -71,6 +71,7 @@ import {
   startWatchSession,
   stopWatchSession,
   subscribeLiveHeartRate,
+  syncBodyweightFromHealth,
   syncFinishedWorkout,
 } from '../../src/lib/healthSync';
 import { buildWatchState } from '../../src/lib/watchState';
@@ -204,7 +205,12 @@ export default function ActiveWorkout() {
   // loaded / unset, in which case they contribute 0 (unchanged behaviour).
   const [bwKg, setBwKg] = useState<number | null>(null);
   useEffect(() => {
-    void getBodyweightKg().then(setBwKg);
+    void (async () => {
+      // Refresh from Health first when it's connected, so a weight logged there
+      // is reflected in this session's volume without retyping it.
+      await syncBodyweightFromHealth();
+      setBwKg(await getBodyweightKg());
+    })();
   }, []);
   // Whether warmup sets count toward volume (Settings toggle, default off). Loaded
   // once; the live header + watch mirror both respect it.
@@ -284,6 +290,11 @@ export default function ActiveWorkout() {
   const refresh = useCallback(async () => {
     if (isDemo || !persist) return;
     try {
+      // Land every optimistic/debounced write BEFORE reading the store back —
+      // otherwise the refetch returns state that predates them and wipes the
+      // change from the screen (see `write`/`settleWrites`).
+      await flushPending();
+      await settleWrites();
       const w = await getWorkout(routeId);
       const [prev, prevNotes] = await Promise.all([
         Promise.all(w.exercises.map((we) => getPrevious(w.id, we.id).catch(() => [] as PreviousSetOut[]))),
@@ -324,9 +335,23 @@ export default function ActiveWorkout() {
     }, [isDemo, persist, routeId]),
   );
 
-  // Fire-and-forget network write; failures are swallowed so local state never blocks.
+  // Fire-and-forget write; failures are swallowed so local state never blocks.
+  // Tracked so `refresh` can wait for them: a refetch that overtakes an in-flight
+  // write reads the store *before* it lands and replaces local state without the
+  // change — which made a set added during rest flash and vanish (the Live
+  // Activity appearing blips AppState, and that fires a refresh).
+  const inFlight = useRef(new Set<Promise<unknown>>());
   const write = (p: Promise<unknown>) => {
-    p.catch(() => {});
+    inFlight.current.add(p);
+    void p.catch(() => {}).finally(() => inFlight.current.delete(p));
+  };
+
+  /** Let every queued write land, so a refetch can't read a stale store. */
+  const settleWrites = async () => {
+    // Writes can enqueue more writes, so drain until the set is empty.
+    while (inFlight.current.size > 0) {
+      await Promise.allSettled([...inFlight.current]);
+    }
   };
 
   // Debounced per-field persistence (weight/reps text edits). Each pending entry

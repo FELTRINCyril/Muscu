@@ -1,7 +1,9 @@
 /** One exercise: header, note, rest-timer row, set grid, + Add Set. */
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { exerciseArt } from '../../lib/exerciseArt';
 import { color, font } from '../../theme/tokens';
+import { ExerciseArt } from '../ExerciseArt';
 import { PressableScale } from '../PressableScale';
 import { ChevronRightIcon, ClockRowIcon } from '../icons';
 import { ExerciseMenu } from './ExerciseMenu';
@@ -72,7 +74,23 @@ export function ExerciseCard({
       {/* Header */}
       <View style={styles.header}>
         <Pressable style={styles.avatar} onPress={onOpenDetail} disabled={!onOpenDetail}>
-          <Text style={styles.avatarText}>{exercise.initials}</Text>
+          {(() => {
+            // Line art when we have it for this movement, initials otherwise.
+            // Held on the first frame here: this is a dense list mid-workout, so a
+            // looping figure in every card would pull focus from logging.
+            const art = exerciseArt(exercise.exerciseCatalogId);
+            return art ? (
+              <ExerciseArt
+                frames={art.frames}
+                viewBox={art.viewBox}
+                size={34}
+                tint={color.text1}
+                animate={false}
+              />
+            ) : (
+              <Text style={styles.avatarText}>{exercise.initials}</Text>
+            );
+          })()}
         </Pressable>
         <Pressable style={styles.headerText} onPress={onOpenDetail} disabled={!onOpenDetail}>
           <Text style={styles.name} numberOfLines={1}>

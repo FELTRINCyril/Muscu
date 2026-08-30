@@ -9,6 +9,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Health from '../../modules/health';
 import { uploadHeartRate } from '../api/workouts';
 import { recordReadReceipt } from './healthReceipts';
+import { setBodyweightKg } from './bodyweight';
 
 // Plausible human heart-rate bounds. A stray sample outside this range is
 // dropped rather than persisted.
@@ -195,6 +196,32 @@ export async function syncFinishedWorkout(
     }
   } catch {
     // A Health failure must not break finishing a workout.
+  }
+}
+
+/**
+ * Refresh the stored bodyweight from Apple Health, when the user connected it.
+ *
+ * Bodyweight feeds volume for bodyweight movements, and having connected Health
+ * is a clear signal they'd rather not retype it — so this keeps the setting in
+ * step with Health instead of leaving it to a manual pull. A manual entry still
+ * wins until Health has a newer reading, because Health is what changes.
+ *
+ * Best-effort and silent: no Health, no connection, or no logged weight all just
+ * leave the existing value alone. Never call this inside a DB transaction — it
+ * awaits SecureStore/HealthKit, which hangs expo-sqlite.
+ */
+export async function syncBodyweightFromHealth(): Promise<number | null> {
+  try {
+    if (!Health.isAvailable()) return null;
+    const connected = await SecureStore.getItemAsync(HEALTH_KEYS.connected);
+    if (connected !== '1') return null;
+    const kg = await Health.readBodyMass();
+    if (kg == null) return null;
+    await setBodyweightKg(kg);
+    return kg;
+  } catch {
+    return null;
   }
 }
 

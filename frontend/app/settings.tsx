@@ -21,6 +21,7 @@ import {
 import { DraggableSheet } from '../src/components/DraggableSheet';
 import { toDisplay, toKg } from '../src/domain/units';
 import { getBodyweightKg, setBodyweightKg } from '../src/lib/bodyweight';
+import { syncBodyweightFromHealth } from '../src/lib/healthSync';
 import { getCountWarmups, setCountWarmups } from '../src/lib/warmupVolume';
 import { setHapticsEnabled } from '../src/lib/haptics';
 import { isAvailable as isHealthAvailable, readBodyMass, requestAuthorization as requestHealthAuth } from '../modules/health';
@@ -94,7 +95,12 @@ export default function Settings() {
   const [bwOpen, setBwOpen] = useState(false);
   const [bwInput, setBwInput] = useState('');
   useEffect(() => {
-    void getBodyweightKg().then(setBwKg);
+    void (async () => {
+      // With Health connected, take the weight from there rather than making the
+      // user retype what Health already knows. No-op when it isn't connected.
+      await syncBodyweightFromHealth();
+      setBwKg(await getBodyweightKg());
+    })();
   }, []);
 
   // Warmups-in-volume flag: SecureStore-backed (not a DB `patch()` toggle), loaded

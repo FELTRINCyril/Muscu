@@ -415,6 +415,7 @@ function ExerciseRow({
         <ExerciseAvatar
           imageUrl={mediaUrl(exercise.image_url)}
           initials={exercise.initials}
+          exerciseId={exercise.id}
           style={
             selected
               ? {

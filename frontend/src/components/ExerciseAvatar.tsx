@@ -8,19 +8,54 @@
 import { useState } from 'react';
 import { Image, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
+import { exerciseArt } from '../lib/exerciseArt';
 import { color, font } from '../theme/tokens';
+import { ExerciseArt } from './ExerciseArt';
 
 type Props = {
   imageUrl?: string | null;
   initials: string;
+  /** Catalog id — when we have line art for it, it stands in for the initials. */
+  exerciseId?: string | null;
   size?: number;
   radius?: number;
   style?: ViewStyle;
 };
 
-export function ExerciseAvatar({ imageUrl, initials, size = 44, radius = 11, style }: Props) {
+export function ExerciseAvatar({
+  imageUrl,
+  initials,
+  exerciseId,
+  size = 44,
+  radius = 11,
+  style,
+}: Props) {
   const [failed, setFailed] = useState(false);
   const showImage = Boolean(imageUrl) && !failed;
+  // Held on the first frame: these appear in scrolling lists, where a loop in
+  // every row would be noise.
+  const art = showImage ? null : exerciseArt(exerciseId);
+
+  if (art) {
+    return (
+      <View
+        style={[
+          styles.base,
+          { width: size, height: size, borderRadius: radius },
+          styles.initialsBg,
+          style,
+        ]}
+      >
+        <ExerciseArt
+          frames={art.frames}
+          viewBox={art.viewBox}
+          size={Math.round(size * 0.94)}
+          tint={color.text1}
+          animate={false}
+        />
+      </View>
+    );
+  }
 
   return (
     <View
