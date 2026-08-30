@@ -83,11 +83,17 @@ const MOVEMENT_WORDS = new Set([
   'pronated', 'supinated',
 ]);
 
+/** The actual implement, as opposed to scenery like `bench` or `grip`. */
+const IMPLEMENTS = new Set([
+  'barbell', 'dumbbell', 'cable', 'machine', 'smith', 'kettlebell', 'band', 'banded', 'lever',
+  'bodyweight', 'ez',
+]);
+
 /** Equipment/grip words that may appear as extras without changing the movement. */
 const ALLOWED_EXTRAS = new Set([
   'barbell', 'dumbbell', 'cable', 'machine', 'smith', 'band', 'banded', 'kettlebell', 'ez', 'bar',
   'lever', 'bodyweight', 'weighted', 'assisted', 'alternate', 'alternating', 'one', 'arm', 'single',
-  'two', 'close', 'wide', 'medium', 'grip', 'version', 'style', 'standing', 'seated',
+  'two', 'close', 'wide', 'medium', 'grip', 'version', 'style', 'standing', 'seated', 'bench',
 ]);
 
 /**
@@ -102,6 +108,19 @@ const COMPOUNDS = new Map([
   ['situp', 'sit up'],
   ['stepup', 'step up'],
   ['signup', 'signup'], // guard: never split a non-movement word
+]);
+
+/**
+ * Spelling and abbreviation variants the catalog uses. Without these, names that
+ * mean exactly the artwork's name miss it on a letter: "Incline Cable Flye" is
+ * `incline-cable-fly`, and "Hammer Grip Incline DB Bench Press" is a dumbbell
+ * press. Applied after singularising, so "flyes" has already become "flye".
+ */
+const SPELLINGS = new Map([
+  ['flye', 'fly'],
+  ['db', 'dumbbell'],
+  ['bb', 'barbell'],
+  ['ohp', 'overhead press'],
 ]);
 
 /**
@@ -128,8 +147,13 @@ function tokenize(name) {
     .split(/\s+/)
     .map((w) => w.replace(/[^a-z0-9]/g, ''))
     .map(singularize)
+    .map((w) => SPELLINGS.get(w) ?? w)
     .flatMap((w) => (COMPOUNDS.get(w) ?? w).split(' '))
-    .filter((w) => w.length > 0 && !STOPWORDS.has(w));
+    .filter((w) => w.length > 0 && !STOPWORDS.has(w))
+    // "Hammer Grip ... Bench Press" is a press with a neutral grip, not a hammer
+    // curl. A movement word immediately before "grip" qualifies the grip, so drop
+    // it rather than let it veto an otherwise exact match.
+    .filter((w, i, all) => !(MOVEMENT_WORDS.has(w) && all[i + 1] === 'grip'));
 }
 
 /**
@@ -157,7 +181,8 @@ const ALIASES = [
   [/\bchest press\b/i, 'machine-chest-press'],
   // Flyes / pec. Rear-delt work is a different movement from a chest fly, so it
   // is matched first and the chest patterns explicitly exclude it.
-  [/\b(rear|back)\b.*\bfly(e)?s?\b/i, 'rear-delt-fly'],
+  [/\breverse\b.*\b(machine|pec deck)\b|\b(machine|pec deck)\b.*\breverse\b/i, 'reverse-pec-deck'],
+  [/\b(rear|back|reverse)\b.*\bfly(e)?s?\b/i, 'rear-delt-fly'],
   [/\brear delt\b/i, 'rear-delt-fly'],
   [/\bpec deck\b|\bbutterfly\b/i, 'pec-deck'],
   [/\bcable crossover\b/i, 'cable-fly'],
@@ -192,11 +217,20 @@ const ALIASES = [
  * A `null` slug is a veto: the pattern claims the name and deliberately leaves
  * it unillustrated, stopping a looser pattern below from mismatching it.
  */
-function aliasSlug(name, available) {
+function aliasSlug(name, available, slugTokens) {
   for (const [pattern, slug] of ALIASES) {
     if (!pattern.test(name)) continue;
     if (slug === null) return null;
-    if (available.has(slug)) return slug;
+    if (!available.has(slug)) continue;
+    // An alias must clear the SAME safety bar as token matching. Without this
+    // they quietly bypassed it: "Reverse Flyes" matched the chest-fly artwork,
+    // which is the opposing muscle, and incline/decline variants collapsed onto
+    // their flat counterparts. If our name carries a movement-changing word the
+    // artwork does not, the alias is refused and the exercise stays unillustrated.
+    const theirs = new Set(slugTokens.get(slug) ?? []);
+    const ours = tokenize(name);
+    if (ours.some((t) => MOVEMENT_WORDS.has(t) && !theirs.has(t))) continue;
+    return slug;
   }
   return null;
 }
@@ -552,7 +586,7 @@ async function main() {
       // Token matching can't bridge a naming difference — our catalog says
       // "Barbell Curl" where the artwork says "bicep-curl". These are the same
       // movement under a different name, so match on the phrase instead.
-      const alias = aliasSlug(ex.name, upstreamSet);
+      const alias = aliasSlug(ex.name, upstreamSet, upstreamTokens);
       if (alias) {
         byExerciseId[ex.id] = alias;
         pairs.push([ex.name, alias, 'alias']);
@@ -564,11 +598,21 @@ async function main() {
     if (candidates.length === 1) exactlyOne++;
     else ambiguous++;
 
-    // Deterministic tie-break: prefer the most specific (most tokens) candidate,
-    // then alphabetical. Every candidate already passed the strict safety rule.
+    // Deterministic tie-break, in order: most tokens (most specific), then the
+    // one naming the same equipment we do, then alphabetical. Without the
+    // equipment step a dumbbell press could land on `incline-bench-press` rather
+    // than `incline-dumbbell-press` purely because `b` sorts before `d`.
+    // Score on the implement only. `bench` and `grip` are scenery on a press
+    // name, so counting them as equipment made "Dumbbell Bench Press" score
+    // `bench-press` and `dumbbell-press` equally and fall back to alphabetical.
+    const ourImplements = new Set(ourTokens.filter((t) => IMPLEMENTS.has(t)));
+    const equipmentScore = (slug) =>
+      upstreamTokens.get(slug).filter((t) => ourImplements.has(t)).length;
     candidates.sort((a, b) => {
       const d = upstreamTokens.get(b).length - upstreamTokens.get(a).length;
-      return d !== 0 ? d : a.localeCompare(b);
+      if (d !== 0) return d;
+      const e = equipmentScore(b) - equipmentScore(a);
+      return e !== 0 ? e : a.localeCompare(b);
     });
     byExerciseId[ex.id] = candidates[0];
     pairs.push([ex.name, candidates[0], candidates.length > 1 ? 'most-specific' : 'unique']);
