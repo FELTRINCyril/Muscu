@@ -1,15 +1,15 @@
 /**
  * Exercise artwork — a short line-art loop of the movement.
  *
- * The frames are ordered positions (start → mid → end), cross-faded on a slow
- * cycle so the figure reads as one rep rather than a slideshow. Frames are
- * stacked and only their opacity animates, so there is no layout work per tick.
+ * The frames are ordered positions (start → mid → end), cross-faded out and back
+ * so the figure reads as one rep rather than a slideshow. Frames are stacked and
+ * only their opacity animates, so there is no layout work per tick.
  *
- * Honours Reduce Motion: the loop is replaced by a still of the first frame,
- * which is the position the exercise is normally illustrated at.
+ * Lists pass `animate={false}` to hold the first frame — a loop in every row
+ * would pull focus mid-workout.
  */
-import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, StyleSheet, View, type ViewStyle } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { color } from '../theme/tokens';
@@ -39,22 +39,12 @@ export function ExerciseArt({
   animate = true,
   style,
 }: Props) {
-  const [reduceMotion, setReduceMotion] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((on) => {
-        if (!cancelled) setReduceMotion(on);
-      })
-      .catch(() => {});
-    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => {
-      cancelled = true;
-      sub.remove();
-    };
-  }, []);
-
-  const looping = animate && !reduceMotion && frames.length > 1;
+  // Deliberately NOT gated on Reduce Motion. This is a cross-dissolve between two
+  // still drawings — nothing moves, scales, or parallaxes — and a cross-dissolve
+  // is the substitution Apple recommends *for* Reduce Motion, so suppressing it
+  // was both unnecessary and the reason the figure sat frozen on devices that
+  // have the setting on. Callers that want a still pass `animate={false}`.
+  const looping = animate && frames.length > 1;
 
   // One opacity per frame; frame 0 starts visible.
   const opacities = useRef<Animated.Value[]>([]);
