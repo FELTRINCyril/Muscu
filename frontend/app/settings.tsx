@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { cacheDirectory, writeAsStringAsync } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import Constants from 'expo-constants';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -45,6 +46,10 @@ import {
   UploadIcon,
 } from '../src/components/icons';
 import { color, font } from '../src/theme/tokens';
+
+/** The shipped version, read from the build rather than retyped — these strings
+ *  silently went stale across a release before. */
+const APP_VERSION = Constants.expoConfig?.version ?? '';
 
 const DEFAULT_SETTINGS: SettingsOut = {
   unit: 'kg',
@@ -357,11 +362,11 @@ export default function Settings() {
           <LinkRow
             icon={<InfoIcon size={20} color={color.text2} />}
             label="About Ischys"
-            value="v0.2"
+            value={APP_VERSION ? `v${APP_VERSION}` : undefined}
             onPress={() => {
               Alert.alert(
                 'Ischys · ΙΣΧΥΣ',
-                'Private, on-device workout tracker.\n\nversion 0.2.0\n\n' +
+                `Private, on-device workout tracker.\n\nversion ${APP_VERSION}\n\n` +
                   'Exercise artwork by Workout Guide and Everkinetic, licensed\n' +
                   'CC BY-SA 4.0 (creativecommons.org/licenses/by-sa/4.0).\n\n' +
                   'Ισχύς — strength.',
@@ -371,7 +376,7 @@ export default function Settings() {
           />
         </Section>
 
-        <Text style={styles.footer}>Ischys · ΙΣΧΥΣ · v0.2.0</Text>
+        <Text style={styles.footer}>{`Ischys · ΙΣΧΥΣ · v${APP_VERSION}`}</Text>
       </ScrollView>
 
       {/* Header (absolute, blurred solid) */}
