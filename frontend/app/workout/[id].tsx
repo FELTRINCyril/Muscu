@@ -74,7 +74,7 @@ import {
   syncBodyweightFromHealth,
   syncFinishedWorkout,
 } from '../../src/lib/healthSync';
-import { buildWatchState } from '../../src/lib/watchState';
+import { buildFinishedWatchState, buildWatchState } from '../../src/lib/watchState';
 import { getBodyweightKg } from '../../src/lib/bodyweight';
 import { getCountWarmups } from '../../src/lib/warmupVolume';
 import type { WatchAction } from '../../modules/health';
@@ -1030,7 +1030,11 @@ export default function ActiveWorkout() {
         startedAt,
         bwKg ?? 0,
         countWarmups,
-      ),
+      ) ??
+      // Every set logged: push a completed snapshot so the Watch can offer its
+      // end-of-workout actions. Skipping the push here left the wrist showing a
+      // stale mid-workout state (#45 on the watch side).
+      buildFinishedWatchState(exercises, name || 'Workout', startedAt, bwKg ?? 0, countWarmups),
     [exercises, name, restRemaining, restTotal, startedAt, bwKg, countWarmups],
   );
   const watchStateRef = useRef(watchState);

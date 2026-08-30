@@ -109,8 +109,58 @@ function totals(
 }
 
 /**
+ * The state to push once every planned set is logged, so the Watch can show its
+ * end-of-workout screen (it derives that from `setsDone >= setsTotal`).
+ *
+ * Without this the phone simply stopped pushing when `buildWatchState` returned
+ * null, so the Watch kept the last mid-workout snapshot and never learned the
+ * workout was finishable — logging the final set on the phone appeared to do
+ * nothing on the wrist.
+ *
+ * The set fields describe the last set logged; the Watch's end state reads only
+ * the totals, but they must stay well-formed for the shared decoder.
+ */
+export function buildFinishedWatchState(
+  exercises: readonly (ExerciseLike & { id: string })[],
+  routineName: string,
+  startedAt: number | null = null,
+  bodyweightKg = 0,
+  countWarmups = false,
+): WatchState | null {
+  const withSets = exercises.filter((e) => e.sets.length > 0);
+  const last = withSets[withSets.length - 1];
+  if (!last) return null;
+  const lastSet = last.sets[last.sets.length - 1];
+  const t = totals(exercises, bodyweightKg, countWarmups);
+
+  return {
+    screen: 'session',
+    startedAt: startedAt ?? 0,
+    routineName,
+    exerciseName: last.name,
+    equipment: last.equipment,
+    setNum: last.sets.length,
+    setCount: last.sets.length,
+    weight: lastSet.weight,
+    reps: lastSet.reps,
+    prevWeight: lastSet.prevWeight ?? '',
+    prevReps: lastSet.prevReps ?? '',
+    setDots: last.sets.map(() => 'done' as WatchSetDot),
+    resting: false,
+    restRemaining: 0,
+    restTotal: 0,
+    nextSetLabel: '',
+    volumeKg: t.volumeKg,
+    setsDone: t.setsDone,
+    setsTotal: t.setsTotal,
+    currentExerciseId: last.id,
+    currentSetId: lastSet.id,
+  };
+}
+
+/**
  * The state to push, or null when there is no active set (every set done) — the
- * caller then pushes a summary/idle state instead.
+ * caller then pushes `buildFinishedWatchState` instead.
  */
 export function buildWatchState(
   exercises: readonly (ExerciseLike & { id: string })[],
