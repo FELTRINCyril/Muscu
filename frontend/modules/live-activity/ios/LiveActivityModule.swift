@@ -98,6 +98,7 @@ public class LiveActivityModule: Module {
     }
     return WorkoutAttributes.ContentState(
       exerciseName: dict["exerciseName"] as? String ?? "",
+      artSlug: dict["artSlug"] as? String,
       mode: dict["mode"] as? String ?? "logging",
       subtitle: dict["subtitle"] as? String ?? "",
       weightLabel: dict["weightLabel"] as? String ?? "",
@@ -117,6 +118,7 @@ public class LiveActivityModule: Module {
     guard let dict else { return nil }
     return WorkoutAttributes.NextSet(
       exerciseName: dict["exerciseName"] as? String ?? "",
+      artSlug: dict["artSlug"] as? String,
       subtitle: dict["subtitle"] as? String ?? "",
       weightLabel: dict["weightLabel"] as? String ?? "",
       repsLabel: dict["repsLabel"] as? String ?? "",

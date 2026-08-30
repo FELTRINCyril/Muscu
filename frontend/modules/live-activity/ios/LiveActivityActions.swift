@@ -124,6 +124,7 @@ enum LiveActivityMutator {
       }
 
       state.exerciseName = next.exerciseName
+      state.artSlug = next.artSlug
       state.subtitle = next.subtitle
       state.weightLabel = next.weightLabel
       state.repsLabel = next.repsLabel

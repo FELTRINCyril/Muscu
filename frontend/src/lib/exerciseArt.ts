@@ -13,7 +13,9 @@
  * This module is the ONLY importer of the generated file, so regenerating the art
  * (or dropping it entirely) never reaches a component.
  */
-import { ART_BY_EXERCISE_ID, ART_FRAMES, ART_VIEWBOX } from '../data/exerciseArt.generated';
+// Explicit extension: `liveActivityState.ts` imports this module and is covered
+// by `node --test`, which resolves specifiers itself and needs the real filename.
+import { ART_BY_EXERCISE_ID, ART_FRAMES, ART_VIEWBOX } from '../data/exerciseArt.generated.ts';
 
 export type ExerciseArt = {
   /** Shared viewBox for every frame, e.g. `0 0 512 512`. */
@@ -38,4 +40,18 @@ export function exerciseArt(exerciseId: string | null | undefined): ExerciseArt 
 /** True when we have artwork for this exercise. */
 export function hasExerciseArt(exerciseId: string | null | undefined): boolean {
   return exerciseArt(exerciseId) !== null;
+}
+
+/**
+ * The artwork's slug, or undefined when we have none.
+ *
+ * The Live Activity widget is a separate process with no JS: it carries the same
+ * art as pre-rasterised images keyed by slug (see scripts/build-widget-art.mjs),
+ * so the slug — not the path data — is what crosses to the Lock Screen card.
+ */
+export function exerciseArtSlug(exerciseId: string | null | undefined): string | undefined {
+  if (!exerciseId) return undefined;
+  const slug = ART_BY_EXERCISE_ID[exerciseId];
+  if (!slug || !ART_FRAMES[slug]) return undefined;
+  return slug;
 }

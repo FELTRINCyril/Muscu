@@ -1,0 +1,21 @@
+{
+  "images": [
+    {
+      "filename": "bent-over-rear-delt-raise@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "bent-over-rear-delt-raise@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "template-rendering-intent": "template"
+  }
+}

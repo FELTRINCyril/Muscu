@@ -10,11 +10,12 @@
  * wake up and push. JS still owns the write; this is only so the card responds
  * to a tap on a locked phone.
  *
- * Pure — the only import is the shared look-ahead, so `node --test` can run it.
- * The carry-forward rules are injected as `resolve` rather than imported,
- * keeping this file self-contained (see setCarry.ts, which is tested
- * separately). See liveActivityState.test.ts.
+ * Pure — the only imports are the shared look-ahead and the artwork lookup, both
+ * plain data, so `node --test` can run it. The carry-forward rules are injected
+ * as `resolve` rather than imported, keeping this file self-contained (see
+ * setCarry.ts, which is tested separately). See liveActivityState.test.ts.
  */
+import { exerciseArtSlug } from './exerciseArt.ts';
 import { locateNextSet } from './nextSet.ts';
 
 export type LiveActivityMode = 'logging' | 'rest';
@@ -22,6 +23,8 @@ export type LiveActivityMode = 'logging' | 'rest';
 /** The card as it should look once the current set is completed. */
 export type NextSet = {
   exerciseName: string;
+  /** See `LiveActivitySnapshot.artSlug`. */
+  artSlug?: string;
   subtitle: string;
   weightLabel: string;
   repsLabel: string;
@@ -30,6 +33,13 @@ export type NextSet = {
 
 export type LiveActivitySnapshot = {
   exerciseName: string;
+  /**
+   * Names the exercise's line art in the widget's own asset catalog, or absent
+   * where we have none — the card then draws the initials monogram. The widget
+   * is a separate process and cannot read the bundled path data, so it carries
+   * the same art as images and only this key crosses over.
+   */
+  artSlug?: string;
   mode: LiveActivityMode;
   subtitle: string;
   weightLabel: string;
@@ -42,7 +52,13 @@ export type LiveActivitySnapshot = {
 };
 
 type SetLike = { id: string; weight: string; reps: string; done: boolean };
-type ExerciseLike = { name: string; rest: number; sets: readonly SetLike[] };
+type ExerciseLike = {
+  name: string;
+  rest: number;
+  sets: readonly SetLike[];
+  /** Optional: only used to look up artwork, and coverage is partial anyway. */
+  exerciseCatalogId?: string;
+};
 
 /**
  * Fills in what a set would log if completed untouched — the caller supplies
@@ -72,6 +88,7 @@ function describe(at: Located, resolve: Resolve): NextSet {
   const repsLabel = repsLabelFor(filled.reps);
   return {
     exerciseName: exercise.name,
+    artSlug: exerciseArtSlug(exercise.exerciseCatalogId),
     subtitle: `Next: set ${setIndex + 1} of ${exercise.sets.length} (${weightLabel} ${TIMES} ${repsLabel})`,
     weightLabel,
     repsLabel,
@@ -102,6 +119,7 @@ export function buildLiveActivityState(
 
   return {
     exerciseName: ex.name,
+    artSlug: exerciseArtSlug(ex.exerciseCatalogId),
     mode: resting ? 'rest' : 'logging',
     subtitle: resting ? `Next: ${position} (${weightLabel} ${TIMES} ${repsLabel})` : `Set ${index + 1} of ${ex.sets.length}`,
     weightLabel,

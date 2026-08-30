@@ -6,6 +6,14 @@ export type LiveActivityState = {
    * and ActivityKit attributes are fixed for the Activity's whole life.
    */
   exerciseName: string;
+  /**
+   * Names an imageset in the widget's own asset catalog (`ExerciseArt/<slug>`,
+   * built by `scripts/build-widget-art.mjs`). The extension has no JS and cannot
+   * read the app's vector art, so it ships the same drawings as images and only
+   * this key crosses the bridge. Absent — or naming art this build does not
+   * carry — and the card falls back to the exercise's initials.
+   */
+  artSlug?: string;
   mode: 'logging' | 'rest';
   subtitle: string;
   weightLabel: string;
@@ -24,6 +32,7 @@ export type LiveActivityState = {
   restSeconds: number;
   next?: {
     exerciseName: string;
+    artSlug?: string;
     subtitle: string;
     weightLabel: string;
     repsLabel: string;

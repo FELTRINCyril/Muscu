@@ -54,6 +54,8 @@ const numStr = (n: number | null | undefined) => (n == null ? '' : String(n));
 const forSnapshot = (w: WorkoutOut) =>
   w.exercises.map((we) => ({
     name: we.exercise.name,
+    // Only used to look up the card's thumbnail artwork.
+    exerciseCatalogId: we.exercise.id,
     rest: we.rest_seconds,
     sets: we.sets.map((s) => ({
       id: s.id,

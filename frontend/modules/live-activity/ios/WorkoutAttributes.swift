@@ -12,6 +12,16 @@ struct WorkoutAttributes: ActivityAttributes {
     /// whole life — changing one would mean ending and restarting the card.
     var exerciseName: String
 
+    /// Slug of the bundled line-art for this exercise, e.g. "bench-press", or
+    /// nil where we have no artwork (the card then shows the initials monogram).
+    /// It names an imageset in the widget's own asset catalog — the extension
+    /// cannot read JS, so the art ships as images and only the key crosses over.
+    ///
+    /// Optional with a default: a build that adds a field must still decode the
+    /// payload of a card that an older build started, or the Activity silently
+    /// stops updating.
+    var artSlug: String? = nil
+
     /// "logging" or "rest".
     var mode: String
     /// "Set 2 of 4" or "Next: set 2 of 4 (154 kg × 12 reps)".
@@ -42,6 +52,9 @@ struct WorkoutAttributes: ActivityAttributes {
   /// A snapshot of the card once the current set is completed.
   struct NextSet: Codable, Hashable {
     var exerciseName: String
+    /// See `ContentState.artSlug` — carried so the optimistic redraw after ✓
+    /// swaps the thumbnail too when the next set is a different exercise.
+    var artSlug: String? = nil
     var subtitle: String
     var weightLabel: String
     var repsLabel: String
