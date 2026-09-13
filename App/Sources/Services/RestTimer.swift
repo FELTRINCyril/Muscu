@@ -13,6 +13,7 @@ final class RestTimer {
     private(set) var totalSeconds: Int = 0
 
     var onFinished: (() -> Void)?
+    var onStateChange: ((Date?, Int) -> Void)?
 
     private var expiryTask: Task<Void, Never>?
 
@@ -36,6 +37,7 @@ final class RestTimer {
 
         totalSeconds = seconds
         endDate = Date.now.addingTimeInterval(Double(seconds))
+        onStateChange?(endDate, totalSeconds)
         scheduleNotification(seconds: seconds)
         scheduleExpiryDetection()
     }
@@ -44,6 +46,7 @@ final class RestTimer {
         guard let currentEnd = endDate else { return }
         endDate = currentEnd.addingTimeInterval(30)
         totalSeconds += 30
+        onStateChange?(endDate, totalSeconds)
         guard let endDate else { return }
         let remainingSeconds = max(1, Int(endDate.timeIntervalSinceNow.rounded(.up)))
         scheduleNotification(seconds: remainingSeconds)
@@ -56,6 +59,19 @@ final class RestTimer {
         expiryTask = nil
         endDate = nil
         totalSeconds = 0
+        onStateChange?(nil, 0)
+    }
+
+    func restore(endDate: Date, totalSeconds: Int) {
+        guard endDate > .now, totalSeconds > 0 else {
+            skip()
+            return
+        }
+        self.endDate = endDate
+        self.totalSeconds = totalSeconds
+        let remainingSeconds = max(1, Int(endDate.timeIntervalSinceNow.rounded(.up)))
+        scheduleNotification(seconds: remainingSeconds)
+        scheduleExpiryDetection()
     }
 
     private func scheduleExpiryDetection() {
@@ -65,7 +81,7 @@ final class RestTimer {
         expiryTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard !Task.isCancelled else { return }
-            await self?.handleExpiry()
+            self?.handleExpiry()
         }
     }
 
@@ -74,6 +90,7 @@ final class RestTimer {
         cancelNotification()
         endDate = nil
         totalSeconds = 0
+        onStateChange?(nil, 0)
 
         FeedbackSettings.playSound(1007)
         FeedbackSettings.notification(.success)
@@ -84,7 +101,17 @@ final class RestTimer {
     private func requestAuthorizationIfNeeded() {
         guard !Self.didRequestAuthorization else { return }
         Self.didRequestAuthorization = true
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
+            if let error {
+                Task { @MainActor in
+                    PersistenceSupport.report(error, action: "Autorisation des notifications de repos")
+                }
+            } else if !granted {
+                Task { @MainActor in
+                    NotificationCenter.default.post(name: .restNotificationsDenied, object: nil)
+                }
+            }
+        }
     }
 
     private func scheduleNotification(seconds: Int) {
@@ -104,11 +131,21 @@ final class RestTimer {
             content: content,
             trigger: trigger
         )
-        UNUserNotificationCenter.current().add(request)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error {
+                Task { @MainActor in
+                    PersistenceSupport.report(error, action: "Planification de la notification de repos")
+                }
+            }
+        }
     }
 
     private func cancelNotification() {
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [Self.notificationIdentifier])
     }
+}
+
+extension Notification.Name {
+    static let restNotificationsDenied = Notification.Name("Muscu.restNotificationsDenied")
 }

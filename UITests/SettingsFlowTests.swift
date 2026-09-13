@@ -1,15 +1,15 @@
 import XCTest
 
+@MainActor
 final class SettingsFlowTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
-    func testTogglesStepperAIConfigAndAbout() {
+    func testTogglesStepperAndAbout() {
         let app = XCUIApplication()
         app.launchEmpty()
-        tapWhenReady(app.tabBars.buttons["Réglages"])
-        waitAndAssert(app.navigationBars["Réglages"])
+        selectTab(app, "Réglages", showing: "Réglages")
 
         // Sons : off puis on.
         let soundToggle = app.switches["Sons"]
@@ -26,12 +26,6 @@ final class SettingsFlowTests: XCTestCase {
             stepperButtons.element(boundBy: 0).tap() // décrément
         }
 
-        // Génération IA (avancé) : ouvrir puis revenir.
-        tapWhenReady(app.firstDescendant(labelContains: "Génération IA (avancé)"))
-        waitAndAssert(app.navigationBars["Génération IA"])
-        app.navigationBars["Génération IA"].buttons.element(boundBy: 0).tap()
-        waitAndAssert(app.navigationBars["Réglages"])
-
         // À propos : présent. Section tout en bas de la List : les lignes
         // non encore affichees n'existent pas dans l'arbre d'accessibilite
         // (rendu lazy), il faut scroller jusqu'a elle.
@@ -44,8 +38,7 @@ final class SettingsFlowTests: XCTestCase {
     func testExportDataCancelsSystemSheetIfShown() {
         let app = XCUIApplication()
         app.launchEmpty()
-        tapWhenReady(app.tabBars.buttons["Réglages"])
-        waitAndAssert(app.navigationBars["Réglages"])
+        selectTab(app, "Réglages", showing: "Réglages")
 
         tapWhenReady(app.firstDescendant(labelContains: "Exporter mes données"))
 

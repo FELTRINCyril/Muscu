@@ -27,6 +27,19 @@ struct RuleBasedGeneratorTests {
     }
 
     @Test
+    func testEmptyCatalogFailsExplicitlyInsteadOfCreatingEmptySessions() {
+        let generator = RuleBasedGenerator(catalog: ExerciseCatalog(all: []))
+        do {
+            _ = try generator.generate(makeInput())
+            Issue.record("La génération aurait dû signaler l'absence d'exercices adaptés")
+        } catch GeneratorError.noSuitableExercises {
+            // attendu
+        } catch {
+            Issue.record("Erreur inattendue : \(error)")
+        }
+    }
+
+    @Test
     func testFourDaysHypertrophyIntermediateFullGymAuto() throws {
         let catalog = try ExerciseCatalog.load()
         let generator = RuleBasedGenerator(catalog: catalog)
@@ -54,8 +67,10 @@ struct RuleBasedGeneratorTests {
                 #expect(exercise.repsUpper <= 6)
                 #expect(exercise.restSeconds >= 150)
                 let catalogExercise = catalog.all.first { $0.id == exercise.exerciseId }
-                if catalogExercise?.mechanic == "compound" {
-                    #expect(exercise.percentOneRepMax != nil)
+                if let catalogExercise, catalogExercise.mechanic == "compound" {
+                    let loadableEquipment: Set<String> = ["barbell", "dumbbell", "e-z curl bar", "machine", "cable", "kettlebells"]
+                    let shouldUsePercent = catalogExercise.equipment.map(loadableEquipment.contains) ?? false
+                    #expect((exercise.percentOneRepMax != nil) == shouldUsePercent)
                     if let percent = exercise.percentOneRepMax {
                         #expect(percent >= 75)
                         foundCompoundWithPercent = true
@@ -140,8 +155,64 @@ struct RuleBasedGeneratorTests {
             #expect(session.exercises.count <= 5)
             for exercise in session.exercises {
                 #expect(exercise.sets <= 3)
+                let catalogExercise = catalog.all.first { $0.id == exercise.exerciseId }
+                #expect(catalogExercise?.level == "beginner")
+                #expect(catalogExercise?.category == "strength" || catalogExercise?.category == "powerlifting")
             }
         }
+    }
+
+    @Test
+    func testJointAvoidanceFiltersConservatively() throws {
+        let catalog = try ExerciseCatalog.load()
+        let generator = RuleBasedGenerator(catalog: catalog)
+
+        // Full Body garde des slots non concernés par chaque articulation;
+        // un split Upper/Lower avec "genoux" rendrait volontairement la
+        // séance Lower impossible et doit désormais lever une erreur claire.
+        let knees = try generator.generate(makeInput(daysPerWeek: 3, splitPreference: .fullBody, avoidAreas: ["knees"]))
+        let lowerBody: Set<String> = ["quadriceps", "hamstrings", "glutes", "calves", "adductors", "abductors"]
+        for exercise in knees.sessions.flatMap(\.exercises) {
+            let item = catalog.all.first { $0.id == exercise.exerciseId }
+            let muscles = Set((item?.primaryMuscles ?? []) + (item?.secondaryMuscles ?? []))
+            #expect(muscles.isDisjoint(with: lowerBody))
+        }
+
+        let wrists = try generator.generate(makeInput(daysPerWeek: 3, splitPreference: .fullBody, avoidAreas: ["wrists"]))
+        let upperBody: Set<String> = ["forearms", "biceps", "triceps", "chest", "shoulders", "lats", "middle back"]
+        for exercise in wrists.sessions.flatMap(\.exercises) {
+            let item = catalog.all.first { $0.id == exercise.exerciseId }
+            let muscles = Set((item?.primaryMuscles ?? []) + (item?.secondaryMuscles ?? []))
+            #expect(muscles.isDisjoint(with: upperBody))
+        }
+    }
+
+    @Test
+    func testGeneratedSessionsRespectTimeBudgetEstimate() throws {
+        let catalog = try ExerciseCatalog.load()
+        let generator = RuleBasedGenerator(catalog: catalog)
+
+        for goal in Goal.allCases {
+            for minutes in [45, 60, 90] {
+                let program = try generator.generate(makeInput(goal: goal, sessionMinutes: minutes))
+                for session in program.sessions {
+                    let estimated = 5 * 60 + session.exercises.reduce(0) {
+                        $0 + $1.sets * (45 + $1.restSeconds)
+                    }
+                    #expect(estimated <= minutes * 60)
+                }
+            }
+        }
+    }
+
+    @Test
+    func testSessionsUseDeterministicRotationForVariety() throws {
+        let catalog = try ExerciseCatalog.load()
+        let generator = RuleBasedGenerator(catalog: catalog)
+        let program = try generator.generate(makeInput(daysPerWeek: 3, splitPreference: .fullBody))
+
+        let exerciseSequences = program.sessions.map { $0.exercises.map(\.exerciseId) }
+        #expect(Set(exerciseSequences).count > 1)
     }
 
     @Test

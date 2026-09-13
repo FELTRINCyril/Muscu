@@ -22,11 +22,13 @@ enum FeedbackSettings {
         AudioServicesPlaySystemSound(soundID)
     }
 
+    @MainActor
     static func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
         guard isHapticsEnabled else { return }
         UIImpactFeedbackGenerator(style: style).impactOccurred()
     }
 
+    @MainActor
     static func notification(_ type: UINotificationFeedbackGenerator.FeedbackType) {
         guard isHapticsEnabled else { return }
         UINotificationFeedbackGenerator().notificationOccurred(type)

@@ -2,11 +2,55 @@ import Foundation
 import SwiftData
 import MuscuEngine
 
+struct IntervalRuntimeState: Codable, Equatable {
+    var exerciseId: String
+    var index: Int
+    var segmentEndDate: Date?
+    var isPaused: Bool
+    var pausedRemaining: TimeInterval
+    var showingRepsEntry: Bool
+    var totalReps: Int
+}
+
+struct AmrapRuntimeState: Codable, Equatable {
+    var exerciseId: String
+    var endDate: Date?
+    var isFinished: Bool
+    var counter: Int
+}
+
+struct WarmupRuntimeState: Codable, Equatable {
+    var stepRaw: String = "choice"
+    var endDate: Date?
+    var startedAt: Date?
+    var cardioMinutes: Int = Warmup.cardioMinutes
+}
+
+/// Bloc « For Time » : on mesure le TEMPS mis pour accomplir le travail,
+/// avec un plafond facultatif. `startedAt` est une date absolue afin que le
+/// chrono reste juste apres une mise en arriere-plan prolongee.
+struct ForTimeRuntimeState: Codable, Equatable {
+    var exerciseId: String
+    var startedAt: Date?
+    var finishedAt: Date?
+    var completedRounds: Int = 0
+    var extraReps: Int = 0
+}
+
+struct WorkoutRuntimeState: Codable, Equatable {
+    var restEndDate: Date?
+    var restTotalSeconds: Int = 0
+    var interval: IntervalRuntimeState?
+    var amrap: AmrapRuntimeState?
+    var forTime: ForTimeRuntimeState?
+    var warmup = WarmupRuntimeState()
+}
+
 // Une seule instance au plus doit exister : la seance en cours, pour
 // permettre la reprise apres interruption de l'app.
 @Model
 final class ActiveWorkout {
-    var id: UUID = UUID()
+    @Attribute(.unique) var id: UUID = UUID()
     var startedAt: Date = Date()
     var programSessionId: UUID = UUID()
     var exerciseIndex: Int = 0
@@ -27,6 +71,14 @@ final class ActiveWorkout {
     // ActiveWorkout deja persistees avant son ajout se contentent de nil et
     // retombent sur la reconstruction depuis le programme (cf. `resume`).
     var runExercisesData: Data?
+    var runtimeStateData: Data?
+
+    // Snapshot du deroule (WorkoutPlan) et position exacte dans ce deroule
+    // (WorkoutPosition), tels que la machine a etats du moteur les manipule.
+    // Champs optionnels : une ActiveWorkout persistee avant leur ajout
+    // retombe sur `runExercisesData` + `exerciseIndex`/`setIndex`.
+    var planData: Data?
+    var positionData: Data?
 
     @Relationship(deleteRule: .cascade, inverse: \CompletedSet.activeWorkout)
     var loggedSets: [CompletedSet] = []
@@ -39,6 +91,9 @@ final class ActiveWorkout {
         setIndex: Int = 0,
         phaseRaw: String = "running",
         runExercisesData: Data? = nil,
+        runtimeStateData: Data? = nil,
+        planData: Data? = nil,
+        positionData: Data? = nil,
         loggedSets: [CompletedSet] = []
     ) {
         self.id = id
@@ -48,6 +103,9 @@ final class ActiveWorkout {
         self.setIndex = setIndex
         self.phaseRaw = phaseRaw
         self.runExercisesData = runExercisesData
+        self.runtimeStateData = runtimeStateData
+        self.planData = planData
+        self.positionData = positionData
         self.loggedSets = loggedSets
     }
 }

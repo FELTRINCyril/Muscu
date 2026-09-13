@@ -1,0 +1,139 @@
+import Foundation
+import MuscuEngine
+
+/// Traduit une seance de programme (SwiftData) vers le deroule pur que la
+/// machine a etats du moteur sait executer.
+///
+/// La conversion est une COPIE autonome : modifier le programme pendant une
+/// seance en cours ne doit jamais reecrire ce qui est en train d'etre execute
+/// (cf. le snapshot persiste sur `ActiveWorkout`).
+@MainActor
+enum WorkoutPlanBuilder {
+    /// Construit le plan d'une seance : les exercices rattaches a un groupe
+    /// forment un noeud de groupe, les autres des noeuds simples. L'ordre des
+    /// noeuds suit l'ordre d'affichage de la seance.
+    static func plan(
+        for session: ProgramSession,
+        catalogStore: CatalogStore? = nil,
+        customExercises: [CustomExercise] = []
+    ) -> WorkoutPlan {
+        let exercises = session.orderedExercises
+        var nodes: [WorkoutNode] = []
+        var handledGroupIds: Set<UUID> = []
+
+        for exercise in exercises {
+            guard let group = exercise.group else {
+                nodes.append(.single(plan(for: exercise, catalogStore: catalogStore, customExercises: customExercises)))
+                continue
+            }
+            // Un groupe n'apparait qu'une fois, a la position de son premier
+            // exercice dans la seance.
+            guard !handledGroupIds.contains(group.id) else { continue }
+            handledGroupIds.insert(group.id)
+
+            let members = group.orderedExercises
+            guard !members.isEmpty else { continue }
+            nodes.append(
+                WorkoutNode(
+                    id: group.id,
+                    kind: WorkoutGroupKind(rawValue: group.kindRaw) ?? .superset,
+                    exercises: members.map { plan(for: $0, catalogStore: catalogStore, customExercises: customExercises) },
+                    rounds: group.rounds,
+                    restBetweenExercisesSeconds: group.restBetweenExercisesSeconds,
+                    restBetweenRoundsSeconds: group.restBetweenRoundsSeconds,
+                    transitionSeconds: group.transitionSeconds
+                )
+            )
+        }
+        return WorkoutPlan(nodes: nodes)
+    }
+
+    static func plan(
+        for exercise: PrescribedExercise,
+        catalogStore: CatalogStore? = nil,
+        customExercises: [CustomExercise] = []
+    ) -> WorkoutExercisePlan {
+        WorkoutExercisePlan(
+            id: exercise.id,
+            exerciseId: exercise.exerciseId,
+            displayName: exercise.displayName,
+            format: WorkoutFormat(rawValue: exercise.formatRaw) ?? .classic,
+            loadKind: resolvedLoadKind(for: exercise, catalogStore: catalogStore, customExercises: customExercises),
+            side: exercise.sideConvention,
+            setCount: exercise.sets,
+            repsLower: exercise.repsLower,
+            repsUpper: exercise.repsUpper,
+            restSeconds: exercise.restSeconds,
+            tempo: exercise.tempo,
+            targetEffort: exercise.targetEffort,
+            targetWeight: exercise.targetWeight,
+            percentOneRepMax: exercise.percentOneRepMax,
+            percentMaxReps: exercise.percentMaxReps,
+            notes: exercise.notes,
+            pyramidReps: exercise.pyramidReps,
+            pyramidMinRest: exercise.pyramidMinRest,
+            pyramidMaxRest: exercise.pyramidMaxRest,
+            dropset: dropsetPlan(for: exercise),
+            restPause: restPausePlan(for: exercise),
+            myoReps: myoRepsPlan(for: exercise),
+            intervalWorkSeconds: exercise.intervalWork,
+            intervalRestSeconds: exercise.intervalRest,
+            intervalRounds: exercise.intervalRounds,
+            countdownSeconds: exercise.intervalCountdownSeconds,
+            amrapSeconds: exercise.amrapSeconds,
+            capSeconds: exercise.forTimeCapSeconds
+        )
+    }
+
+    /// Type de charge effectif : declaration explicite de la prescription,
+    /// sinon exercice personnalise, sinon deduction depuis le catalogue.
+    static func resolvedLoadKind(
+        for exercise: PrescribedExercise,
+        catalogStore: CatalogStore?,
+        customExercises: [CustomExercise]
+    ) -> LoadKind {
+        if let declared = exercise.prescribedLoadKind { return declared }
+        if let catalogExercise = catalogStore?.exercise(id: exercise.exerciseId) {
+            return ExerciseClassification.loadKind(for: catalogExercise)
+        }
+        if let custom = customExercises.first(where: { $0.id.uuidString == exercise.exerciseId }) {
+            return custom.defaultLoadKind
+        }
+        // Exercice inconnu : on ne devine une charge externe que si la
+        // prescription en implique une.
+        return exercise.targetWeight == nil && exercise.percentOneRepMax == nil ? .unknown : .external
+    }
+
+    private static func dropsetPlan(for exercise: PrescribedExercise) -> DropsetPlan? {
+        guard !exercise.dropsetDrops.isEmpty else { return nil }
+        let plan = DropsetPlan(
+            drops: exercise.dropsetDrops,
+            usesPercent: exercise.dropsetUsesPercent,
+            restSeconds: exercise.dropsetRestSeconds
+        )
+        return plan.isValid ? plan : nil
+    }
+
+    private static func restPausePlan(for exercise: PrescribedExercise) -> RestPausePlan? {
+        guard exercise.restPauseMaxMiniSets > 0 else { return nil }
+        let plan = RestPausePlan(
+            microRestSeconds: exercise.restPauseMicroRestSeconds,
+            maximumMiniSets: exercise.restPauseMaxMiniSets,
+            minimumReps: exercise.restPauseMinimumReps
+        )
+        return plan.isValid ? plan : nil
+    }
+
+    private static func myoRepsPlan(for exercise: PrescribedExercise) -> MyoRepsPlan? {
+        guard exercise.myoRepsMaxMiniSets > 0 else { return nil }
+        let plan = MyoRepsPlan(
+            activationRepsLower: exercise.myoRepsActivationLower,
+            activationRepsUpper: exercise.myoRepsActivationUpper,
+            targetRepsInReserve: exercise.myoRepsTargetRepsInReserve,
+            miniSetReps: exercise.myoRepsMiniSetReps,
+            maximumMiniSets: exercise.myoRepsMaxMiniSets,
+            restSeconds: exercise.myoRepsRestSeconds
+        )
+        return plan.isValid ? plan : nil
+    }
+}

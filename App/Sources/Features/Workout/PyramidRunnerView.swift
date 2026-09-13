@@ -6,7 +6,7 @@ import MuscuEngine
 // nombre de reps ajustable, apercu du repos adaptatif avant meme de valider.
 struct PyramidRunnerView: View {
     let state: WorkoutState
-    let exercise: RunExercise
+    let exercise: WorkoutExercisePlan
 
     var body: some View {
         Group {
@@ -44,7 +44,7 @@ struct PyramidRunnerView: View {
                 VStack(spacing: 4) {
                     Text(exercise.displayName)
                         .font(.title3.weight(.semibold))
-                    Text(WorkoutState.objectiveLabel(for: exercise))
+                    Text(exercise.objectiveLabel)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -52,19 +52,26 @@ struct PyramidRunnerView: View {
                 sequenceChips
 
                 PyramidStepControl(
-                    targetReps: exercise.pyramidReps[state.currentSetIndex],
+                    targetReps: exercise.pyramidReps[currentStepIndex],
                     maxReps: state.pyramidMaxReps(for: exercise),
                     minRest: exercise.pyramidMinRest,
                     maxRest: exercise.pyramidMaxRest,
-                    isLastStep: state.currentSetIndex + 1 >= exercise.pyramidReps.count,
+                    isLastStep: currentStepIndex + 1 >= exercise.pyramidReps.count,
                     onValidate: { reps in
                         state.logPyramidStep(reps: reps)
                     }
                 )
-                .id("\(exercise.id)-\(state.currentSetIndex)")
+                .id("\(exercise.id)-\(currentStepIndex)")
             }
             .padding()
         }
+    }
+
+    // Palier courant, borne aux paliers reellement configures : la machine
+    // a etats reste la seule source de la position.
+    private var currentStepIndex: Int {
+        guard let target = state.currentTarget, target.exercise.id == exercise.id else { return 0 }
+        return min(max(0, target.setNumber - 1), max(0, exercise.pyramidReps.count - 1))
     }
 
     private var sequenceChips: some View {
@@ -78,8 +85,8 @@ struct PyramidRunnerView: View {
     private enum ChipStatus { case done, current, upcoming }
 
     private func status(for index: Int) -> ChipStatus {
-        if index < state.currentSetIndex { return .done }
-        if index == state.currentSetIndex { return .current }
+        if index < currentStepIndex { return .done }
+        if index == currentStepIndex { return .current }
         return .upcoming
     }
 

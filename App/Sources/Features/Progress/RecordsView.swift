@@ -87,7 +87,7 @@ struct RecordsView: View {
         for index in offsets {
             modelContext.delete(records[index])
         }
-        try? modelContext.save()
+        _ = PersistenceSupport.save(modelContext, action: "Suppression du record")
     }
 }
 
@@ -142,6 +142,7 @@ private struct RecordEditSheet: View {
     @State private var oneRepMaxText: String
     @State private var maxRepsText: String
     @State private var showingDeleteConfirm = false
+    @State private var validationMessage: String?
 
     init(record: ExerciseRecord, isNew: Bool) {
         self.record = record
@@ -171,6 +172,12 @@ private struct RecordEditSheet: View {
                         }
                     }
                 }
+                if let validationMessage {
+                    Section {
+                        Text(validationMessage)
+                            .foregroundStyle(.red)
+                    }
+                }
             }
             .navigationTitle(isNew ? "Nouveau record" : "Modifier le record")
             .navigationBarTitleDisplayMode(.inline)
@@ -189,7 +196,7 @@ private struct RecordEditSheet: View {
             ) {
                 Button("Supprimer", role: .destructive) {
                     modelContext.delete(record)
-                    try? modelContext.save()
+                    _ = PersistenceSupport.save(modelContext, action: "Modification du record")
                     dismiss()
                 }
                 Button("Annuler", role: .cancel) {}
@@ -198,14 +205,21 @@ private struct RecordEditSheet: View {
     }
 
     private func save() {
-        record.oneRepMax = Self.parsedDouble(oneRepMaxText)
-        record.maxReps = Self.parsedInt(maxRepsText)
+        let oneRepMax = Self.parsedDouble(oneRepMaxText)
+        let maxReps = Self.parsedInt(maxRepsText)
+        guard oneRepMax != nil || maxReps != nil else {
+            validationMessage = "Renseigne au moins un 1RM ou un maximum de répétitions supérieur à zéro."
+            return
+        }
+        record.oneRepMax = oneRepMax
+        record.maxReps = maxReps
         record.updatedAt = .now
         if record.modelContext == nil {
             modelContext.insert(record)
         }
-        try? modelContext.save()
-        dismiss()
+        if PersistenceSupport.save(modelContext, action: "Enregistrement du record") {
+            dismiss()
+        }
     }
 
     private static func parsedDouble(_ text: String) -> Double? {

@@ -6,3 +6,7 @@ DerivedData/
 .swiftpm/
 Scripts/exercises_source.json
 .superpowers/
+
+# Fichiers annexes SQLite des fixtures de migration : seul le .store fige est versionne.
+Tests/Fixtures/*.store-shm
+Tests/Fixtures/*.store-wal

@@ -1,5 +1,6 @@
 import XCTest
 
+@MainActor
 final class ProgressionFlowTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -8,8 +9,7 @@ final class ProgressionFlowTests: XCTestCase {
     func testRecordsShowsSeedAndManualAddEdit() {
         let app = XCUIApplication()
         app.launchSeeded()
-        tapWhenReady(app.tabBars.buttons["Progression"])
-        waitAndAssert(app.navigationBars["Progression"])
+        selectTab(app, "Progression", showing: "Progression")
 
         // Segment "Records" est celui par défaut.
         waitAndAssert(app.firstDescendant(labelContains: "Tractions"), "Le record seedé (max reps Tractions) devrait apparaître")
@@ -46,8 +46,7 @@ final class ProgressionFlowTests: XCTestCase {
     func testHistoryShowsSessionsAndDetail() {
         let app = XCUIApplication()
         app.launchSeeded()
-        tapWhenReady(app.tabBars.buttons["Progression"])
-        waitAndAssert(app.navigationBars["Progression"])
+        selectTab(app, "Progression", showing: "Progression")
 
         tapWhenReady(app.buttons["Historique"])
         let firstSession = app.firstHittableDescendant(labelContains: "Séance A")
@@ -61,8 +60,7 @@ final class ProgressionFlowTests: XCTestCase {
     func testChartsPickerSelectsExercise() {
         let app = XCUIApplication()
         app.launchSeeded()
-        tapWhenReady(app.tabBars.buttons["Progression"])
-        waitAndAssert(app.navigationBars["Progression"])
+        selectTab(app, "Progression", showing: "Progression")
 
         tapWhenReady(app.buttons["Graphiques"])
 

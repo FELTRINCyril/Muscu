@@ -4,6 +4,7 @@ import XCTest
 // l'app avec un etat SwiftData connu (vide ou seede), jamais avec l'etat
 // laisse par une execution precedente. Voir App/Sources/UITestSupport.swift
 // (cote app, #if DEBUG) pour le detail du seed.
+@MainActor
 extension XCUIApplication {
     /// Store SwiftData entierement vide (aucun programme, aucun historique).
     func launchEmpty() {
@@ -20,6 +21,7 @@ extension XCUIApplication {
     }
 }
 
+@MainActor
 extension XCUIApplication {
     /// Cherche un element (peu importe son type - certaines lignes de liste
     /// composees de plusieurs Text dans un Button/NavigationLink sont
@@ -101,6 +103,7 @@ extension XCUIApplication {
     }
 }
 
+@MainActor
 extension XCUIElement {
     /// Tape un texte dans un champ de recherche puis laisse le temps à la
     /// liste filtrée (potentiellement volumineuse - le catalogue complet
@@ -110,11 +113,20 @@ extension XCUIElement {
     /// caractère précédent) et taper sur un élément qui a depuis bougé.
     func typeAndSettle(_ text: String, settleSeconds: UInt32 = 1) {
         tap()
-        typeText(text)
+        let app = XCUIApplication()
+        if !app.keyboards.firstMatch.waitForExistence(timeout: 2) {
+            coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            _ = app.keyboards.firstMatch.waitForExistence(timeout: 2)
+        }
+        // Envoyer le texte a l'application active evite que XCUITest
+        // revalide un ancien snapshot du SearchField pendant que SwiftUI le
+        // reconstruit apres la prise de focus (regression observee iOS 26).
+        app.typeText(text)
         sleep(settleSeconds)
     }
 }
 
+@MainActor
 extension XCTestCase {
     /// Attend qu'un element existe, avec un message d'echec explicite (plus
     /// lisible qu'un simple booleen dans les rapports de test).
@@ -191,6 +203,42 @@ extension XCTestCase {
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
         XCTAssertEqual(result, .completed, "Élément toujours présent après \(timeout) s : \(element)", file: file, line: line)
+    }
+
+    /// Valide l'écran de préparation (check-in et propositions de
+    /// progression) pour entrer dans la séance. Cet écran est facultatif :
+    /// on le traverse sans rien renseigner.
+    func startFromPreparation(
+        _ app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        tapUntilReveals(
+            app.buttons["prep.start"],
+            reveals: app.buttons["Commencer directement la séance"],
+            file: file,
+            line: line
+        )
+    }
+
+    /// Bascule d'onglet fiable. Un tap synthetise sur la tab bar peut se
+    /// perdre quand l'app est encore en train de se stabiliser apres le
+    /// lancement (reset/seed du store) : XCUITest ne signale alors aucune
+    /// erreur, mais l'ecran attendu n'apparait jamais. On re-tape tant que
+    /// la barre de navigation cible n'est pas affichee.
+    func selectTab(
+        _ app: XCUIApplication,
+        _ tabName: String,
+        showing navigationTitle: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        tapUntilReveals(
+            app.tabBars.buttons[tabName],
+            reveals: app.navigationBars[navigationTitle],
+            file: file,
+            line: line
+        )
     }
 
     /// Tap defensif : attend l'existence puis la "hittability" avant de taper,

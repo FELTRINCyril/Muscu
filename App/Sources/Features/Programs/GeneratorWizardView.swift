@@ -7,9 +7,10 @@ struct GeneratorWizardView: View {
     let onSaved: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @Environment(CatalogStore.self) private var catalogStore
 
-    private static let totalSteps = 8
+    private static let totalSteps = 9
 
     @State private var step = 1
 
@@ -22,7 +23,13 @@ struct GeneratorWizardView: View {
     @State private var priorityMuscles: Set<String> = []
     @State private var avoidAreas: Set<String> = []
 
+    @State private var planWeeks: Int = 8
+    @State private var periodizationStyle: PeriodizationStyle = .linear
+    @State private var deloadEveryWeeks: Int? = 4
+    @State private var createsPlan = true
+
     @State private var generatedDraft: DraftProgram?
+    @State private var generatedPlan: DraftPlan?
     @State private var draftInput: GeneratorInput?
     @State private var errorMessage: String?
 
@@ -50,6 +57,7 @@ struct GeneratorWizardView: View {
                 DraftPreviewView(
                     draft: draft,
                     regenerate: { regenerate() },
+                    plan: generatedPlan,
                     onSaved: {
                         onSaved()
                         dismiss()
@@ -110,6 +118,7 @@ struct GeneratorWizardView: View {
         case 6: splitStep
         case 7: priorityMusclesStep
         case 8: avoidAreasStep
+        case 9: planStep
         default: EmptyView()
         }
     }
@@ -192,6 +201,42 @@ struct GeneratorWizardView: View {
                 isSelected: { avoidAreas.contains($0) },
                 onToggle: { toggle(&avoidAreas, $0) }
             )
+            nextButton(title: "Suivant") { advance() }
+        }
+    }
+
+    // Derniere etape : structurer le programme en plan pluri-semaines.
+    private var planStep: some View {
+        WizardStep(title: "Sur combien de semaines ?", subtitle: "La périodisation fait varier volume et intensité") {
+            optionCard("Programme simple, sans plan daté", isSelected: !createsPlan) {
+                createsPlan = false
+            }
+
+            ForEach([4, 8, 12, 16], id: \.self) { weeks in
+                optionCard("Plan de \(weeks) semaines", isSelected: createsPlan && planWeeks == weeks) {
+                    createsPlan = true
+                    planWeeks = weeks
+                }
+            }
+
+            if createsPlan {
+                VStack(alignment: .leading, spacing: 12) {
+                    Picker("Périodisation", selection: $periodizationStyle) {
+                        Text("Linéaire").tag(PeriodizationStyle.linear)
+                        Text("Ondulatoire").tag(PeriodizationStyle.undulating)
+                        Text("Constante").tag(PeriodizationStyle.flat)
+                    }
+                    .pickerStyle(.segmented)
+
+                    Toggle("Semaine de décharge toutes les 4 semaines", isOn: Binding(
+                        get: { deloadEveryWeeks != nil },
+                        set: { deloadEveryWeeks = $0 ? 4 : nil }
+                    ))
+                    .font(.subheadline)
+                }
+                .padding(.top, 4)
+            }
+
             nextButton(title: "Générer") { generate() }
         }
     }
@@ -274,10 +319,39 @@ struct GeneratorWizardView: View {
         )
         draftInput = input
         do {
-            generatedDraft = try RuleBasedGenerator(catalog: catalogStore.catalog).generate(input)
+            if createsPlan {
+                let plan = try PlanGenerator(catalog: catalogStore.catalog).generate(
+                    PlanGeneratorInput(
+                        base: input,
+                        totalWeeks: planWeeks,
+                        style: periodizationStyle,
+                        deloadEveryWeeks: deloadEveryWeeks,
+                        startDate: .now,
+                        availableWeekdays: availableWeekdays
+                    )
+                )
+                // Le programme produit est verifie par le meme validateur que
+                // celui qui servira de garde-fou a toute proposition externe.
+                let report = ProgramValidator(catalog: catalogStore.catalog)
+                    .validate(program: plan.program, input: input)
+                guard report.isAcceptable else {
+                    errorMessage = report.blockingIssues.map(\.message).joined(separator: "\n")
+                    return
+                }
+                generatedPlan = plan
+                generatedDraft = plan.program
+            } else {
+                generatedPlan = nil
+                generatedDraft = try RuleBasedGenerator(catalog: catalogStore.catalog).generate(input)
+            }
         } catch {
-            errorMessage = "Le programme n'a pas pu être généré : \(error)"
+            errorMessage = "Le programme n'a pas pu être généré : \(error.localizedDescription)"
         }
+    }
+
+    /// Jours declares par l'athlete dans son profil, s'il en a saisi.
+    private var availableWeekdays: [Int] {
+        ProfileStore.currentProfile(in: modelContext)?.availableWeekdays ?? []
     }
 
     private func regenerate() -> DraftProgram? {

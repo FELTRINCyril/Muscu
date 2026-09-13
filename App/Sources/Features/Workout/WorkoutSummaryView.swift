@@ -15,6 +15,7 @@ struct WorkoutSummaryView: View {
     // est supprimee, cf. WorkoutState.finish) : on garde les series de la
     // CompletedSession fraichement creee pour continuer a afficher le recap.
     @State private var finishedSets: [CompletedSet]?
+    @State private var isFinishing = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -70,6 +71,8 @@ struct WorkoutSummaryView: View {
             .buttonStyle(.borderedProminent)
             .tint(Theme.accent)
             .controlSize(.large)
+            .disabled(isFinishing)
+            .accessibilityIdentifier(hasFinished ? "workout.closeSummaryButton" : "workout.finishSummaryButton")
             .padding()
         }
         .background(Theme.background)
@@ -78,11 +81,35 @@ struct WorkoutSummaryView: View {
     // MARK: - Records
 
     private func finishSession() {
-        let completedSession = state.finish()
+        isFinishing = true
+        guard let completedSession = state.finish() else {
+            isFinishing = false
+            return
+        }
         finishedSets = completedSession.sets
         let records = (try? state.modelContext.fetch(FetchDescriptor<ExerciseRecord>())) ?? []
-        pendingSuggestions = RecordDetection.check(session: completedSession, records: records)
+        // Le poids de corps fige sur la seance prime ; a defaut on retombe
+        // sur la derniere mesure connue, sans jamais supposer une valeur.
+        let bodyweight = ProfileStore.latestBodyweightKilograms(in: state.modelContext)
+        pendingSuggestions = RecordDetection.check(
+            session: completedSession,
+            records: records,
+            bodyweightKilograms: bodyweight
+        )
+        // Les records TYPES (charge, tonnage, temps, tours) sont recalcules
+        // depuis l'historique et n'ont pas besoin d'etre confirmes un par un :
+        // ils decrivent ce qui vient d'etre fait, sans modifier de programme.
+        let candidates = PersonalBestUpdater.candidates(for: completedSession, bodyweightKilograms: bodyweight)
+        if !PersonalBestUpdater.apply(
+            candidates: candidates,
+            context: state.modelContext,
+            sourceSessionId: completedSession.id,
+            achievedAt: completedSession.date
+        ).isEmpty {
+            _ = PersistenceSupport.save(state.modelContext, action: "Enregistrement des records")
+        }
         hasFinished = true
+        isFinishing = false
     }
 
     private func save(_ suggestion: RecordDetection.RecordSuggestion) {
@@ -100,8 +127,9 @@ struct WorkoutSummaryView: View {
         if record.modelContext == nil {
             state.modelContext.insert(record)
         }
-        try? state.modelContext.save()
-        discard(suggestion)
+        if PersistenceSupport.save(state.modelContext, action: "Enregistrement du record") {
+            discard(suggestion)
+        }
     }
 
     private func discard(_ suggestion: RecordDetection.RecordSuggestion) {

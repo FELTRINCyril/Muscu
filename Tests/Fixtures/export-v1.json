@@ -1,0 +1,73 @@
+{
+  "version" : 1,
+  "exportedAt" : "2026-01-15T08:30:00Z",
+  "programs" : [
+    {
+      "id" : "11111111-1111-1111-1111-111111111111",
+      "name" : "Programme v1",
+      "notes" : "Export de la toute premiere version",
+      "isActive" : true,
+      "createdAt" : "2025-12-01T08:00:00Z",
+      "sessions" : [
+        {
+          "id" : "22222222-2222-2222-2222-222222222222",
+          "name" : "Séance A",
+          "orderIndex" : 0,
+          "warmupEnabled" : true,
+          "exercises" : [
+            {
+              "id" : "33333333-3333-3333-3333-333333333333",
+              "exerciseId" : "Barbell_Bench_Press_-_Medium_Grip",
+              "displayName" : "Développé couché",
+              "orderIndex" : 0,
+              "formatRaw" : "classic",
+              "sets" : 4,
+              "repsLower" : 6,
+              "repsUpper" : 8,
+              "restSeconds" : 120,
+              "pyramidReps" : [],
+              "pyramidMinRest" : 0,
+              "pyramidMaxRest" : 0,
+              "intervalWork" : 0,
+              "intervalRest" : 0,
+              "intervalRounds" : 0,
+              "amrapSeconds" : 0,
+              "notes" : ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "sessions" : [
+    {
+      "id" : "44444444-4444-4444-4444-444444444444",
+      "date" : "2026-01-10T18:00:00Z",
+      "programName" : "Programme v1",
+      "sessionName" : "Séance A",
+      "durationSeconds" : 3000,
+      "sets" : [
+        {
+          "id" : "55555555-5555-5555-5555-555555555555",
+          "exerciseId" : "Barbell_Bench_Press_-_Medium_Grip",
+          "displayName" : "Développé couché",
+          "orderIndex" : 0,
+          "setIndex" : 0,
+          "weight" : 80,
+          "reps" : 6,
+          "isWarmup" : false
+        }
+      ]
+    }
+  ],
+  "records" : [
+    {
+      "id" : "66666666-6666-6666-6666-666666666666",
+      "exerciseId" : "Barbell_Bench_Press_-_Medium_Grip",
+      "displayName" : "Développé couché",
+      "oneRepMax" : 96,
+      "updatedAt" : "2026-01-10T18:00:00Z"
+    }
+  ],
+  "customExercises" : []
+}

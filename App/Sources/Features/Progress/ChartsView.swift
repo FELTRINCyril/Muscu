@@ -3,203 +3,409 @@ import SwiftData
 import Charts
 import MuscuEngine
 
-// Graphiques de progression : picker d'exercice (uniquement ceux presents
-// dans l'historique) puis 1RM estime + tonnage par seance (ou max reps pour
-// les exercices au poids du corps, sans serie chargee), plus un graphique
-// global de tonnage hebdomadaire toutes seances confondues.
+// Tableaux de bord. Aucun calcul n'est fait ici : tout vient de
+// `MuscuEngine.TrainingAnalytics`, pour que deux écrans affichant le même
+// indicateur affichent forcément la même valeur.
+//
+// Chaque graphique indique son unité, sa période, la formule employée et le
+// nombre de séries dont la donnée manque. Chacun expose aussi une
+// alternative textuelle lisible par VoiceOver.
 struct ChartsView: View {
-    @Query(sort: \CompletedSession.date) private var sessions: [CompletedSession]
+    @Environment(\.modelContext) private var modelContext
+    @Environment(CatalogStore.self) private var catalogStore
 
+    @State private var sessions: [AnalyticsSession] = []
     @State private var selectedExerciseId: String?
+    @State private var selectedMetric: ExerciseMetric = .estimatedOneRepMax
+    @State private var window: AnalysisWindow = .twelveWeeks
+
+    /// Fenêtre d'analyse. Toujours affichée : un indicateur sans période
+    /// n'est pas interprétable.
+    private enum AnalysisWindow: String, CaseIterable, Identifiable {
+        case fourWeeks = "4 semaines"
+        case twelveWeeks = "12 semaines"
+        case all = "Tout"
+
+        var id: String { rawValue }
+
+        var weeks: Int? {
+            switch self {
+            case .fourWeeks: return 4
+            case .twelveWeeks: return 12
+            case .all: return nil
+            }
+        }
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                if exerciseOptions.isEmpty {
+                if sessions.isEmpty {
                     ContentUnavailableView(
                         "Aucune donnée",
                         systemImage: "chart.line.uptrend.xyaxis",
-                        description: Text("Terminez des séances pour voir vos graphiques de progression.")
+                        description: Text("Terminez des séances pour voir vos tableaux de bord.")
                     )
                     .frame(maxWidth: .infinity)
                     .padding(.top, 60)
                 } else {
-                    Picker("Exercice", selection: $selectedExerciseId) {
-                        ForEach(exerciseOptions) { option in
-                            Text(option.displayName).tag(option.id as String?)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .tint(Theme.accent)
-
-                    if let selected = selectedExercise {
-                        exerciseCharts(for: selected)
-                    }
-
-                    weeklyTonnageChart
+                    windowPicker
+                    volumeCard
+                    muscleDistributionCard
+                    frequencyCard
+                    exerciseCard
+                    comparisonCard
                 }
             }
             .padding()
         }
         .background(Theme.background)
-        .onAppear {
-            if selectedExerciseId == nil {
-                selectedExerciseId = exerciseOptions.first?.id
+        .onAppear(perform: reload)
+    }
+
+    private var windowPicker: some View {
+        Picker("Période", selection: $window) {
+            ForEach(AnalysisWindow.allCases) { option in
+                Text(option.rawValue).tag(option)
             }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityIdentifier("charts.windowPicker")
+    }
+
+    // MARK: - Volume hebdomadaire
+
+    private var volumeCard: some View {
+        ChartCard(
+            title: "Volume par semaine",
+            subtitle: "Séries de travail et tonnage · \(periodLabel)",
+            footnote: ExerciseMetric.tonnage.formulaDescription,
+            missingDataNote: missingTonnageNote,
+            textAlternative: volumeAlternative
+        ) {
+            Chart(weeks, id: \.weekStart) { week in
+                BarMark(
+                    x: .value("Semaine", week.weekStart, unit: .weekOfYear),
+                    y: .value("Séries", week.workingSetCount)
+                )
+                .foregroundStyle(Theme.accent)
+            }
+            .chartYAxisLabel("séries")
+            .frame(height: 180)
         }
     }
 
-    @ViewBuilder
-    private func exerciseCharts(for option: ExerciseOption) -> some View {
-        if isBodyweight(option.id) {
-            ChartCard(title: "Max répétitions par séance") {
-                Chart(maxRepsSeries(for: option.id)) { point in
-                    LineMark(x: .value("Date", point.date), y: .value("Reps", point.value))
-                        .foregroundStyle(Theme.accent)
-                    PointMark(x: .value("Date", point.date), y: .value("Reps", point.value))
-                        .foregroundStyle(Theme.accent)
-                }
-                .chartXAxis { dateAxis }
-            }
-        } else {
-            ChartCard(title: "1RM estimé (kg)") {
-                Chart(oneRepMaxSeries(for: option.id)) { point in
-                    LineMark(x: .value("Date", point.date), y: .value("1RM", point.value))
-                        .foregroundStyle(Theme.accent)
-                    PointMark(x: .value("Date", point.date), y: .value("1RM", point.value))
-                        .foregroundStyle(Theme.accent)
-                }
-                .chartXAxis { dateAxis }
-            }
+    private var missingTonnageNote: String? {
+        let unknown = weeks.reduce(0) { $0 + $1.tonnage.unknownSets }
+        guard unknown > 0 else { return nil }
+        return "\(unknown) série(s) sans poids de corps connu : leur tonnage n'est pas comptabilisé. Renseignez votre poids dans le profil pour les inclure."
+    }
 
-            ChartCard(title: "Tonnage par séance (kg)") {
-                Chart(tonnageSeries(for: option.id)) { point in
-                    BarMark(x: .value("Date", point.date), y: .value("Tonnage", point.value))
-                        .foregroundStyle(Theme.accent)
-                }
-                .chartXAxis { dateAxis }
+    private var volumeAlternative: String {
+        guard let last = weeks.last else { return "Aucune semaine sur la période." }
+        let total = TrainingAnalytics.merged(weeks)
+        let tonnage = total.tonnage.isComplete
+            ? "\(WeightFormatter.string(kilograms: total.tonnage.value)) de tonnage"
+            : "tonnage partiel (\(total.tonnage.unknownSets) séries non mesurables)"
+        return "\(weeks.count) semaines analysées, \(total.workingSetCount) séries de travail, \(tonnage). Dernière semaine : \(last.workingSetCount) séries, \(last.sessionCount) séance(s)."
+    }
+
+    // MARK: - Répartition par muscle
+
+    private var muscleDistributionCard: some View {
+        ChartCard(
+            title: "Répartition par muscle",
+            subtitle: "Séries de travail · \(periodLabel)",
+            footnote: "Seuls les muscles principaux de chaque exercice sont comptés.",
+            missingDataNote: imbalanceNote,
+            textAlternative: distributionAlternative
+        ) {
+            Chart(topMuscles, id: \.muscle) { entry in
+                BarMark(
+                    x: .value("Séries", entry.sets),
+                    y: .value("Muscle", FrenchLabels.muscle(entry.muscle))
+                )
+                .foregroundStyle(Theme.accent)
             }
+            .chartXAxisLabel("séries")
+            .frame(height: CGFloat(max(1, topMuscles.count)) * 28 + 40)
         }
     }
 
-    private var weeklyTonnageChart: some View {
-        ChartCard(title: "Tonnage total par semaine (kg)") {
-            Chart(weeklyTonnage) { point in
-                BarMark(x: .value("Semaine", point.weekStart, unit: .weekOfYear), y: .value("Tonnage", point.tonnage))
+    private var imbalanceNote: String? {
+        let findings = TrainingAnalytics.imbalances(weeklySetsByMuscle: setsByMuscle)
+        guard !findings.isEmpty else { return nil }
+        let names = findings.prefix(3).map { FrenchLabels.muscle($0.muscle) }.joined(separator: ", ")
+        return "Nettement moins travaillé(s) que la médiane sur la période : \(names). C'est un écart de volume observé, pas un jugement sur votre programme."
+    }
+
+    private var distributionAlternative: String {
+        guard !topMuscles.isEmpty else { return "Aucun muscle identifié sur la période." }
+        let detail = topMuscles.prefix(5)
+            .map { "\(FrenchLabels.muscle($0.muscle)) \($0.sets) séries" }
+            .joined(separator: ", ")
+        return "Répartition sur \(periodLabel) : \(detail)."
+    }
+
+    // MARK: - Fréquence
+
+    private var frequencyCard: some View {
+        ChartCard(
+            title: "Fréquence",
+            subtitle: "Séances par semaine · \(periodLabel)",
+            footnote: adherenceLabel,
+            missingDataNote: nil,
+            textAlternative: frequencyAlternative
+        ) {
+            Chart(TrainingAnalytics.sessionsPerWeek(sessions: windowedSessions, calendar: calendar), id: \.date) { point in
+                LineMark(x: .value("Semaine", point.date, unit: .weekOfYear), y: .value("Séances", point.value))
+                    .foregroundStyle(Theme.accent)
+                PointMark(x: .value("Semaine", point.date, unit: .weekOfYear), y: .value("Séances", point.value))
                     .foregroundStyle(Theme.accent)
             }
-            .chartXAxis { dateAxis }
+            .chartYAxisLabel("séances")
+            .frame(height: 160)
         }
     }
 
-    private var dateAxis: some AxisContent {
-        AxisMarks(values: .automatic) { _ in
-            AxisGridLine()
-            AxisValueLabel(format: .dateTime.day().month(.abbreviated).locale(Locale(identifier: "fr_FR")))
+    private var adherenceLabel: String {
+        guard let first = weeks.first?.weekStart, let last = weeks.last?.weekStart else {
+            return "Aucune séance planifiée sur la période."
         }
+        let end = calendar.date(byAdding: .day, value: 7, to: last) ?? last
+        let adherence = AnalyticsBridge.adherence(context: modelContext, from: first, to: end)
+        guard let ratio = adherence.ratio else {
+            return "Aucune séance planifiée sur la période : l'adhérence n'est pas calculable."
+        }
+        return "Adhérence au planning : \(adherence.completedCount)/\(adherence.plannedCount) séances prévues (\(Int(ratio * 100)) %)."
     }
 
-    // MARK: - Donnees
-
-    private struct ExerciseOption: Identifiable {
-        let id: String
-        let displayName: String
+    private var frequencyAlternative: String {
+        let streak = TrainingAnalytics.currentWeeklyStreak(sessions: sessions, now: .now, calendar: calendar)
+        let total = weeks.reduce(0) { $0 + $1.sessionCount }
+        return "\(total) séance(s) sur \(periodLabel). Semaines consécutives avec au moins une séance : \(streak)."
     }
 
-    private struct SessionPoint: Identifiable {
-        let id = UUID()
-        let date: Date
-        let value: Double
-    }
+    // MARK: - Évolution par exercice
 
-    private struct WeekPoint: Identifiable {
-        let id = UUID()
-        let weekStart: Date
-        let tonnage: Double
-    }
+    @ViewBuilder
+    private var exerciseCard: some View {
+        if exerciseOptions.isEmpty {
+            EmptyView()
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                Picker("Exercice", selection: $selectedExerciseId) {
+                    ForEach(exerciseOptions, id: \.id) { option in
+                        Text(option.displayName).tag(option.id as String?)
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(Theme.accent)
+                .accessibilityIdentifier("charts.exercisePicker")
 
-    private var exerciseOptions: [ExerciseOption] {
-        var seen: [String: String] = [:]
-        for session in sessions {
-            for set in session.sets where !set.isWarmup {
-                seen[set.exerciseId] = set.displayName
+                if availableMetrics.count > 1 {
+                    Picker("Indicateur", selection: $selectedMetric) {
+                        ForEach(availableMetrics, id: \.self) { metric in
+                            Text(metricLabel(metric)).tag(metric)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                ChartCard(
+                    title: metricLabel(effectiveMetric),
+                    subtitle: unitLabel(effectiveMetric) + " · " + periodLabel,
+                    footnote: effectiveMetric.formulaDescription,
+                    missingDataNote: exerciseMissingNote,
+                    textAlternative: exerciseAlternative
+                ) {
+                    Chart(exerciseSeries, id: \.date) { point in
+                        LineMark(x: .value("Date", point.date), y: .value(metricLabel(effectiveMetric), point.value))
+                            .foregroundStyle(Theme.accent)
+                        PointMark(x: .value("Date", point.date), y: .value(metricLabel(effectiveMetric), point.value))
+                            .foregroundStyle(Theme.accent)
+                    }
+                    .frame(height: 180)
+                }
             }
         }
-        return seen.map { ExerciseOption(id: $0.key, displayName: $0.value) }
+    }
+
+    private var exerciseMissingNote: String? {
+        guard let selectedExerciseId else { return nil }
+        let sessionsWithExercise = windowedSessions.filter { session in
+            session.workingSets.contains { $0.exerciseId == selectedExerciseId }
+        }
+        let missing = sessionsWithExercise.count - exerciseSeries.count
+        guard missing > 0 else { return nil }
+        return "\(missing) séance(s) sans valeur exploitable pour cet indicateur : elles sont absentes de la courbe plutôt qu'affichées à zéro."
+    }
+
+    private var exerciseAlternative: String {
+        guard let first = exerciseSeries.first, let last = exerciseSeries.last else {
+            return "Aucune valeur exploitable pour cet exercice sur la période."
+        }
+        let unit = effectiveMetric.unitSymbol
+        let start = WeightFormatter.number(first.value) + (unit.isEmpty ? "" : " " + unit)
+        let end = WeightFormatter.number(last.value) + (unit.isEmpty ? "" : " " + unit)
+        return "\(exerciseSeries.count) point(s), de \(start) à \(end) sur \(periodLabel)."
+    }
+
+    // MARK: - Comparaison de périodes
+
+    @ViewBuilder
+    private var comparisonCard: some View {
+        if let comparison {
+            ChartCard(
+                title: "Comparaison",
+                subtitle: "Moitié récente vs moitié précédente · \(periodLabel)",
+                footnote: "Constat chiffré sur la période, sans lien de cause à effet.",
+                missingDataNote: nil,
+                textAlternative: comparison.summaryText
+            ) {
+                Text(comparison.summaryText)
+                    .font(.callout)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private var comparison: PeriodComparison? {
+        guard weeks.count >= 4 else { return nil }
+        let midpoint = weeks.count / 2
+        let previous = TrainingAnalytics.merged(Array(weeks.prefix(midpoint)))
+        let current = TrainingAnalytics.merged(Array(weeks.suffix(weeks.count - midpoint)))
+        return TrainingAnalytics.compare(previous: previous, current: current)
+    }
+
+    // MARK: - Données
+
+    private var calendar: Calendar { TrainingAnalytics.calendar() }
+
+    private var windowedSessions: [AnalyticsSession] {
+        guard let weeksBack = window.weeks else { return sessions }
+        let start = calendar.date(
+            byAdding: .weekOfYear,
+            value: -weeksBack,
+            to: TrainingAnalytics.startOfWeek(for: .now, calendar: calendar)
+        ) ?? .distantPast
+        return sessions.filter { $0.date >= start }
+    }
+
+    private var weeks: [WeeklySummary] {
+        TrainingAnalytics.filled(
+            weeks: TrainingAnalytics.weeklySummaries(sessions: windowedSessions, calendar: calendar),
+            calendar: calendar
+        )
+    }
+
+    private var setsByMuscle: [String: Int] {
+        TrainingAnalytics.setsByMuscle(sessions: windowedSessions)
+    }
+
+    private var topMuscles: [(muscle: String, sets: Int)] {
+        setsByMuscle
+            .map { (muscle: $0.key, sets: $0.value) }
+            .sorted { ($0.sets, $1.muscle) > ($1.sets, $0.muscle) }
+            .prefix(8)
+            .map { $0 }
+    }
+
+    private var exerciseOptions: [(id: String, displayName: String)] {
+        var seen: [String: String] = [:]
+        for session in windowedSessions {
+            for set in session.workingSets { seen[set.exerciseId] = set.displayName }
+        }
+        return seen.map { (id: $0.key, displayName: $0.value) }
             .sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
     }
 
-    private var selectedExercise: ExerciseOption? {
-        exerciseOptions.first { $0.id == selectedExerciseId }
+    private var availableMetrics: [ExerciseMetric] {
+        guard let selectedExerciseId else { return [] }
+        return TrainingAnalytics.availableMetrics(exerciseId: selectedExerciseId, sessions: windowedSessions)
     }
 
-    // Un exercice est "poids du corps" si aucune serie de travail de son
-    // historique n'a de poids > 0 : dans ce cas le 1RM/tonnage n'ont pas de
-    // sens, seul le nombre de repetitions progresse.
-    private func isBodyweight(_ exerciseId: String) -> Bool {
-        !sessions.contains { session in
-            session.sets.contains { $0.exerciseId == exerciseId && !$0.isWarmup && $0.weight > 0 }
-        }
+    /// Indicateur réellement affichable : si celui choisi n'a aucune donnée
+    /// pour cet exercice, on retombe sur le premier disponible.
+    private var effectiveMetric: ExerciseMetric {
+        availableMetrics.contains(selectedMetric) ? selectedMetric : (availableMetrics.first ?? .maxReps)
     }
 
-    private func oneRepMaxSeries(for exerciseId: String) -> [SessionPoint] {
-        sessions.compactMap { session in
-            let weighted = session.sets.filter { $0.exerciseId == exerciseId && !$0.isWarmup && $0.weight > 0 }
-            guard let best = weighted.map({ OneRepMax.epley(weight: $0.weight, reps: $0.reps) }).max() else { return nil }
-            return SessionPoint(date: session.date, value: best)
-        }
+    private var exerciseSeries: [AnalyticsPoint] {
+        guard let selectedExerciseId else { return [] }
+        return TrainingAnalytics.series(metric: effectiveMetric, exerciseId: selectedExerciseId, sessions: windowedSessions)
     }
 
-    private func tonnageSeries(for exerciseId: String) -> [SessionPoint] {
-        sessions.compactMap { session in
-            let sets = session.sets.filter { $0.exerciseId == exerciseId && !$0.isWarmup }
-            guard !sets.isEmpty else { return nil }
-            let tonnage = sets.reduce(0.0) { $0 + $1.weight * Double($1.reps) }
-            return SessionPoint(date: session.date, value: tonnage)
-        }
+    private var periodLabel: String {
+        window == .all ? "tout l'historique" : window.rawValue.lowercased()
     }
 
-    private func maxRepsSeries(for exerciseId: String) -> [SessionPoint] {
-        sessions.compactMap { session in
-            let sets = session.sets.filter { $0.exerciseId == exerciseId && !$0.isWarmup && $0.weight == 0 }
-            guard let best = sets.map(\.reps).max() else { return nil }
-            return SessionPoint(date: session.date, value: Double(best))
+    private func metricLabel(_ metric: ExerciseMetric) -> String {
+        switch metric {
+        case .estimatedOneRepMax: return "1RM estimé"
+        case .maxLoad: return "Charge max"
+        case .maxReps: return "Répétitions max"
+        case .tonnage: return "Tonnage"
         }
     }
 
-    private var weeklyTonnage: [WeekPoint] {
-        let calendar = Calendar.current
-        let grouped = Dictionary(grouping: sessions) { session in
-            calendar.dateInterval(of: .weekOfYear, for: session.date)?.start ?? session.date
-        }
-        return grouped.keys.sorted().map { weekStart in
-            let tonnage = (grouped[weekStart] ?? []).reduce(0.0) { total, session in
-                total + session.sets.filter { !$0.isWarmup }.reduce(0.0) { $0 + $1.weight * Double($1.reps) }
-            }
-            return WeekPoint(weekStart: weekStart, tonnage: tonnage)
-        }
+    private func unitLabel(_ metric: ExerciseMetric) -> String {
+        metric.unitSymbol.isEmpty ? "répétitions" : metric.unitSymbol
+    }
+
+    private func reload() {
+        sessions = AnalyticsBridge.sessions(context: modelContext, catalogStore: catalogStore)
+        if selectedExerciseId == nil { selectedExerciseId = exerciseOptions.first?.id }
     }
 }
 
+/// Carte de graphique : titre, période, formule, données manquantes et
+/// alternative textuelle. Le graphique lui-même est masqué à VoiceOver, qui
+/// lit l'alternative — un nuage de points n'est pas lisible autrement.
 private struct ChartCard<Content: View>: View {
     let title: String
+    let subtitle: String
+    let footnote: String
+    let missingDataNote: String?
+    let textAlternative: String
     @ViewBuilder let content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.subheadline.weight(.semibold))
+                .font(.headline)
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             content
-                .frame(height: 200)
+                .accessibilityHidden(true)
+
+            Text(textAlternative)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("\(title). \(textAlternative)")
+
+            if let missingDataNote {
+                Label(missingDataNote, systemImage: "exclamationmark.circle")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
+
+            Text(footnote)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
         .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 }
 
 #Preview {
     ChartsView()
+        .environment(CatalogStore())
         .modelContainer(for: CompletedSession.self, inMemory: true)
         .preferredColorScheme(.dark)
 }

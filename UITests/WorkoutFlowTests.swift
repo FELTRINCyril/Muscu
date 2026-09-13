@@ -4,6 +4,7 @@ import XCTest
 // Les valeurs de repos/intervalles/AMRAP sont volontairement tres courtes
 // (2-15 s) pour que ces tests restent rapides tout en exercant reellement
 // les chronos (pas seulement "Passer" immediatement).
+@MainActor
 final class WorkoutFlowTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -19,6 +20,7 @@ final class WorkoutFlowTests: XCTestCase {
         app.launchSeeded()
 
         tapWhenReady(app.buttons["Lancer la séance"])
+        startFromPreparation(app)
 
         // Echauffement systematique : la seance demarre toujours sur
         // WarmupView. On exerce ici le flux "Echauffement libre" complet
@@ -59,12 +61,13 @@ final class WorkoutFlowTests: XCTestCase {
         waitAndAssert(app.staticTexts["Séance terminée"], timeout: 10)
         tapWhenReady(app.buttons["Terminer"])
         dismissAnyRecordSuggestions(app)
-        waitAndAssert(app.buttons["Fermer"])
-        tapWhenReady(app.buttons["Fermer"])
+        waitAndAssert(app.buttons["workout.closeSummaryButton"])
+        tapWhenReady(app.buttons["workout.closeSummaryButton"])
 
         // De retour à l'Accueil : le programme tourne vers la Séance B.
         waitAndAssert(app.buttons["Lancer la séance"], timeout: 10)
         tapWhenReady(app.buttons["Lancer la séance"])
+        startFromPreparation(app)
         tapWhenReady(app.buttons["Commencer directement la séance"], timeout: 15)
 
         // --- Séance B : intervalles (3 s / 2 s x 2), déroule automatique ---
@@ -86,14 +89,13 @@ final class WorkoutFlowTests: XCTestCase {
         waitAndAssert(app.staticTexts["Séance terminée"], timeout: 10)
         tapWhenReady(app.buttons["Terminer"])
         dismissAnyRecordSuggestions(app)
-        waitAndAssert(app.buttons["Fermer"])
-        tapWhenReady(app.buttons["Fermer"])
+        waitAndAssert(app.buttons["workout.closeSummaryButton"])
+        tapWhenReady(app.buttons["workout.closeSummaryButton"])
 
         waitAndAssert(app.buttons["Lancer la séance"], timeout: 10)
 
         // Progression > Historique doit maintenant montrer les séances.
-        tapWhenReady(app.tabBars.buttons["Progression"])
-        waitAndAssert(app.navigationBars["Progression"])
+        selectTab(app, "Progression", showing: "Progression")
         tapWhenReady(app.buttons["Historique"])
         waitAndAssert(app.firstDescendant(labelContains: "Séance A"), timeout: 8, "L'historique devrait contenir la séance A tout juste terminée")
     }
@@ -105,6 +107,7 @@ final class WorkoutFlowTests: XCTestCase {
         app.launchSeeded()
 
         tapWhenReady(app.buttons["Lancer la séance"])
+        startFromPreparation(app)
         tapWhenReady(app.buttons["Commencer directement la séance"], timeout: 15)
 
         // Log une série pour qu'une ActiveWorkout existe réellement à

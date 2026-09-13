@@ -7,12 +7,17 @@ struct ExercisesView: View {
     @Environment(CatalogStore.self) private var catalogStore
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \CustomExercise.name) private var customExercises: [CustomExercise]
+    @Query private var prescribedExercises: [PrescribedExercise]
+    @Query private var completedSets: [CompletedSet]
+    @Query private var activeWorkouts: [ActiveWorkout]
 
     @State private var searchText = ""
     @State private var filterMuscle: String?
     @State private var filterEquipment: String?
     @State private var filterCategory: String?
     @State private var showingAddSheet = false
+    @State private var pendingDeletion: CustomExercise?
+    @State private var deletionBlockedMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -58,6 +63,21 @@ struct ExercisesView: View {
             }
             .sheet(isPresented: $showingAddSheet) {
                 CustomExerciseForm()
+            }
+            .confirmationDialog("Supprimer cet exercice personnalisé ?", isPresented: Binding(
+                get: { pendingDeletion != nil },
+                set: { if !$0 { pendingDeletion = nil } }
+            )) {
+                Button("Supprimer", role: .destructive) { confirmDeletion() }
+                Button("Annuler", role: .cancel) { pendingDeletion = nil }
+            }
+            .alert("Suppression impossible", isPresented: Binding(
+                get: { deletionBlockedMessage != nil },
+                set: { if !$0 { deletionBlockedMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(deletionBlockedMessage ?? "")
             }
         }
     }
@@ -129,8 +149,24 @@ struct ExercisesView: View {
     }
 
     private func deleteCustomExercises(at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(filteredCustomExercises[index])
+        guard let index = offsets.first else { return }
+        pendingDeletion = filteredCustomExercises[index]
+    }
+
+    private func confirmDeletion() {
+        guard let exercise = pendingDeletion else { return }
+        let id = exercise.id.uuidString
+        let isUsed = prescribedExercises.contains { $0.exerciseId == id }
+            || completedSets.contains { $0.exerciseId == id }
+            || activeWorkouts.flatMap(\.loggedSets).contains { $0.exerciseId == id }
+        guard !isUsed else {
+            pendingDeletion = nil
+            deletionBlockedMessage = "Cet exercice est encore utilisé dans un programme ou un historique. Retire-le des programmes concernés avant de le supprimer; l’historique reste ainsi lisible."
+            return
+        }
+        modelContext.delete(exercise)
+        if PersistenceSupport.save(modelContext, action: "Suppression de l’exercice personnalisé") {
+            pendingDeletion = nil
         }
     }
 

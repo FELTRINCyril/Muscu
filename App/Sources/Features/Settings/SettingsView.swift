@@ -17,11 +17,13 @@ struct SettingsView: View {
     @State private var downloadDone = 0
     @State private var downloadTotal = 0
     @State private var downloadResultMessage: String?
+    @State private var showingClearCacheConfirmation = false
 
     @State private var exportDocument: ExportDocument?
     @State private var isExporting = false
     @State private var isImporting = false
     @State private var importAlert: ImportAlert?
+    @State private var pendingImport: PendingImport?
 
     private struct ImportAlert: Identifiable {
         let id = UUID()
@@ -29,13 +31,35 @@ struct SettingsView: View {
         let message: String
     }
 
+    private struct PendingImport {
+        let data: Data
+        let summary: ExportImport.ImportSummary
+    }
+
     var body: some View {
         NavigationStack {
             Form {
+            Section {
+                NavigationLink {
+                    ProfileView()
+                } label: {
+                    Label("Profil", systemImage: "person.crop.circle")
+                }
+                .accessibilityIdentifier("settings.profile")
+
+                NavigationLink {
+                    DataManagementView()
+                } label: {
+                    Label("Mes données", systemImage: "externaldrive")
+                }
+                .accessibilityIdentifier("settings.data")
+            } footer: {
+                Text("Objectif, niveau, matériel, jours disponibles et charges réellement disponibles. Facultatif.")
+            }
+
                 chronoSection
                 imagesSection
                 dataSection
-                aiSection
                 aboutSection
             }
             .scrollContentBackground(.hidden)
@@ -58,6 +82,25 @@ struct SettingsView: View {
             }
             .alert(item: $importAlert) { alert in
                 Alert(title: Text(alert.title), message: Text(alert.message), dismissButton: .default(Text("OK")))
+            }
+            .confirmationDialog("Vider toutes les images hors ligne ?", isPresented: $showingClearCacheConfirmation) {
+                Button("Vider le cache", role: .destructive) { clearImageCache() }
+                Button("Annuler", role: .cancel) {}
+            }
+            .confirmationDialog(
+                "Confirmer l’import ?",
+                isPresented: Binding(
+                    get: { pendingImport != nil },
+                    set: { if !$0 { pendingImport = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button("Importer") { confirmImport() }
+                Button("Annuler", role: .cancel) { pendingImport = nil }
+            } message: {
+                if let summary = pendingImport?.summary {
+                    Text(importSummaryMessage(summary, suffix: summary.hasActiveWorkout ? " Une séance en cours est aussi incluse." : ""))
+                }
             }
         }
     }
@@ -97,6 +140,11 @@ struct SettingsView: View {
             }
             .disabled(isDownloadingImages)
 
+            Button("Vider le cache", role: .destructive) {
+                showingClearCacheConfirmation = true
+            }
+            .disabled(isDownloadingImages || cacheSizeBytes == 0)
+
             if let downloadResultMessage {
                 Text(downloadResultMessage)
                     .font(.caption)
@@ -120,18 +168,6 @@ struct SettingsView: View {
             Button("Importer des données") {
                 isImporting = true
             }
-        }
-    }
-
-    // MARK: - IA
-
-    private var aiSection: some View {
-        Section {
-            NavigationLink("Génération IA (avancé)") {
-                AIProviderConfigView()
-            }
-        } footer: {
-            Text("Fonctionnalité optionnelle et non utilisée pour l'instant : permettra dans une future version de générer des programmes via un service IA externe.")
         }
     }
 
@@ -166,7 +202,7 @@ struct SettingsView: View {
         downloadTotal = paths.count
         downloadResultMessage = nil
 
-        await ImageStore.shared.prefetchAll(paths: paths) { done, total in
+        let result = await ImageStore.shared.prefetchAll(paths: paths) { done, total in
             Task { @MainActor in
                 downloadDone = done
                 downloadTotal = total
@@ -174,8 +210,24 @@ struct SettingsView: View {
         }
 
         isDownloadingImages = false
-        downloadResultMessage = "\(downloadDone) image(s) sur \(downloadTotal) disponible(s) hors-ligne."
+        downloadResultMessage = result.failed == 0
+            ? "\(result.available) image(s) disponible(s) hors-ligne."
+            : "\(result.available)/\(result.total) disponible(s), \(result.failed) échec(s). Réessayez lorsque la connexion est stable."
         refreshCacheSize()
+    }
+
+    private func clearImageCache() {
+        Task {
+            do {
+                try await ImageStore.shared.clearCache()
+                downloadDone = 0
+                downloadTotal = 0
+                downloadResultMessage = "Cache d’images vidé."
+                refreshCacheSize()
+            } catch {
+                importAlert = ImportAlert(title: "Échec", message: error.localizedDescription)
+            }
+        }
     }
 
     private func exportData() {
@@ -201,15 +253,46 @@ struct SettingsView: View {
 
             do {
                 let data = try Data(contentsOf: url)
-                let summary = try ExportImport.importAll(data: data, context: modelContext)
-                importAlert = ImportAlert(
-                    title: "Import réussi",
-                    message: "\(summary.programsCount) programme(s), \(summary.sessionsCount) séance(s), \(summary.recordsCount) record(s), \(summary.customExercisesCount) exercice(s) personnalisé(s) importés."
-                )
+                pendingImport = PendingImport(data: data, summary: try ExportImport.preview(data: data))
             } catch {
                 importAlert = ImportAlert(title: "Échec de l'import", message: error.localizedDescription)
             }
         }
+    }
+
+    private func confirmImport() {
+        guard let pendingImport else { return }
+        self.pendingImport = nil
+        do {
+            let summary = try ExportImport.importAll(data: pendingImport.data, context: modelContext)
+            importAlert = ImportAlert(
+                title: "Import réussi",
+                message: importSummaryMessage(summary, suffix: summary.hasActiveWorkout ? " La séance en cours a été restaurée." : "")
+            )
+        } catch {
+            importAlert = ImportAlert(title: "Échec de l'import", message: error.localizedDescription)
+        }
+    }
+
+    // Resume lisible d'une archive : seuls les types reellement presents sont
+    // listes, pour que l'apercu reste court sur une sauvegarde v1/v2.
+    private func importSummaryMessage(_ summary: ExportImport.ImportSummary, suffix: String) -> String {
+        var parts = [
+            "\(summary.programsCount) programme(s)",
+            "\(summary.sessionsCount) séance(s)",
+            "\(summary.recordsCount) record(s)",
+            "\(summary.customExercisesCount) exercice(s) personnalisé(s)",
+        ]
+        if summary.hasProfile { parts.append("1 profil") }
+        if summary.measurementsCount > 0 { parts.append("\(summary.measurementsCount) mesure(s)") }
+        if summary.readinessEntriesCount > 0 { parts.append("\(summary.readinessEntriesCount) check-in") }
+        if summary.personalBestsCount > 0 { parts.append("\(summary.personalBestsCount) record(s) typé(s)") }
+        if summary.trainingPlansCount > 0 { parts.append("\(summary.trainingPlansCount) plan(s)") }
+
+        let version = summary.sourceVersion < ExportImport.currentVersion
+            ? " Sauvegarde au format v\(summary.sourceVersion), convertie au format actuel."
+            : ""
+        return parts.joined(separator: ", ") + "." + version + suffix
     }
 
     private var exportFilename: String {
@@ -253,41 +336,6 @@ struct ExportDocument: FileDocument {
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         FileWrapper(regularFileWithContents: data)
-    }
-}
-
-// Configuration (avancee, cachee) du futur provider IA.
-private struct AIProviderConfigView: View {
-    @State private var baseURL = AIProviderConfig.baseURL
-    @State private var apiKey = AIProviderConfig.apiKey
-    @State private var model = AIProviderConfig.model
-
-    var body: some View {
-        Form {
-            Section {
-                TextField("URL de base", text: $baseURL)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.URL)
-                SecureField("Clé API", text: $apiKey)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                TextField("Modèle", text: $model)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-            } header: {
-                Text("Provider")
-            } footer: {
-                Text("Optionnel : cette configuration n'est utilisée par aucune fonctionnalité pour l'instant. Elle prépare une future génération de programmes assistée par IA. La clé API est stockée de façon chiffrée dans le trousseau de l'appareil.")
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .background(Theme.background)
-        .navigationTitle("Génération IA")
-        .navigationBarTitleDisplayMode(.inline)
-        .onChange(of: baseURL) { _, newValue in AIProviderConfig.baseURL = newValue }
-        .onChange(of: apiKey) { _, newValue in AIProviderConfig.apiKey = newValue }
-        .onChange(of: model) { _, newValue in AIProviderConfig.model = newValue }
     }
 }
 

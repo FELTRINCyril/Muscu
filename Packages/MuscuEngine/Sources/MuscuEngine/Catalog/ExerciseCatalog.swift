@@ -26,6 +26,16 @@ public struct ExerciseCatalog: Sendable {
         return ExerciseCatalog(all: exercises)
     }
 
+    /// Retrouve un exercice par son identifiant. Index construit a la
+    /// demande : les analyses de plan interrogent le catalogue en boucle.
+    public func exercise(id: String) -> CatalogExercise? {
+        indexById[id]
+    }
+
+    private var indexById: [String: CatalogExercise] {
+        Dictionary(all.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    }
+
     /// Recherche insensible a la casse et aux accents, sur nameFr et name.
     public func search(_ query: String) -> [CatalogExercise] {
         let needle = Self.normalize(query)

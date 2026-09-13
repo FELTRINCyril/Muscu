@@ -23,6 +23,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: "6.0"
         PRODUCT_NAME: Muscu
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       configs:
         Debug:
@@ -41,13 +42,26 @@ targets:
         SWIFT_VERSION: "6.0"
         PRODUCT_NAME: MuscuUITests
         TEST_TARGET_NAME: Muscu
+  MuscuTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: Muscu
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "6.0"
+        PRODUCT_NAME: MuscuTests
 schemes:
   Muscu:
     build:
       targets:
         Muscu: all
+        MuscuTests: [test]
         MuscuUITests: [test]
     test:
       targets:
+        - MuscuTests
         - MuscuUITests
-

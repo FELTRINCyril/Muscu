@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MuscuEngine
 
 // Onglet Accueil : ecran d'accueil de l'app, pense comme un vrai tableau de
 // bord fitness (pas juste une carte de lancement). De haut en bas :
@@ -28,6 +29,7 @@ struct HomeView: View {
 
     @State private var restTimer = RestTimer()
     @State private var workoutState: WorkoutState?
+    @State private var sessionToPrepare: ProgramSession?
 
     @State private var pendingActiveWorkout: ActiveWorkout?
     @State private var showingResumeAlert = false
@@ -56,6 +58,17 @@ struct HomeView: View {
             Button("Reprendre") { resumeWorkout() }
             Button("Abandonner", role: .destructive) { abandonPendingWorkout() }
             Button("Annuler", role: .cancel) {}
+        }
+        .sheet(item: $sessionToPrepare) { session in
+            SessionPrepView(session: session) {
+                sessionToPrepare = nil
+                // La preparation a pu modifier la prescription (progression
+                // acceptee) : la seance est construite APRES sa fermeture,
+                // pour partir des valeurs a jour.
+                PresentationSync.afterCurrentPresentationDismissed {
+                    startSession(session)
+                }
+            }
         }
         .fullScreenCover(item: $workoutState) { state in
             WorkoutRunnerView(state: state)
@@ -150,6 +163,25 @@ struct HomeView: View {
                 .tint(Theme.accent)
                 .controlSize(.large)
                 .disabled(session == nil)
+
+                // La rotation propose la seance suivante, mais l'utilisateur
+                // doit pouvoir en choisir une autre sans passer par
+                // l'editeur de programme (jour deplace, salle differente...).
+                if currentActiveWorkout == nil, program.sessions.count > 1 {
+                    Menu {
+                        ForEach(program.orderedSessions) { candidate in
+                            Button {
+                                sessionToPrepare = candidate
+                            } label: {
+                                Text(candidate.name)
+                            }
+                        }
+                    } label: {
+                        Label("Choisir une autre séance", systemImage: "arrow.triangle.swap")
+                            .font(.footnote)
+                    }
+                    .accessibilityIdentifier("home.chooseSessionMenu")
+                }
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Aucun programme actif")
@@ -195,13 +227,21 @@ struct HomeView: View {
         guard !sessions.isEmpty else { return nil }
 
         guard let lastCompleted = completedSessions.first(where: { completed in
-            completed.programName == program.name
+            if let completedProgramId = completed.programId {
+                return completedProgramId == program.id
+            }
+            return completed.programName == program.name
                 && sessions.contains { $0.name == completed.sessionName }
         }) else {
             return sessions.first
         }
 
-        guard let lastIndex = sessions.firstIndex(where: { $0.name == lastCompleted.sessionName }) else {
+        guard let lastIndex = sessions.firstIndex(where: { session in
+            if let completedSessionId = lastCompleted.programSessionId {
+                return session.id == completedSessionId
+            }
+            return session.name == lastCompleted.sessionName
+        }) else {
             return sessions.first
         }
 
@@ -209,22 +249,21 @@ struct HomeView: View {
         return sessions[nextIndex]
     }
 
-    // Duree estimee de la seance : somme, par exercice, de (nb de series) x
-    // (45 s de travail estime + repos configure), arrondie au multiple de 5
-    // minutes le plus proche (minimum 5). `sets` vaut 0 pour les formats
-    // speciaux (pyramide/intervalles/AMRAP, cf. PrescribedExercise) : on
-    // compte alors au moins 1 pour ne pas les ignorer dans l'estimation.
+    // Duree estimee de la seance. Le calcul vit dans MuscuEngine
+    // (SessionDuration) pour que l'accueil, l'editeur et le generateur
+    // affichent tous la meme estimation.
     private static func estimatedMinutes(for session: ProgramSession) -> Int {
-        let totalSeconds = session.exercises.reduce(0) { partial, exercise in
-            partial + max(1, exercise.sets) * (45 + exercise.restSeconds)
-        }
-        let minutes = Double(totalSeconds) / 60.0
-        let rounded = Int((minutes / 5.0).rounded()) * 5
-        return max(5, rounded)
+        SessionDuration.estimatedMinutes(for: WorkoutPlanBuilder.plan(for: session))
     }
 
     private func startSession(program: Program) {
         guard let session = nextSession(for: program) else { return }
+        // Passage par l'ecran de preparation : check-in facultatif et
+        // propositions de progression, que l'utilisateur peut ignorer.
+        sessionToPrepare = session
+    }
+
+    private func startSession(_ session: ProgramSession) {
         workoutState = WorkoutState(
             programSession: session,
             modelContext: modelContext,
@@ -278,7 +317,7 @@ struct HomeView: View {
     private func abandonPendingWorkout() {
         guard let workout = pendingActiveWorkout else { return }
         modelContext.delete(workout)
-        try? modelContext.save()
+        _ = PersistenceSupport.save(modelContext, action: "Activation du programme")
     }
 
     // MARK: - Statistiques
@@ -301,6 +340,10 @@ struct HomeView: View {
     private var weekStreak: Int {
         let calendar = Self.mondayFirstCalendar
         guard var weekStart = calendar.dateInterval(of: .weekOfYear, for: .now)?.start else { return 0 }
+        if sessionsThisWeek.isEmpty,
+           let previous = calendar.date(byAdding: .weekOfYear, value: -1, to: weekStart) {
+            weekStart = previous
+        }
         var streak = 0
         while let interval = calendar.dateInterval(of: .weekOfYear, for: weekStart) {
             let hasSession = completedSessions.contains { $0.date >= interval.start && $0.date < interval.end }
@@ -448,13 +491,10 @@ struct HomeView: View {
     }
 
     private func recordLabel(for record: ExerciseRecord) -> String {
-        if let oneRepMax = record.oneRepMax {
-            return "1RM \(WorkoutState.formatWeight(oneRepMax)) kg"
-        }
-        if let maxReps = record.maxReps {
-            return "Max \(maxReps) reps"
-        }
-        return ""
+        var values: [String] = []
+        if let oneRepMax = record.oneRepMax { values.append("1RM \(WorkoutState.formatWeight(oneRepMax)) kg") }
+        if let maxReps = record.maxReps { values.append("Max \(maxReps) reps") }
+        return values.joined(separator: " · ")
     }
 
     // RelativeDateTimeFormatter arrondit les ecarts de quelques secondes de

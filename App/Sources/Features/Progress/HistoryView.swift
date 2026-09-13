@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MuscuEngine
 
 // Historique des seances terminees, groupees par mois. Le detail d'une
 // seance liste chaque serie par exercice, dans l'ordre de la seance ; les
@@ -55,7 +56,7 @@ struct HistoryView: View {
             Button("Supprimer", role: .destructive) {
                 if let session = sessionPendingDelete {
                     modelContext.delete(session)
-                    try? modelContext.save()
+                    _ = PersistenceSupport.save(modelContext, action: "Suppression de la séance")
                 }
                 sessionPendingDelete = nil
             }
@@ -109,15 +110,17 @@ private struct SessionRow: View {
     }
 
     private var workingSets: [CompletedSet] {
-        session.sets.filter { !$0.isWarmup }
+        session.workingSets
     }
 
     private var workingSetsCount: Int {
         workingSets.count
     }
 
+    // Tonnage calcule par le moteur : l'accueil, l'historique et les
+    // graphiques doivent afficher exactement la meme valeur.
     private var tonnage: Double {
-        workingSets.reduce(0) { $0 + $1.weight * Double($1.reps) }
+        CompletedSetPresentation.tonnage(for: session).total
     }
 
     private var durationLabel: String {
@@ -131,15 +134,37 @@ private struct SessionDetailView: View {
     var body: some View {
         List {
             ForEach(groupedSets, id: \.orderIndex) { group in
-                Section(group.displayName) {
+                Section {
                     ForEach(group.sets) { set in
-                        HStack {
-                            Text(set.isWarmup ? "Échauffement" : "Série \(set.setIndex + 1)")
-                            Spacer()
-                            Text("\(set.reps) reps @ \(WorkoutState.formatWeight(set.weight)) kg")
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text(CompletedSetPresentation.label(for: set, inGroup: group.isGrouped))
+                                Spacer()
+                                Text(CompletedSetPresentation.performance(for: set))
+                            }
+                            if let note = CompletedSetPresentation.substitutionNote(for: set) {
+                                Text(note)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         .font(.subheadline)
-                        .foregroundStyle(set.isWarmup ? .secondary : .primary)
+                        .foregroundStyle(set.role == .warmup ? .secondary : .primary)
+                        .padding(.leading, set.subSetIndex > 0 ? 16 : 0)
+                        .accessibilityElement(children: .combine)
+                    }
+                } header: {
+                    HStack {
+                        Text(group.displayName)
+                        if let badge = group.formatBadge {
+                            Text(badge)
+                                .font(.caption2.weight(.semibold))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Theme.accent.opacity(0.2))
+                                .foregroundStyle(Theme.accent)
+                                .clipShape(Capsule())
+                        }
                     }
                 }
             }
@@ -155,16 +180,24 @@ private struct SessionDetailView: View {
         let orderIndex: Int
         let displayName: String
         let sets: [CompletedSet]
+        /// L'exercice faisait partie d'un superset, triset ou circuit :
+        /// les series se lisent alors par TOUR, pas par numero de serie.
+        let isGrouped: Bool
+        /// Format affiche a cote du nom quand ce n'est pas du classique.
+        let formatBadge: String?
     }
 
     private var groupedSets: [ExerciseGroup] {
         let grouped = Dictionary(grouping: session.sets, by: \.orderIndex)
         return grouped.keys.sorted().compactMap { orderIndex in
-            guard let sets = grouped[orderIndex], let displayName = sets.first?.displayName else { return nil }
+            guard let sets = grouped[orderIndex], let first = sets.first else { return nil }
+            let format = first.format
             return ExerciseGroup(
                 orderIndex: orderIndex,
-                displayName: displayName,
-                sets: sets.sorted { $0.setIndex < $1.setIndex }
+                displayName: first.displayName,
+                sets: sets.sorted { ($0.roundIndex, $0.setIndex, $0.subSetIndex) < ($1.roundIndex, $1.setIndex, $1.subSetIndex) },
+                isGrouped: first.groupId != nil,
+                formatBadge: format == .classic ? nil : format.displayName
             )
         }
     }

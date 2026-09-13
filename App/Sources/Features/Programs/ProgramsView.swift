@@ -5,6 +5,8 @@ import SwiftData
 struct ProgramsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Program.name) private var programs: [Program]
+    @Query(filter: #Predicate<TrainingPlan> { $0.deletedAt == nil }, sort: \TrainingPlan.startDate, order: .reverse)
+    private var plans: [TrainingPlan]
 
     @State private var path = NavigationPath()
     @State private var showingAddChoice = false
@@ -15,6 +17,21 @@ struct ProgramsView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                if !plans.isEmpty {
+                    Section("Plans") {
+                        ForEach(plans) { plan in
+                            NavigationLink(value: plan) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(plan.name.isEmpty ? "Plan" : plan.name)
+                                    Text("\(plan.allWeeks.count) semaines")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 ForEach(programs) { program in
                     NavigationLink(value: program) {
                         ProgramRow(program: program)
@@ -67,6 +84,9 @@ struct ProgramsView: View {
             .navigationTitle("Programmes")
             .navigationDestination(for: Program.self) { program in
                 ProgramEditorView(program: program)
+            }
+            .navigationDestination(for: TrainingPlan.self) { plan in
+                TrainingPlanView(plan: plan)
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -126,15 +146,16 @@ struct ProgramsView: View {
     private func createFromScratch() {
         let program = Program(name: "Nouveau programme")
         modelContext.insert(program)
-        try? modelContext.save()
-        path.append(program)
+        if PersistenceSupport.save(modelContext, action: "Création du programme") {
+            path.append(program)
+        }
     }
 
     private func activate(_ program: Program) {
         for existing in programs {
             existing.isActive = existing.id == program.id
         }
-        try? modelContext.save()
+        _ = PersistenceSupport.save(modelContext, action: "Activation du programme")
     }
 
     private func duplicate(_ program: Program) {
@@ -155,12 +176,16 @@ struct ProgramsView: View {
             }
         }
 
-        try? modelContext.save()
+        _ = PersistenceSupport.save(modelContext, action: "Duplication du programme")
     }
 
     private func delete(_ program: Program) {
+        let wasActive = program.isActive
         modelContext.delete(program)
-        try? modelContext.save()
+        if wasActive, let replacement = programs.first(where: { $0.id != program.id }) {
+            replacement.isActive = true
+        }
+        _ = PersistenceSupport.save(modelContext, action: "Suppression du programme")
     }
 }
 
