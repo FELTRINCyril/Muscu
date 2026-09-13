@@ -15,7 +15,8 @@ Mettre à jour cette liste uniquement après validation des critères de la phas
 - [x] Phase 2 — Formats avancés et runner unifié
 - [x] Phase 3 — Programmation, périodisation et adaptation
 - [x] Phase 4 — Profil, mesures et analyses
-- [ ] Phase 5 — iCloud, iPad et Mac
+- [~] Phase 5 — iCloud, iPad et Mac (iPad et Mac faits ; iCloud prêt mais non
+      activable sans conteneur CloudKit — action externe requise)
 - [ ] Phase 6 — Planning, notifications, contenus et imports
 - [ ] Phase 7 — Watch, widgets, Live Activities et HealthKit
 - [ ] Phase 8 — Coach IA sécurisé
@@ -194,6 +195,41 @@ Mettre en place la synchronisation derrière un feature flag, tests à deux stor
 validation réelle et procédure de rollback.
 
 Jalon : scénario deux appareils hors ligne/en ligne sans doublon ni perte.
+
+### Réalisé (13/09/2026)
+
+**Fait et vérifié**
+
+- `MuscuEngine/Sync/` : `SyncRecord` (racines d'agrégat et stratégie de fusion
+  par type), `SyncReconciler` (décisions, application idempotente, insensible à
+  l'ordre d'arrivée), `SyncOutbox` (file persistante, backoff exponentiel),
+  `SyncStatus`.
+- `SyncService` local-first, `SyncSerialization` réutilisant les DTO de
+  l'export v3, `InMemorySyncTransport` pour les tests à deux stores.
+- **14 tests à deux appareils** : hors ligne, ordre inversé, rejeu, suppression
+  concurrente, modification concurrente avec conflit visible, historique
+  immuable, changement de compte, diagnostic sans donnée personnelle.
+- Écran *Réglages → Synchronisation* : état, file d'attente, conflits à
+  trancher, diagnostic exportable.
+- Import **Fusionner / Remplacer** avec sauvegarde de sécurité automatique et
+  restauration en cas d'échec.
+- Application **universelle** : `TARGETED_DEVICE_FAMILY "1,2"` et
+  `SUPPORTS_MACCATALYST`. Navigation adaptative (onglets / barre latérale,
+  raccourcis ⌘1–⌘5). Builds Debug **et** Release vérifiés sur iPhone, iPad et
+  Mac Catalyst, sans avertissement.
+- Décision consignée : `docs/decisions/0005-synchronisation-icloud.md`.
+
+**Non validé, car dépendant d'une action externe**
+
+La synchronisation réelle avec iCloud n'a jamais été exécutée. `CloudKitSyncTransport`
+est un squelette qui renvoie `notConfigured` ; la conversion vers `CKRecord`
+n'est volontairement pas écrite. L'écran de synchronisation n'affiche donc
+aucun interrupteur et annonce clairement son indisponibilité.
+
+Étapes attendues du propriétaire : `docs/configuration/icloud.md`.
+
+Cette case ne sera cochée qu'après validation sur deux appareils réels avec un
+compte iCloud de test, puis promotion du schéma en Production.
 
 ## Phase 6 — Quotidien et échanges
 

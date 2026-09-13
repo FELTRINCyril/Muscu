@@ -84,6 +84,18 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
 - **Mes données** (Réglages) : export CSV séparé (séances, séries, mesures,
   check-in) en plus de l'export JSON complet, et **suppression par catégorie ou
   totale**, qui rend compte de ce qui a réellement été supprimé.
+  - L'import propose **Fusionner** ou **Remplacer**. Le remplacement crée
+    d'abord une sauvegarde de sécurité et restaure automatiquement si l'import
+    échoue : rien n'est irréversible.
+- **Multi-appareils** : application universelle iPhone / iPad / Mac Catalyst,
+  avec onglets en largeur compacte et barre latérale en largeur régulière
+  (raccourcis ⌘1–⌘5). Les deux présentations affichent les mêmes écrans.
+  - La **synchronisation iCloud** est implémentée en local-first : file
+    d'attente persistante, backoff, tombstones, conflits visibles et
+    diagnostic exportable sans donnée personnelle. Elle est **désactivée tant
+    qu'un conteneur CloudKit n'a pas été configuré** — voir
+    [docs/configuration/icloud.md](docs/configuration/icloud.md). L'application
+    fonctionne intégralement hors ligne sans elle.
 - **Catalogue** : 873 exercices en français (nom, muscles, matériel, catégorie,
   instructions, image), recherche insensible aux accents, exercices personnalisés.
 - **Hors ligne et sauvegarde** : aucun compte, aucun serveur - toutes les données
@@ -105,7 +117,8 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
 
 ## Stack technique
 
-- **SwiftUI** (iOS 18 minimum), thème sombre forcé, navigation par `TabView` (5 onglets).
+- **SwiftUI** (iOS 18 minimum), thème sombre forcé, navigation adaptative
+  (onglets en compact, barre latérale en régulier) sur iPhone, iPad et Mac Catalyst.
 - **SwiftData** pour toute la persistance utilisateur (programmes, historique,
   records, séance en cours, profil, mesures, check-in, planning). Le schéma est
   versionné (`MuscuSchemaV1` → `V2` → `V3`) avec un plan de migration testé sur
@@ -161,12 +174,14 @@ App/
 Packages/
   MuscuEngine/       Package SPM : catalogue, générateur de programme, 1RM,
                      pyramide, intervalles, échauffement, règles du modèle v3
-                     (Domain/, Runner/, Programming/, Analytics/) - 238 tests
+                     (Domain/, Runner/, Programming/, Analytics/, Sync/)
+                     - 261 tests unitaires
 Tests/
   Fixtures/          Stores SwiftData figés (migration) et exports v1/v2 (import)
 docs/
   roadmap/           Plan produit complet et plan d'exécution par phases
   decisions/         Journal des décisions d'architecture et de migration
+  configuration/     Étapes externes requises (conteneur iCloud, signature)
   superpowers/       Spécification de design et plan d'implémentation
   screenshots/       Captures d'écran utilisées dans ce README
 project.yml          Définition du projet Xcode (source de vérité, via XcodeGen)

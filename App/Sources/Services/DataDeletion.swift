@@ -106,6 +106,10 @@ enum DataDeletion {
 
         case .profile:
             report.countsByModel["profils"] = try deleteAll(AthleteProfile.self, in: context)
+            // L'etat de synchronisation suit le profil : le conserver apres
+            // avoir tout supprime laisserait une file d'attente pointant vers
+            // des entites disparues.
+            report.countsByModel["état de synchronisation"] = try deleteAll(SyncState.self, in: context)
         }
         try context.save()
         return report
@@ -133,7 +137,7 @@ enum DataDeletion {
         "TrainingPlan", "TrainingBlock", "TrainingWeek", "ScheduledWorkout",
         "BodyMeasurement", "ReadinessEntry",
         "TrainingGoal", "AdaptationEntry",
-        "CustomExercise", "AthleteProfile",
+        "CustomExercise", "AthleteProfile", "SyncState",
     ]
 
     private static func deleteAll<T: PersistentModel>(_ type: T.Type, in context: ModelContext) throws -> Int {

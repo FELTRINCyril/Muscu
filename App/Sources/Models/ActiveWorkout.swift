@@ -80,6 +80,12 @@ final class ActiveWorkout {
     var planData: Data?
     var positionData: Data?
 
+    // Metadonnees de synchronisation. Une seance en cours n'a qu'un seul
+    // proprietaire d'edition a la fois : c'est la strategie de fusion
+    // `singleOwner` qui tranche, sur la base de `updatedAt`.
+    var updatedAt: Date = Date()
+    var deletedAt: Date?
+
     @Relationship(deleteRule: .cascade, inverse: \CompletedSet.activeWorkout)
     var loggedSets: [CompletedSet] = []
 
@@ -94,6 +100,8 @@ final class ActiveWorkout {
         runtimeStateData: Data? = nil,
         planData: Data? = nil,
         positionData: Data? = nil,
+        updatedAt: Date = Date(),
+        deletedAt: Date? = nil,
         loggedSets: [CompletedSet] = []
     ) {
         self.id = id
@@ -106,6 +114,8 @@ final class ActiveWorkout {
         self.runtimeStateData = runtimeStateData
         self.planData = planData
         self.positionData = positionData
+        self.updatedAt = updatedAt
+        self.deletedAt = deletedAt
         self.loggedSets = loggedSets
     }
 }
@@ -139,4 +149,12 @@ extension DraftProgram {
             sessions: sessionModels
         )
     }
+}
+
+extension ActiveWorkout {
+    var syncMetadata: SyncMetadata {
+        SyncMetadata(identifier: id, createdAt: startedAt, updatedAt: updatedAt, deletedAt: deletedAt)
+    }
+
+    func touch(now: Date = .now) { updatedAt = now }
 }

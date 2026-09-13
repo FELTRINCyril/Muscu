@@ -83,7 +83,7 @@ enum UITestSupport {
         "ExerciseRecord", "PersonalBest", "CustomExercise",
         "AthleteProfile", "BodyMeasurement", "ReadinessEntry", "HealthWorkoutLink",
         "TrainingPlan", "TrainingBlock", "TrainingWeek", "ScheduledWorkout",
-        "AdaptationEntry", "TrainingGoal",
+        "AdaptationEntry", "TrainingGoal", "SyncState",
     ]
 
     /// Vide TOUTES les entites utilisateur. Cette liste doit couvrir chaque
@@ -112,6 +112,7 @@ enum UITestSupport {
         deleteAll(ScheduledWorkout.self, in: context)
         deleteAll(AdaptationEntry.self, in: context)
         deleteAll(TrainingGoal.self, in: context)
+        deleteAll(SyncState.self, in: context)
         _ = PersistenceSupport.save(context, action: "Préparation des tests UI")
     }
 

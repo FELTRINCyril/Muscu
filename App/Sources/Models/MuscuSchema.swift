@@ -34,6 +34,7 @@ enum MuscuSchemaV3: VersionedSchema {
             ScheduledWorkout.self,
             AdaptationEntry.self,
             TrainingGoal.self,
+            SyncState.self,
         ]
     }
 }

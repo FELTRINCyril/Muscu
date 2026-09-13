@@ -53,6 +53,13 @@ struct SettingsView: View {
                     Label("Mes données", systemImage: "externaldrive")
                 }
                 .accessibilityIdentifier("settings.data")
+
+                NavigationLink {
+                    SyncStatusView()
+                } label: {
+                    Label("Synchronisation", systemImage: "icloud")
+                }
+                .accessibilityIdentifier("settings.sync")
             } footer: {
                 Text("Objectif, niveau, matériel, jours disponibles et charges réellement disponibles. Facultatif.")
             }
@@ -95,11 +102,19 @@ struct SettingsView: View {
                 ),
                 titleVisibility: .visible
             ) {
-                Button("Importer") { confirmImport() }
+                // Deux modes explicites : ajouter, ou remplacer. Le second
+                // efface des donnees, il est donc marque comme destructif et
+                // precede d'une sauvegarde de securite automatique.
+                Button("Fusionner") { confirmImport(mode: .merge) }
+                Button("Remplacer tout", role: .destructive) { confirmImport(mode: .replace) }
                 Button("Annuler", role: .cancel) { pendingImport = nil }
             } message: {
                 if let summary = pendingImport?.summary {
-                    Text(importSummaryMessage(summary, suffix: summary.hasActiveWorkout ? " Une séance en cours est aussi incluse." : ""))
+                    Text(
+                        importSummaryMessage(summary, suffix: summary.hasActiveWorkout ? " Une séance en cours est aussi incluse." : "")
+                            + "\n\nFusionner : " + ExportImport.ImportMode.merge.explanation
+                            + "\nRemplacer : " + ExportImport.ImportMode.replace.explanation
+                    )
                 }
             }
         }
@@ -260,14 +275,18 @@ struct SettingsView: View {
         }
     }
 
-    private func confirmImport() {
+    private func confirmImport(mode: ExportImport.ImportMode) {
         guard let pendingImport else { return }
         self.pendingImport = nil
         do {
-            let summary = try ExportImport.importAll(data: pendingImport.data, context: modelContext)
+            let result = try ExportImport.importAll(data: pendingImport.data, context: modelContext, mode: mode)
+            var suffix = result.summary.hasActiveWorkout ? " La séance en cours a été restaurée." : ""
+            if result.safetyBackup != nil {
+                suffix += " Une sauvegarde de sécurité de vos données précédentes a été créée sur cet appareil."
+            }
             importAlert = ImportAlert(
                 title: "Import réussi",
-                message: importSummaryMessage(summary, suffix: summary.hasActiveWorkout ? " La séance en cours a été restaurée." : "")
+                message: importSummaryMessage(result.summary, suffix: suffix)
             )
         } catch {
             importAlert = ImportAlert(title: "Échec de l'import", message: error.localizedDescription)

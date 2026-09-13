@@ -1,10 +1,17 @@
 import SwiftUI
 import SwiftData
 
-// Squelette de navigation principal : 5 onglets. La selection est portee ici
-// (et non dans chaque vue) car l'etat vide de l'Accueil doit pouvoir rediriger
-// vers l'onglet Programmes.
+// Squelette de navigation principal : 5 destinations. La selection est portee
+// ici (et non dans chaque vue) car l'etat vide de l'Accueil doit pouvoir
+// rediriger vers l'onglet Programmes.
+//
+// Navigation ADAPTATIVE : onglets en largeur compacte (iPhone), barre
+// laterale en largeur regulière (iPad, Mac Catalyst). Les deux presentations
+// affichent exactement les memes ecrans : aucune regle metier n'est dupliquee
+// par plateforme.
 struct RootTabView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
     @State private var selectedTab = 0
     @State private var appIssue: AppIssue?
 
@@ -34,54 +41,63 @@ struct RootTabView: View {
 
     private let startupError: String?
 
-    var body: some View {
-        TabView(selection: $selectedTab) {
-            HomeView(selectedTab: $selectedTab)
-                .tabItem {
-                    Label("Accueil", systemImage: "house.fill")
-                }
-                .tag(0)
+    /// Les cinq destinations, definies une seule fois et partagees par les
+    /// deux presentations.
+    enum Destination: Int, CaseIterable, Identifiable {
+        case home, programs, exercises, progress, settings
 
-            ProgramsView()
-                .tabItem {
-                    Label("Programmes", systemImage: "list.bullet.rectangle")
-                }
-                .tag(1)
+        var id: Int { rawValue }
 
-            ExercisesView()
-                .tabItem {
-                    Label("Exercices", systemImage: "dumbbell.fill")
-                }
-                .tag(2)
-
-            ProgressTabView()
-                .tabItem {
-                    Label("Progression", systemImage: "chart.line.uptrend.xyaxis")
-                }
-                .tag(3)
-
-            SettingsView()
-                .tabItem {
-                    Label("Réglages", systemImage: "gearshape.fill")
-                }
-                .tag(4)
+        var title: String {
+            switch self {
+            case .home: return "Accueil"
+            case .programs: return "Programmes"
+            case .exercises: return "Exercices"
+            case .progress: return "Progression"
+            case .settings: return "Réglages"
+            }
         }
-        .tint(Theme.accent)
-        .onReceive(NotificationCenter.default.publisher(for: .persistenceDidFail)) { notification in
+
+        var systemImage: String {
+            switch self {
+            case .home: return "house.fill"
+            case .programs: return "list.bullet.rectangle"
+            case .exercises: return "dumbbell.fill"
+            case .progress: return "chart.line.uptrend.xyaxis"
+            case .settings: return "gearshape.fill"
+            }
+        }
+
+        /// Raccourci clavier, utile sur iPad et Mac.
+        var keyboardShortcut: KeyEquivalent {
+            switch self {
+            case .home: return "1"
+            case .programs: return "2"
+            case .exercises: return "3"
+            case .progress: return "4"
+            case .settings: return "5"
+            }
+        }
+    }
+
+    var body: some View {
+        adaptiveNavigation
+            .tint(Theme.accent)
+            .onReceive(NotificationCenter.default.publisher(for: .persistenceDidFail)) { notification in
             let action = notification.userInfo?["action"] as? String ?? "Enregistrement"
             let details = notification.userInfo?["message"] as? String ?? "Erreur inconnue"
             appIssue = AppIssue(
                 title: "Données non enregistrées",
                 message: "\(action) a échoué. Aucune confirmation ne doit être considérée comme définitive.\n\n\(details)"
             )
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .restNotificationsDenied)) { _ in
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .restNotificationsDenied)) { _ in
             appIssue = AppIssue(
                 title: "Notifications désactivées",
                 message: "Le chrono fonctionne dans l’app, mais aucune alerte de fin de repos ne sera affichée lorsque Muscu est en arrière-plan. Vous pouvez les autoriser dans Réglages iOS."
             )
-        }
-        .alert(item: $appIssue) { issue in
+            }
+            .alert(item: $appIssue) { issue in
             if issue.offersStoreRecovery {
                 return Alert(
                     title: Text(issue.title),
@@ -97,13 +113,71 @@ struct RootTabView: View {
                 message: Text(issue.message),
                 dismissButton: .default(Text("OK"))
             )
-        }
-        .fileExporter(
+            }
+            .fileExporter(
             isPresented: $isExportingRecovery,
             document: recoveryDocument,
             contentType: .data,
             defaultFilename: recoveryFilename
-        ) { _ in }
+            ) { _ in }
+    }
+
+
+    // MARK: - Présentations
+
+    /// Onglets en compact, barre latérale en régulier.
+    @ViewBuilder
+    private var adaptiveNavigation: some View {
+        if horizontalSizeClass == .compact {
+            tabNavigation
+        } else {
+            sidebarNavigation
+        }
+    }
+
+    private var tabNavigation: some View {
+        TabView(selection: $selectedTab) {
+            ForEach(Destination.allCases) { destination in
+                screen(for: destination)
+                    .tabItem { Label(destination.title, systemImage: destination.systemImage) }
+                    .tag(destination.rawValue)
+            }
+        }
+    }
+
+    /// Barre latérale : même contenu, navigation au clavier et pointeur.
+    private var sidebarNavigation: some View {
+        NavigationSplitView {
+            List(Destination.allCases, selection: sidebarSelection) { destination in
+                NavigationLink(value: destination) {
+                    Label(destination.title, systemImage: destination.systemImage)
+                }
+                .keyboardShortcut(destination.keyboardShortcut, modifiers: .command)
+            }
+            .navigationTitle("Muscu")
+            .listStyle(.sidebar)
+        } detail: {
+            screen(for: Destination(rawValue: selectedTab) ?? .home)
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    private var sidebarSelection: Binding<Destination?> {
+        Binding(
+            get: { Destination(rawValue: selectedTab) },
+            set: { if let value = $0 { selectedTab = value.rawValue } }
+        )
+    }
+
+    @ViewBuilder
+    private func screen(for destination: Destination) -> some View {
+        switch destination {
+        case .home: HomeView(selectedTab: $selectedTab)
+        case .programs: ProgramsView()
+        case .exercises: ExercisesView()
+        case .progress: ProgressTabView()
+        case .settings: SettingsView()
+        }
     }
 
     /// Copie la base d'origine dans un dossier temporaire, puis propose de

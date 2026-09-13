@@ -791,7 +791,7 @@ enum ExportImport {
 
     // MARK: - Mapping modele -> DTO
 
-    private static func dto(from program: Program) -> ProgramDTO {
+    static func dto(from program: Program) -> ProgramDTO {
         ProgramDTO(
             id: program.id,
             name: program.name,
@@ -804,7 +804,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from session: ProgramSession) -> SessionDTO {
+    static func dto(from session: ProgramSession) -> SessionDTO {
         SessionDTO(
             id: session.id,
             name: session.name,
@@ -815,7 +815,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from group: ExerciseGroup) -> GroupDTO {
+    static func dto(from group: ExerciseGroup) -> GroupDTO {
         GroupDTO(
             id: group.id,
             kindRaw: group.kindRaw,
@@ -829,7 +829,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from exercise: PrescribedExercise) -> ExerciseDTO {
+    static func dto(from exercise: PrescribedExercise) -> ExerciseDTO {
         ExerciseDTO(
             id: exercise.id,
             exerciseId: exercise.exerciseId,
@@ -863,7 +863,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from session: CompletedSession) -> CompletedSessionDTO {
+    static func dto(from session: CompletedSession) -> CompletedSessionDTO {
         CompletedSessionDTO(
             id: session.id,
             date: session.date,
@@ -881,7 +881,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from set: CompletedSet) -> CompletedSetDTO {
+    static func dto(from set: CompletedSet) -> CompletedSetDTO {
         CompletedSetDTO(
             id: set.id,
             exerciseId: set.exerciseId,
@@ -910,7 +910,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from record: ExerciseRecord) -> RecordDTO {
+    static func dto(from record: ExerciseRecord) -> RecordDTO {
         RecordDTO(
             id: record.id,
             exerciseId: record.exerciseId,
@@ -921,7 +921,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from customExercise: CustomExercise) -> CustomExerciseDTO {
+    static func dto(from customExercise: CustomExercise) -> CustomExerciseDTO {
         CustomExerciseDTO(
             id: customExercise.id,
             name: customExercise.name,
@@ -937,7 +937,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from profile: AthleteProfile) -> ProfileDTO {
+    static func dto(from profile: AthleteProfile) -> ProfileDTO {
         ProfileDTO(
             id: profile.id,
             firstName: profile.firstName,
@@ -964,7 +964,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from measurement: BodyMeasurement) -> BodyMeasurementDTO {
+    static func dto(from measurement: BodyMeasurement) -> BodyMeasurementDTO {
         BodyMeasurementDTO(
             id: measurement.id,
             kindRaw: measurement.kindRaw,
@@ -978,7 +978,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from entry: ReadinessEntry) -> ReadinessEntryDTO {
+    static func dto(from entry: ReadinessEntry) -> ReadinessEntryDTO {
         ReadinessEntryDTO(
             id: entry.id,
             recordedAt: entry.recordedAt,
@@ -995,7 +995,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from best: PersonalBest) -> PersonalBestDTO {
+    static func dto(from best: PersonalBest) -> PersonalBestDTO {
         PersonalBestDTO(
             id: best.id,
             exerciseId: best.exerciseId,
@@ -1011,7 +1011,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from plan: TrainingPlan) -> TrainingPlanDTO {
+    static func dto(from plan: TrainingPlan) -> TrainingPlanDTO {
         TrainingPlanDTO(
             id: plan.id,
             name: plan.name,
@@ -1026,7 +1026,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from block: TrainingBlock) -> TrainingBlockDTO {
+    static func dto(from block: TrainingBlock) -> TrainingBlockDTO {
         TrainingBlockDTO(
             id: block.id,
             kindRaw: block.kindRaw,
@@ -1037,7 +1037,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from week: TrainingWeek) -> TrainingWeekDTO {
+    static func dto(from week: TrainingWeek) -> TrainingWeekDTO {
         TrainingWeekDTO(
             id: week.id,
             weekNumber: week.weekNumber,
@@ -1050,7 +1050,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from goal: TrainingGoal) -> GoalDTO {
+    static func dto(from goal: TrainingGoal) -> GoalDTO {
         GoalDTO(
             id: goal.id,
             title: goal.title,
@@ -1064,7 +1064,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from entry: AdaptationEntry) -> AdaptationDTO {
+    static func dto(from entry: AdaptationEntry) -> AdaptationDTO {
         AdaptationDTO(
             id: entry.id,
             createdAt: entry.createdAt,
@@ -1088,7 +1088,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from workout: ScheduledWorkout) -> ScheduledWorkoutDTO {
+    static func dto(from workout: ScheduledWorkout) -> ScheduledWorkoutDTO {
         ScheduledWorkoutDTO(
             id: workout.id,
             plannedDate: workout.plannedDate,
@@ -1100,7 +1100,7 @@ enum ExportImport {
         )
     }
 
-    private static func dto(from workout: ActiveWorkout) -> ActiveWorkoutDTO {
+    static func dto(from workout: ActiveWorkout) -> ActiveWorkoutDTO {
         ActiveWorkoutDTO(
             id: workout.id,
             startedAt: workout.startedAt,
@@ -1118,7 +1118,7 @@ enum ExportImport {
 
     // MARK: - Mapping DTO -> modele (UUID preserves, fusion idempotente)
 
-    private static func model(from dto: ProgramDTO) -> Program {
+    static func model(from dto: ProgramDTO) -> Program {
         let program = Program(
             id: dto.id,
             name: dto.name,
@@ -1134,7 +1134,7 @@ enum ExportImport {
         return program
     }
 
-    private static func model(from dto: SessionDTO) -> ProgramSession {
+    static func model(from dto: SessionDTO) -> ProgramSession {
         let session = ProgramSession(
             id: dto.id,
             name: dto.name,
@@ -1165,7 +1165,7 @@ enum ExportImport {
         return session
     }
 
-    private static func model(from dto: GroupDTO) -> ExerciseGroup {
+    static func model(from dto: GroupDTO) -> ExerciseGroup {
         ExerciseGroup(
             id: dto.id,
             kindRaw: dto.kindRaw,
@@ -1179,7 +1179,7 @@ enum ExportImport {
         )
     }
 
-    private static func model(from dto: ExerciseDTO) -> PrescribedExercise {
+    static func model(from dto: ExerciseDTO) -> PrescribedExercise {
         PrescribedExercise(
             id: dto.id,
             exerciseId: dto.exerciseId,
@@ -1212,7 +1212,7 @@ enum ExportImport {
         )
     }
 
-    private static func model(from dto: CompletedSessionDTO) -> CompletedSession {
+    static func model(from dto: CompletedSessionDTO) -> CompletedSession {
         let session = CompletedSession(
             id: dto.id,
             date: dto.date,
@@ -1235,7 +1235,7 @@ enum ExportImport {
         return session
     }
 
-    private static func model(from dto: CompletedSetDTO) -> CompletedSet {
+    static func model(from dto: CompletedSetDTO) -> CompletedSet {
         CompletedSet(
             id: dto.id,
             exerciseId: dto.exerciseId,
@@ -1264,7 +1264,7 @@ enum ExportImport {
         )
     }
 
-    private static func model(from dto: RecordDTO) -> ExerciseRecord {
+    static func model(from dto: RecordDTO) -> ExerciseRecord {
         ExerciseRecord(
             id: dto.id,
             exerciseId: dto.exerciseId,
@@ -1275,7 +1275,7 @@ enum ExportImport {
         )
     }
 
-    private static func model(from dto: CustomExerciseDTO) -> CustomExercise {
+    static func model(from dto: CustomExerciseDTO) -> CustomExercise {
         CustomExercise(
             id: dto.id,
             name: dto.name,
@@ -1291,7 +1291,7 @@ enum ExportImport {
         )
     }
 
-    private static func model(from dto: ProfileDTO) -> AthleteProfile {
+    static func model(from dto: ProfileDTO) -> AthleteProfile {
         AthleteProfile(
             id: dto.id,
             firstName: dto.firstName,
@@ -1318,7 +1318,7 @@ enum ExportImport {
         )
     }
 
-    private static func model(from dto: BodyMeasurementDTO) -> BodyMeasurement {
+    static func model(from dto: BodyMeasurementDTO) -> BodyMeasurement {
         BodyMeasurement(
             id: dto.id,
             kindRaw: dto.kindRaw,
@@ -1332,7 +1332,7 @@ enum ExportImport {
         )
     }
 
-    private static func model(from dto: ReadinessEntryDTO) -> ReadinessEntry {
+    static func model(from dto: ReadinessEntryDTO) -> ReadinessEntry {
         ReadinessEntry(
             id: dto.id,
             recordedAt: dto.recordedAt,
@@ -1349,7 +1349,7 @@ enum ExportImport {
         )
     }
 
-    private static func model(from dto: PersonalBestDTO) -> PersonalBest {
+    static func model(from dto: PersonalBestDTO) -> PersonalBest {
         PersonalBest(
             id: dto.id,
             exerciseId: dto.exerciseId,
@@ -1365,7 +1365,7 @@ enum ExportImport {
         )
     }
 
-    private static func model(from dto: GoalDTO) -> TrainingGoal {
+    static func model(from dto: GoalDTO) -> TrainingGoal {
         TrainingGoal(
             id: dto.id,
             title: dto.title,
@@ -1379,7 +1379,7 @@ enum ExportImport {
         )
     }
 
-    private static func model(from dto: AdaptationDTO) -> AdaptationEntry {
+    static func model(from dto: AdaptationDTO) -> AdaptationEntry {
         AdaptationEntry(
             id: dto.id,
             createdAt: dto.createdAt,
@@ -1403,7 +1403,7 @@ enum ExportImport {
         )
     }
 
-    private static func model(from dto: TrainingPlanDTO) -> TrainingPlan {
+    static func model(from dto: TrainingPlanDTO) -> TrainingPlan {
         let plan = TrainingPlan(
             id: dto.id,
             name: dto.name,
@@ -1455,7 +1455,7 @@ enum ExportImport {
         return plan
     }
 
-    private static func model(from dto: ActiveWorkoutDTO) -> ActiveWorkout {
+    static func model(from dto: ActiveWorkoutDTO) -> ActiveWorkout {
         let workout = ActiveWorkout(
             id: dto.id,
             startedAt: dto.startedAt,
