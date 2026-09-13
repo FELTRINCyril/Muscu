@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 @main
 struct MuscuApp: App {
@@ -30,6 +31,9 @@ struct MuscuApp: App {
             try DataIntegrityRepair.run(context: container.mainContext)
             self.container = container
             self.startupError = nil
+            self.notificationResponder = NotificationResponder(container: container)
+            UNUserNotificationCenter.current().delegate = self.notificationResponder
+            return
         } catch {
             // Ne jamais effacer le store automatiquement. Un conteneur
             // temporaire permet d'ouvrir l'app et d'expliquer le probleme;
@@ -37,8 +41,11 @@ struct MuscuApp: App {
             do {
                 let fallback = ModelConfiguration(isStoredInMemoryOnly: true)
                 let schema = Schema(versionedSchema: MuscuCurrentSchema.self)
-                self.container = try ModelContainer(for: schema, configurations: fallback)
+                let container = try ModelContainer(for: schema, configurations: fallback)
+                self.container = container
                 self.startupError = error.localizedDescription
+                self.notificationResponder = NotificationResponder(container: container)
+                UNUserNotificationCenter.current().delegate = self.notificationResponder
             } catch {
                 fatalError("Impossible d'ouvrir même le conteneur de secours: \(error)")
             }
@@ -47,6 +54,11 @@ struct MuscuApp: App {
 
     @State private var catalogStore = CatalogStore()
     @State private var networkStatus = NetworkStatus()
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// Delegue retenu par l'application : `UNUserNotificationCenter` ne
+    /// conserve qu'une reference faible a son delegue.
+    private let notificationResponder: NotificationResponder
 
     var body: some Scene {
         WindowGroup {
@@ -54,7 +66,26 @@ struct MuscuApp: App {
                 .preferredColorScheme(.dark)
                 .environment(catalogStore)
                 .environment(networkStatus)
+                .task { await refreshReminders() }
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name.NSSystemTimeZoneDidChange)) { _ in
+                    // Un changement de fuseau decale tous les rappels : on
+                    // recalcule au lieu de laisser des heures fausses.
+                    Task { await refreshReminders() }
+                }
         }
         .modelContainer(container)
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await refreshReminders() }
+        }
+    }
+
+    @MainActor
+    private func refreshReminders() async {
+        await ReminderService.refresh(
+            in: container.mainContext,
+            scheduler: AppServices.notificationScheduler,
+            catalog: catalogStore.catalog
+        )
     }
 }

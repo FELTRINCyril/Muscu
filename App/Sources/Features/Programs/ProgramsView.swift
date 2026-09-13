@@ -14,9 +14,33 @@ struct ProgramsView: View {
     @State private var showingGeneratorWizard = false
     @State private var programPendingDelete: Program?
 
+    /// Ouvre le programme demande par un raccourci Siri, une seule fois.
+    private func openRequestedProgram() {
+        guard case .program(let id)? = IntentRouter.shared.pending else { return }
+        _ = IntentRouter.shared.consume()
+        guard let program = programs.first(where: { $0.id == id && $0.deletedAt == nil }) else { return }
+        path.append(program)
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                Section {
+                    NavigationLink {
+                        PlanningView()
+                    } label: {
+                        Label("Planning", systemImage: "calendar")
+                    }
+                    .accessibilityIdentifier("programs.planning")
+
+                    NavigationLink {
+                        TemplatesView()
+                    } label: {
+                        Label("Modèles", systemImage: "square.on.square")
+                    }
+                    .accessibilityIdentifier("programs.templates")
+                }
+
                 if !plans.isEmpty {
                     Section("Plans") {
                         ForEach(plans) { plan in
@@ -82,6 +106,10 @@ struct ProgramsView: View {
             .scrollContentBackground(.hidden)
             .background(Theme.background)
             .navigationTitle("Programmes")
+            .onAppear(perform: openRequestedProgram)
+            // Un raccourci peut arriver alors que l'onglet est deja affiche :
+            // `onAppear` ne serait alors pas rappele.
+            .onChange(of: IntentRouter.shared.pending) { _, _ in openRequestedProgram() }
             .navigationDestination(for: Program.self) { program in
                 ProgramEditorView(program: program)
             }

@@ -91,8 +91,17 @@ struct WorkoutRunnerView: View {
                 }
             }
             .sheet(isPresented: $showingPicker) {
-                ExercisePickerView(initialMuscleFilter: currentPrimaryMuscle) { id, displayName in
-                    state.replaceExercise(exerciseId: id, displayName: displayName)
+                if let exercise = state.currentExercise {
+                    SubstitutionPickerView(
+                        currentExerciseId: exercise.exerciseId,
+                        prescriptionId: exercise.id
+                    ) { id, displayName in
+                        state.replaceExercise(exerciseId: id, displayName: displayName)
+                    }
+                } else {
+                    ExercisePickerView(initialMuscleFilter: currentPrimaryMuscle) { id, displayName in
+                        state.replaceExercise(exerciseId: id, displayName: displayName)
+                    }
                 }
             }
             .sheet(isPresented: $showingOverview) {
@@ -330,8 +339,12 @@ private struct SetEntryCard: View {
                     .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 VStack(spacing: 4) {
+                    // Identifiant stable : les tests d'exécution vérifient sur
+                    // QUEL exercice on se trouve sans avoir à parcourir tout
+                    // l'arbre d'accessibilité, ce qui est lent et fragile.
                     Text(exercise.displayName)
                         .font(.title3.weight(.semibold))
+                        .accessibilityIdentifier("workout.exerciseName")
                     Text(setLabel)
                         .font(.subheadline)
                         .foregroundStyle(Theme.accent)

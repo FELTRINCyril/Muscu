@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var downloadTotal = 0
     @State private var downloadResultMessage: String?
     @State private var showingClearCacheConfirmation = false
+    @State private var reminderMessage: String?
 
     @State private var exportDocument: ExportDocument?
     @State private var isExporting = false
@@ -60,10 +61,25 @@ struct SettingsView: View {
                     Label("Synchronisation", systemImage: "icloud")
                 }
                 .accessibilityIdentifier("settings.sync")
+
+                NavigationLink {
+                    PlacesView()
+                } label: {
+                    Label("Lieux et matériel", systemImage: "mappin.and.ellipse")
+                }
+                .accessibilityIdentifier("settings.places")
+
+                NavigationLink {
+                    CSVImportView()
+                } label: {
+                    Label("Importer un CSV", systemImage: "square.and.arrow.down")
+                }
+                .accessibilityIdentifier("settings.csvImport")
             } footer: {
                 Text("Objectif, niveau, matériel, jours disponibles et charges réellement disponibles. Facultatif.")
             }
 
+                remindersSection
                 chronoSection
                 imagesSection
                 dataSection
@@ -121,6 +137,38 @@ struct SettingsView: View {
     }
 
     // MARK: - Chrono
+
+    /// Interrupteur global des rappels de séance : un seul geste pour tout
+    /// couper, sans parcourir chaque récurrence.
+    private var remindersSection: some View {
+        Section {
+            Toggle("Rappels de séance", isOn: Binding(
+                get: { ReminderService.hasEnabledReminders(in: modelContext) },
+                set: { isOn in
+                    guard !isOn else { return }
+                    Task {
+                        let outcome = await ReminderService.disableAllReminders(
+                            in: modelContext,
+                            scheduler: AppServices.notificationScheduler
+                        )
+                        reminderMessage = "\(outcome.cancelled) rappel(s) annulé(s)."
+                    }
+                }
+            ))
+            .disabled(!ReminderService.hasEnabledReminders(in: modelContext))
+            .accessibilityIdentifier("settings.remindersGlobal")
+
+            if let reminderMessage {
+                Text(reminderMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Rappels")
+        } footer: {
+            Text("Les rappels s’activent récurrence par récurrence, dans Programmes → Planning → Récurrences. Cet interrupteur les coupe tous d’un coup ; Muscu fonctionne entièrement sans notifications.")
+        }
+    }
 
     private var chronoSection: some View {
         Section("Chrono") {

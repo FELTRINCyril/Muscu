@@ -61,6 +61,16 @@ final class CompletedSession {
     /// tracee par ce compteur et par `updatedAt`.
     var revision: Int = 1
 
+    // MARK: - Champs v4 (facultatifs, migration legere)
+
+    /// Lieu ou la seance a eu lieu. nil = non renseigne.
+    var placeId: UUID?
+    /// Origine de la seance quand elle vient d'un import (« Strong »,
+    /// « Hevy », « CSV »). Vide = saisie dans Muscu.
+    var importSource: String = ""
+    /// Cle de deduplication d'import. Vide hors import.
+    var importSignature: String = ""
+
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var deletedAt: Date?
@@ -77,6 +87,9 @@ final class CompletedSession {
         sessionName: String,
         durationSeconds: Int = 0,
         notes: String = "",
+        placeId: UUID? = nil,
+        importSource: String = "",
+        importSignature: String = "",
         scheduledWorkoutId: UUID? = nil,
         readinessEntryId: UUID? = nil,
         bodyweightKilograms: Double? = nil,
@@ -94,6 +107,9 @@ final class CompletedSession {
         self.sessionName = sessionName
         self.durationSeconds = durationSeconds
         self.notes = notes
+        self.placeId = placeId
+        self.importSource = importSource
+        self.importSignature = importSignature
         self.scheduledWorkoutId = scheduledWorkoutId
         self.readinessEntryId = readinessEntryId
         self.bodyweightKilograms = bodyweightKilograms

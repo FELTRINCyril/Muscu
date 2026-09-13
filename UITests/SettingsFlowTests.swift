@@ -40,7 +40,15 @@ final class SettingsFlowTests: XCTestCase {
         app.launchEmpty()
         selectTab(app, "Réglages", showing: "Réglages")
 
-        tapWhenReady(app.firstDescendant(labelContains: "Exporter mes données"))
+        // La section Données est plus bas dans l'écran depuis l'ajout des
+        // rappels : comme pour « À propos », il faut scroller jusqu'à elle,
+        // les lignes non affichées n'existant pas dans l'arbre
+        // d'accessibilité (rendu lazy).
+        let exportButton = app.firstDescendant(labelContains: "Exporter mes données")
+        for _ in 0..<6 where !exportButton.exists {
+            app.swipeUp()
+        }
+        tapWhenReady(exportButton)
 
         // Le fileExporter est une UI système : on tente juste de l'annuler si
         // elle apparaît, sans vérifier son contenu (hors périmètre). Le

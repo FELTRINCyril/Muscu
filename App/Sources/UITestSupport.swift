@@ -65,6 +65,10 @@ enum UITestSupport {
         let args = ProcessInfo.processInfo.arguments
         guard args.contains("--uitest-reset") else { return }
 
+        // Aucune demande d'autorisation systeme pendant les tests UI : une
+        // alerte de notification ou de calendrier bloquerait la suite.
+        AppServices.useInMemoryServices()
+
         let context = ModelContext(container)
         wipe(context: context)
 
@@ -84,6 +88,9 @@ enum UITestSupport {
         "AthleteProfile", "BodyMeasurement", "ReadinessEntry", "HealthWorkoutLink",
         "TrainingPlan", "TrainingBlock", "TrainingWeek", "ScheduledWorkout",
         "AdaptationEntry", "TrainingGoal", "SyncState",
+        "PlaceProfile", "PlanningSchedule", "NotificationRecord", "CalendarLink",
+        "SessionTemplate", "ExerciseLibraryEntry", "ExerciseCollection",
+        "ImportQuarantineEntry",
     ]
 
     /// Vide TOUTES les entites utilisateur. Cette liste doit couvrir chaque
@@ -113,6 +120,14 @@ enum UITestSupport {
         deleteAll(AdaptationEntry.self, in: context)
         deleteAll(TrainingGoal.self, in: context)
         deleteAll(SyncState.self, in: context)
+        deleteAll(PlaceProfile.self, in: context)
+        deleteAll(PlanningSchedule.self, in: context)
+        deleteAll(NotificationRecord.self, in: context)
+        deleteAll(CalendarLink.self, in: context)
+        deleteAll(SessionTemplate.self, in: context)
+        deleteAll(ExerciseLibraryEntry.self, in: context)
+        deleteAll(ExerciseCollection.self, in: context)
+        deleteAll(ImportQuarantineEntry.self, in: context)
         _ = PersistenceSupport.save(context, action: "Préparation des tests UI")
     }
 

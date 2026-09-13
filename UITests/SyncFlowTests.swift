@@ -32,7 +32,13 @@ final class SyncFlowTests: XCTestCase {
         app.launchSeeded()
 
         selectTab(app, "Réglages", showing: "Réglages")
-        waitAndAssert(app.firstDescendant(labelContains: "Exporter"), timeout: 15)
+        // Même raison que dans SettingsFlowTests : la section Données est
+        // rendue paresseusement, plus bas dans l'écran.
+        let exportLabel = app.firstDescendant(labelContains: "Exporter")
+        for _ in 0..<6 where !exportLabel.exists {
+            app.swipeUp()
+        }
+        waitAndAssert(exportLabel, timeout: 15)
     }
 }
 

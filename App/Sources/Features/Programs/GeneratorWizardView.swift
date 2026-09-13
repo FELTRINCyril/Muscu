@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import MuscuEngine
 
 // Questionnaire generateur : une question par ecran, gros boutons tappables,
@@ -10,6 +11,8 @@ struct GeneratorWizardView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(CatalogStore.self) private var catalogStore
 
+    @Query(sort: \PlaceProfile.name) private var places: [PlaceProfile]
+
     private static let totalSteps = 9
 
     @State private var step = 1
@@ -19,6 +22,8 @@ struct GeneratorWizardView: View {
     @State private var daysPerWeek: Int?
     @State private var sessionMinutes: Int?
     @State private var equipment: TrainingEquipment?
+    /// Lieu retenu pour la generation. nil = aucune restriction de lieu.
+    @State private var selectedPlaceId: UUID?
     @State private var splitPreference: SplitPreference = .auto
     @State private var priorityMuscles: Set<String> = []
     @State private var avoidAreas: Set<String> = []
@@ -165,7 +170,30 @@ struct GeneratorWizardView: View {
             optionCard("Salle complète", isSelected: equipment == .fullGym) { select(equipment: .fullGym) }
             optionCard("Maison avec matériel", isSelected: equipment == .homeGym) { select(equipment: .homeGym) }
             optionCard("Poids du corps", isSelected: equipment == .bodyweight) { select(equipment: .bodyweight) }
+
+            // Un lieu dont l'inventaire est renseigne RESTREINT la selection
+            // au materiel reellement disponible sur place. Sans lieu, rien
+            // n'est masque.
+            if !placesWithInventory.isEmpty {
+                Text("Limiter au matériel d’un lieu")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 8)
+
+                optionCard("Sans restriction de lieu", isSelected: selectedPlaceId == nil) {
+                    selectedPlaceId = nil
+                }
+                ForEach(placesWithInventory, id: \.id) { place in
+                    optionCard(place.name, isSelected: selectedPlaceId == place.id) {
+                        selectedPlaceId = place.id
+                    }
+                }
+            }
         }
+    }
+
+    private var placesWithInventory: [PlaceProfile] {
+        places.filter { $0.deletedAt == nil && !$0.inventory.isEmpty }
     }
 
     private var splitStep: some View {
@@ -315,7 +343,8 @@ struct GeneratorWizardView: View {
             equipment: equipment,
             splitPreference: splitPreference,
             priorityMuscles: Array(priorityMuscles),
-            avoidAreas: Array(avoidAreas)
+            avoidAreas: Array(avoidAreas),
+            inventory: selectedPlaceId.flatMap { id in placesWithInventory.first { $0.id == id }?.inventory }
         )
         draftInput = input
         do {

@@ -196,6 +196,101 @@ final class MigrationTests: XCTestCase {
         }
     }
 
+    // MARK: - V3 -> V4
+
+    /// Ecrit un store avec le schema V3 FIGE, puis l'ouvre avec le schema
+    /// courant. C'est le seul moyen de verifier l'etape V3 -> V4 telle
+    /// qu'elle se produira sur l'appareil d'un utilisateur deja a jour.
+    func testV3StoreMigratesToV4WithoutLoss() throws {
+        let url = temporaryDirectory.appendingPathComponent("v3-written.store")
+
+        do {
+            let container = try ModelContainer(
+                for: Schema(versionedSchema: MuscuSchemaV3.self),
+                configurations: ModelConfiguration(url: url)
+            )
+            let context = ModelContext(container)
+
+            let program = MuscuSchemaV3.Program(name: "Programme v3", notes: "Avant v4", isActive: true)
+            context.insert(program)
+
+            let session = MuscuSchemaV3.ProgramSession(name: "Séance A", orderIndex: 0)
+            session.program = program
+            context.insert(session)
+
+            let exercise = MuscuSchemaV3.PrescribedExercise(
+                exerciseId: "bench",
+                displayName: "Développé couché",
+                orderIndex: 0,
+                sets: 3,
+                repsLower: 8,
+                repsUpper: 10,
+                restSeconds: 90
+            )
+            exercise.session = session
+            context.insert(exercise)
+
+            let completed = MuscuSchemaV3.CompletedSession(
+                date: Date(timeIntervalSince1970: 1_700_000_000),
+                programName: "Programme v3",
+                sessionName: "Séance A",
+                durationSeconds: 3_600
+            )
+            context.insert(completed)
+
+            let plan = MuscuSchemaV3.TrainingPlan(name: "Plan v3")
+            context.insert(plan)
+            let block = MuscuSchemaV3.TrainingBlock(orderIndex: 0, name: "Accumulation")
+            block.plan = plan
+            context.insert(block)
+            let week = MuscuSchemaV3.TrainingWeek(weekNumber: 1)
+            week.block = block
+            context.insert(week)
+            let scheduled = MuscuSchemaV3.ScheduledWorkout(
+                plannedDate: Date(timeIntervalSince1970: 1_700_100_000),
+                displayName: "Séance A"
+            )
+            scheduled.week = week
+            context.insert(scheduled)
+
+            try context.save()
+        }
+
+        let container = try ModelContainer(
+            for: Schema(versionedSchema: MuscuCurrentSchema.self),
+            migrationPlan: MuscuMigrationPlan.self,
+            configurations: ModelConfiguration(url: url)
+        )
+        let context = ModelContext(container)
+
+        let program = try XCTUnwrap(try context.fetch(FetchDescriptor<Program>()).first)
+        XCTAssertEqual(program.name, "Programme v3")
+        XCTAssertEqual(program.notes, "Avant v4")
+        XCTAssertEqual(program.orderedSessions.first?.orderedExercises.first?.displayName, "Développé couché")
+
+        let completed = try XCTUnwrap(try context.fetch(FetchDescriptor<CompletedSession>()).first)
+        XCTAssertEqual(completed.durationSeconds, 3_600)
+        // Champs ajoutes en v4 : vides, jamais inventes.
+        XCTAssertNil(completed.placeId)
+        XCTAssertEqual(completed.importSource, "")
+
+        let scheduled = try XCTUnwrap(try context.fetch(FetchDescriptor<ScheduledWorkout>()).first)
+        XCTAssertEqual(scheduled.displayName, "Séance A")
+        XCTAssertNil(scheduled.placeId)
+        XCTAssertNil(scheduled.originalDate)
+
+        // Les modeles introduits en v4 existent et sont vides.
+        XCTAssertTrue(try context.fetch(FetchDescriptor<PlaceProfile>()).isEmpty)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<PlanningSchedule>()).isEmpty)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<SessionTemplate>()).isEmpty)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<ExerciseLibraryEntry>()).isEmpty)
+
+        let place = PlaceProfile(name: "Salle")
+        context.insert(place)
+        try context.save()
+        XCTAssertEqual(try context.fetch(FetchDescriptor<PlaceProfile>()).count, 1)
+    }
+
     /// Un store corrompu ne doit pas faire disparaitre le fichier d'origine :
     /// l'ouverture echoue proprement et les octets restent sur disque.
     func testCorruptedStoreFailsWithoutDestroyingTheFile() throws {

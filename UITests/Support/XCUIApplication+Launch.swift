@@ -221,6 +221,30 @@ extension XCTestCase {
         )
     }
 
+    /// Attend que le runner affiche l'exercice attendu.
+    ///
+    /// Vise l'identifiant du titre plutot qu'une recherche sur tout l'arbre
+    /// d'accessibilite : `descendants(matching: .any)` est lent et devient
+    /// peu fiable quand la suite complete tourne depuis longtemps.
+    func waitForRunnerExercise(
+        _ app: XCUIApplication,
+        nameContains text: String,
+        timeout: TimeInterval = 20,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let title = app.staticTexts["workout.exerciseName"]
+        let predicate = NSPredicate(format: "label CONTAINS[c] %@", text)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: title)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [expectation], timeout: timeout),
+            .completed,
+            "Le runner devrait afficher « \(text) », affiché : « \(title.exists ? title.label : "aucun titre")»",
+            file: file,
+            line: line
+        )
+    }
+
     /// Bascule d'onglet fiable. Un tap synthetise sur la tab bar peut se
     /// perdre quand l'app est encore en train de se stabiliser apres le
     /// lancement (reset/seed du store) : XCUITest ne signale alors aucune

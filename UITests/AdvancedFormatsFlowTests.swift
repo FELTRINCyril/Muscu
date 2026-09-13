@@ -22,13 +22,13 @@ final class AdvancedFormatsFlowTests: XCTestCase {
         // Le bandeau de groupe doit annoncer le type et le tour courant.
         waitAndAssert(app.staticTexts["Superset"], timeout: 45, "Le bandeau de superset devrait être affiché")
         waitAndAssert(app.staticTexts["Tour 1/2"])
-        waitAndAssert(app.firstDescendant(labelContains: "Pompes"))
+        waitForRunnerExercise(app, nameContains: "Pompes")
 
         tapWhenReady(app.buttons["Valider la série"], timeout: 30)
 
         // Pas de repos entre A1 et A2 (0 s configuré) : on doit arriver
         // directement sur le second exercice du même tour.
-        waitAndAssert(app.firstDescendant(labelContains: "Rowing"), timeout: 15)
+        waitForRunnerExercise(app, nameContains: "Rowing")
         waitAndAssert(app.staticTexts["Tour 1/2"])
         tapWhenReady(app.buttons["Valider la série"], timeout: 15)
 
@@ -36,12 +36,12 @@ final class AdvancedFormatsFlowTests: XCTestCase {
         waitForRestToFinish(app)
         waitAndAssert(app.staticTexts["Tour 2/2"], timeout: 20)
         tapWhenReady(app.buttons["Valider la série"], timeout: 15)
-        waitAndAssert(app.firstDescendant(labelContains: "Rowing"), timeout: 15)
+        waitForRunnerExercise(app, nameContains: "Rowing")
         tapWhenReady(app.buttons["Valider la série"], timeout: 15)
         waitForRestToFinish(app)
 
         // --- Dropset : série principale puis deux paliers ---
-        waitAndAssert(app.firstDescendant(labelContains: "Curl biceps"), timeout: 20)
+        waitForRunnerExercise(app, nameContains: "Curl biceps")
         tapWhenReady(app.buttons["Valider la série"], timeout: 15)
         waitAndAssert(app.staticTexts["Palier 1"], timeout: 15)
         tapWhenReady(app.buttons["Valider la série"], timeout: 15)
@@ -81,8 +81,7 @@ final class AdvancedFormatsFlowTests: XCTestCase {
         )
 
         // Sélection des deux exercices de la séance B via le menu contextuel.
-        selectExercise(app, labelContains: "Grimpeur")
-        selectExercise(app, labelContains: "Pompes")
+        selectExercises(app, labelsContaining: ["Grimpeur", "Pompes"])
 
         waitAndAssert(app.staticTexts["2 exercices sélectionnés"], timeout: 10)
         tapWhenReady(app.buttons["session.createGroup.superset"])
@@ -129,15 +128,66 @@ final class AdvancedFormatsFlowTests: XCTestCase {
         }
     }
 
-    private func selectExercise(_ app: XCUIApplication, labelContains text: String) {
+    /// Sélectionne deux exercices via leur menu contextuel, puis vérifie le
+    /// compteur. Réessaie la SÉQUENCE COMPLÈTE tant que le compteur n'est pas
+    /// là.
+    ///
+    /// Trois pièges, tous rencontrés sur cette suite :
+    /// 1. l'appui long peut se perdre s'il arrive pendant une transition ;
+    /// 2. l'item du menu précédent reste un instant dans l'arbre
+    ///    d'accessibilité : viser un élément simplement « existant » revient à
+    ///    taper un élément périmé, et la sélection ne se produit jamais ;
+    /// 3. un menu resté ouvert recouvre les lignes : l'appui long suivant
+    ///    échoue alors avec « Not hittable ».
+    /// D'où : on ferme tout menu ouvert avant chaque geste, on exige un
+    /// élément HITTABLE, et une ligne déjà sélectionnée n'est pas
+    /// re-basculée — on referme simplement son menu.
+    private func selectExercises(
+        _ app: XCUIApplication,
+        labelsContaining labels: [String],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let counter = app.staticTexts["\(labels.count) exercices sélectionnés"]
+
+        for _ in 0..<3 {
+            for label in labels {
+                dismissAnyContextMenu(app)
+                selectOne(app, labelContains: label)
+            }
+            dismissAnyContextMenu(app)
+            if counter.waitForExistence(timeout: 8) { return }
+        }
+
+        XCTFail("Sélection jamais enregistrée pour \(labels.joined(separator: ", "))", file: file, line: line)
+    }
+
+    private func selectOne(_ app: XCUIApplication, labelContains text: String) {
         // La cible du menu contextuel est le BOUTON de la ligne : un appui
         // long sur un texte qu'elle contient ne déclenche rien.
         let row = app.firstHittableButton(labelContains: text, timeout: 15)
-        waitAndAssert(row, timeout: 15)
+        guard row.exists, row.isHittable else { return }
         row.press(forDuration: 1.2)
-        let select = app.buttons["Sélectionner"]
-        waitAndAssert(select, timeout: 10, "Le menu contextuel devrait proposer Sélectionner")
-        select.tap()
+
+        let select = app.firstHittableButton(exactLabel: "Sélectionner", timeout: 6)
+        if select.exists, select.isHittable {
+            select.tap()
+            return
+        }
+        // Ligne déjà sélectionnée : le menu propose « Désélectionner ». On ne
+        // la bascule surtout pas, on referme le menu.
+        dismissAnyContextMenu(app)
+    }
+
+    /// Referme un menu contextuel ouvert en tapant en dehors de lui, sans
+    /// choisir d'action.
+    private func dismissAnyContextMenu(_ app: XCUIApplication) {
+        for _ in 0..<6 {
+            let isOpen = app.buttons["Sélectionner"].isHittable || app.buttons["Désélectionner"].isHittable
+            guard isOpen else { return }
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.04)).tap()
+            usleep(400_000)
+        }
     }
 
     private func dismissAnyRecordSuggestions(_ app: XCUIApplication) {

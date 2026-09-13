@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 import MuscuEngine
 
 // Fiche detaillee d'un exercice du catalogue.
@@ -7,6 +8,10 @@ struct ExerciseDetailView: View {
 
     @State private var currentImageIndex = 0
     @Environment(NetworkStatus.self) private var networkStatus
+    @Environment(CatalogStore.self) private var catalogStore
+    @Environment(\.modelContext) private var modelContext
+    @Query private var libraryEntries: [ExerciseLibraryEntry]
+    @Query(sort: \PlaceProfile.name) private var places: [PlaceProfile]
 
     var body: some View {
         ScrollView {
@@ -36,6 +41,10 @@ struct ExerciseDetailView: View {
                     instructionsSection
                 }
 
+                variantsSection
+
+                sourceSection
+
                 videoButton
             }
             .padding()
@@ -43,6 +52,83 @@ struct ExerciseDetailView: View {
         .background(Theme.background)
         .navigationTitle("Fiche exercice")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    LibraryStore.toggleFavorite(exercise.id, in: modelContext)
+                } label: {
+                    Image(systemName: isFavorite ? "star.fill" : "star")
+                }
+                .tint(.yellow)
+                .accessibilityLabel(isFavorite ? "Retirer des favoris" : "Ajouter aux favoris")
+                .accessibilityIdentifier("exercise.favorite")
+            }
+        }
+    }
+
+    private var isFavorite: Bool {
+        libraryEntries.contains { $0.exerciseId == exercise.id && $0.isFavorite && $0.deletedAt == nil }
+    }
+
+    private var personalTags: [String] {
+        libraryEntries.first { $0.exerciseId == exercise.id }.map { $0.tags.sorted() } ?? []
+    }
+
+    /// Variantes proches, CALCULEES depuis le catalogue (mêmes muscles
+    /// principaux, même type de mouvement). Aucune liste éditoriale n’est
+    /// inventée : ce qui est affiché est déductible des données présentes.
+    private var variants: [SubstitutionCandidate] {
+        let inventory = places
+            .first { $0.deletedAt == nil && $0.isDefault }?
+            .inventory ?? EquipmentInventory()
+        return SubstitutionFinder.candidates(
+            for: exercise,
+            in: catalogStore.all,
+            inventory: inventory,
+            level: exercise.level,
+            limit: 5
+        )
+    }
+
+    @ViewBuilder
+    private var variantsSection: some View {
+        let candidates = variants
+        if !candidates.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Variantes proches")
+                    .font(.headline)
+                ForEach(candidates) { candidate in
+                    NavigationLink {
+                        ExerciseDetailView(exercise: candidate.exercise)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(candidate.exercise.nameFr)
+                                .font(.subheadline)
+                            Text(candidate.reasons.first?.explanation ?? "")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    /// Origine et droits des contenus. Un média sans provenance connue n’a
+    /// rien à faire dans l’application.
+    private var sourceSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if !personalTags.isEmpty {
+                Text("Vos tags : " + personalTags.joined(separator: ", "))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text("Données et images : free-exercise-db (The Unlicense). Traductions françaises maintenues par Muscu. Aucun contenu n’est collecté ailleurs.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     private var imageView: some View {

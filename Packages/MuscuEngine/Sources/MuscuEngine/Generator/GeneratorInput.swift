@@ -28,6 +28,10 @@ public struct GeneratorInput: Codable, Equatable, Sendable {
     /// Exercices explicitement refuses par l'athlete. Le generateur ne les
     /// propose jamais, et le validateur refuse tout programme qui en contient.
     public var excludedExerciseIds: [String]
+    /// Inventaire du lieu ou la seance aura lieu. `nil` ou inventaire vide =
+    /// aucune contrainte supplementaire : on ne masque jamais d'exercice tant
+    /// que rien n'a ete declare.
+    public var inventory: EquipmentInventory?
 
     public init(
         goal: Goal,
@@ -38,7 +42,8 @@ public struct GeneratorInput: Codable, Equatable, Sendable {
         splitPreference: SplitPreference,
         priorityMuscles: [String],
         avoidAreas: [String],
-        excludedExerciseIds: [String] = []
+        excludedExerciseIds: [String] = [],
+        inventory: EquipmentInventory? = nil
     ) {
         self.goal = goal
         self.experience = experience
@@ -49,5 +54,6 @@ public struct GeneratorInput: Codable, Equatable, Sendable {
         self.priorityMuscles = priorityMuscles
         self.avoidAreas = avoidAreas
         self.excludedExerciseIds = excludedExerciseIds
+        self.inventory = inventory
     }
 }

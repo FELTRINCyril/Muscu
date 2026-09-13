@@ -14,12 +14,12 @@ import MuscuEngine
 // formats v1 et v2 (enveloppe plate) restent importables : ils sont decodes
 // vers le meme `Payload`.
 enum ExportImport {
-    static let currentVersion = 3
+    static let currentVersion = 4
     static let maximumImportBytes = 20 * 1_024 * 1_024
 
     // MARK: - Enveloppe
 
-    /// Enveloppe v3. `version` reste en tete pour qu'une version future
+    /// Enveloppe v4. `version` reste en tete pour qu'une version future
     /// puisse etre refusee avec un message precis sans decoder le reste.
     struct Envelope: Codable {
         var version: Int
@@ -40,8 +40,9 @@ enum ExportImport {
         static let checksumPrefix = "sha256:"
     }
 
-    /// Contenu reel de l'archive. Les champs ajoutes en v3 sont tous
-    /// optionnels afin qu'une archive v1/v2 se decode vers ce meme type.
+    /// Contenu reel de l'archive. Les champs ajoutes en v3 et v4 ont tous
+    /// une valeur par defaut afin qu'une archive v1, v2 ou v3 se decode vers
+    /// ce meme type sans traitement particulier.
     struct Payload: Codable {
         var programs: [ProgramDTO] = []
         var sessions: [CompletedSessionDTO] = []
@@ -56,6 +57,12 @@ enum ExportImport {
         var trainingPlans: [TrainingPlanDTO] = []
         var adaptations: [AdaptationDTO] = []
         var goals: [GoalDTO] = []
+        // Ajouts v4.
+        var places: [PlaceDTO] = []
+        var schedules: [ScheduleDTO] = []
+        var templates: [TemplateDTO] = []
+        var libraryEntries: [LibraryEntryDTO] = []
+        var collections: [CollectionDTO] = []
     }
 
     /// Enveloppe plate des versions 1 et 2, conservee en LECTURE SEULE.
@@ -455,6 +462,11 @@ enum ExportImport {
             "trainingPlans": payload.trainingPlans.count,
             "adaptations": payload.adaptations.count,
             "goals": payload.goals.count,
+            "places": payload.places.count,
+            "schedules": payload.schedules.count,
+            "templates": payload.templates.count,
+            "libraryEntries": payload.libraryEntries.count,
+            "collections": payload.collections.count,
             "activeWorkouts": payload.activeWorkout == nil ? 0 : 1,
             "profiles": payload.profile == nil ? 0 : 1,
         ]
@@ -479,6 +491,11 @@ enum ExportImport {
         let plans = try context.fetch(FetchDescriptor<TrainingPlan>())
         let adaptations = try context.fetch(FetchDescriptor<AdaptationEntry>())
         let goals = try context.fetch(FetchDescriptor<TrainingGoal>())
+        let places = try context.fetch(FetchDescriptor<PlaceProfile>())
+        let schedules = try context.fetch(FetchDescriptor<PlanningSchedule>())
+        let templates = try context.fetch(FetchDescriptor<SessionTemplate>())
+        let libraryEntries = try context.fetch(FetchDescriptor<ExerciseLibraryEntry>())
+        let collections = try context.fetch(FetchDescriptor<ExerciseCollection>())
 
         let payload = Payload(
             programs: programs.map(Self.dto(from:)),
@@ -497,7 +514,12 @@ enum ExportImport {
             personalBests: personalBests.map(Self.dto(from:)),
             trainingPlans: plans.map(Self.dto(from:)),
             adaptations: adaptations.map(Self.dto(from:)),
-            goals: goals.map(Self.dto(from:))
+            goals: goals.map(Self.dto(from:)),
+            places: places.map(Self.dto(from:)),
+            schedules: schedules.map(Self.dto(from:)),
+            templates: templates.map(Self.dto(from:)),
+            libraryEntries: libraryEntries.map(Self.dto(from:)),
+            collections: collections.map(Self.dto(from:))
         )
 
         // La somme de controle porte sur le payload encode de maniere
@@ -662,6 +684,31 @@ enum ExportImport {
 
             let existingGoalIds = Set(try context.fetch(FetchDescriptor<TrainingGoal>()).map(\.id))
             for dto in envelope.goals where !existingGoalIds.contains(dto.id) {
+                context.insert(model(from: dto))
+            }
+
+            let existingPlaceIds = Set(try context.fetch(FetchDescriptor<PlaceProfile>()).map(\.id))
+            for dto in envelope.places where !existingPlaceIds.contains(dto.id) {
+                context.insert(model(from: dto))
+            }
+
+            let existingScheduleIds = Set(try context.fetch(FetchDescriptor<PlanningSchedule>()).map(\.id))
+            for dto in envelope.schedules where !existingScheduleIds.contains(dto.id) {
+                context.insert(model(from: dto))
+            }
+
+            let existingTemplateIds = Set(try context.fetch(FetchDescriptor<SessionTemplate>()).map(\.id))
+            for dto in envelope.templates where !existingTemplateIds.contains(dto.id) {
+                context.insert(model(from: dto))
+            }
+
+            let existingLibraryIds = Set(try context.fetch(FetchDescriptor<ExerciseLibraryEntry>()).map(\.exerciseId))
+            for dto in envelope.libraryEntries where !existingLibraryIds.contains(dto.exerciseId) {
+                context.insert(model(from: dto))
+            }
+
+            let existingCollectionIds = Set(try context.fetch(FetchDescriptor<ExerciseCollection>()).map(\.id))
+            for dto in envelope.collections where !existingCollectionIds.contains(dto.id) {
                 context.insert(model(from: dto))
             }
 
@@ -1579,6 +1626,96 @@ enum ExportImport {
         }
 
         try validateVersionThreeEntities(envelope)
+        try validateVersionFourEntities(envelope)
+    }
+
+    // MARK: - Validation des entites v4
+
+    /// Meme exigence que pour les entites v3 : un fichier invalide est
+    /// refuse AVANT toute ecriture, et jamais partiellement applique.
+    private static func validateVersionFourEntities(_ envelope: Payload) throws {
+        try requireUnique(envelope.places.map(\.id), label: "identifiants de lieux")
+        try requireUnique(envelope.schedules.map(\.id), label: "identifiants de récurrences")
+        try requireUnique(envelope.templates.map(\.id), label: "identifiants de modèles")
+        try requireUnique(envelope.collections.map(\.id), label: "identifiants de collections")
+        try requireUnique(envelope.libraryEntries.map(\.exerciseId), label: "identifiants d’annotations")
+
+        guard envelope.places.count <= 200 else {
+            throw ImportError.invalidData("le nombre de lieux dépasse les limites de sécurité")
+        }
+        for place in envelope.places {
+            guard PlaceKind(rawValue: place.kindRaw) != nil else {
+                throw ImportError.invalidData("type de lieu inconnu")
+            }
+            try validateText(place.name, label: "nom de lieu", maximum: 200)
+            try validateText(place.notes, label: "notes de lieu", maximum: 2_000)
+            guard place.inventory.count <= 200 else {
+                throw ImportError.invalidData("inventaire de lieu trop volumineux")
+            }
+            for item in place.inventory {
+                try validateText(item.equipmentId, label: "matériel", maximum: 100, allowEmpty: false)
+                for value in [item.minimumLoad, item.maximumLoad, item.increment].compactMap({ $0 }) {
+                    guard value.isFinite, (0...10_000).contains(value) else {
+                        throw ImportError.invalidData("charge de matériel hors limites")
+                    }
+                }
+            }
+        }
+
+        guard envelope.schedules.count <= 200 else {
+            throw ImportError.invalidData("le nombre de récurrences dépasse les limites de sécurité")
+        }
+        for schedule in envelope.schedules {
+            try validateText(schedule.name, label: "nom de récurrence", maximum: 200)
+            guard schedule.weekdays.allSatisfy({ (1...7).contains($0) }) else {
+                throw ImportError.invalidData("jour de semaine invalide")
+            }
+            guard (0...23).contains(schedule.hour), (0...59).contains(schedule.minute) else {
+                throw ImportError.invalidData("heure de récurrence invalide")
+            }
+            guard (0...1_440).contains(schedule.reminderLeadMinutes),
+                  (0...365).contains(schedule.reminderComebackAfterDays),
+                  schedule.pausedWeekOffsets.count <= 520 else {
+                throw ImportError.invalidData("réglage de rappel hors limites")
+            }
+            if let endDate = schedule.endDate, endDate < schedule.startDate {
+                throw ImportError.invalidData("récurrence dont la fin précède le début")
+            }
+        }
+
+        guard envelope.templates.count <= 2_000 else {
+            throw ImportError.invalidData("le nombre de modèles dépasse les limites de sécurité")
+        }
+        for template in envelope.templates {
+            guard TemplateScope(rawValue: template.scopeRaw) != nil else {
+                throw ImportError.invalidData("portée de modèle inconnue")
+            }
+            try validateText(template.name, label: "nom de modèle", maximum: 200)
+            try validateText(template.notes, label: "notes de modèle", maximum: 2_000)
+            guard (template.payload?.sessions.count ?? 0) <= 100 else {
+                throw ImportError.invalidData("modèle trop volumineux")
+            }
+        }
+
+        guard envelope.libraryEntries.count <= 20_000 else {
+            throw ImportError.invalidData("le nombre d’annotations dépasse les limites de sécurité")
+        }
+        for entry in envelope.libraryEntries {
+            try validateText(entry.exerciseId, label: "identifiant d’exercice", maximum: 500, allowEmpty: false)
+            guard entry.tags.count <= 50 else { throw ImportError.invalidData("trop de tags") }
+            for tag in entry.tags { try validateText(tag, label: "tag", maximum: 100, allowEmpty: false) }
+        }
+
+        guard envelope.collections.count <= 500 else {
+            throw ImportError.invalidData("le nombre de collections dépasse les limites de sécurité")
+        }
+        for collection in envelope.collections {
+            try validateText(collection.name, label: "nom de collection", maximum: 200)
+            try validateText(collection.notes, label: "notes de collection", maximum: 2_000)
+            guard collection.exerciseIds.count <= 2_000 else {
+                throw ImportError.invalidData("collection trop volumineuse")
+            }
+        }
     }
 
     // MARK: - Validation des entites v3

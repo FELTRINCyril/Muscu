@@ -17,6 +17,9 @@ enum DataDeletion {
         case measurements
         case checkIns
         case goalsAndAdaptations
+        case planningAndReminders
+        case templates
+        case library
         case customExercises
         case profile
 
@@ -30,6 +33,9 @@ enum DataDeletion {
             case .measurements: return "Mesures corporelles"
             case .checkIns: return "Check-in de forme"
             case .goalsAndAdaptations: return "Objectifs et adaptations"
+            case .planningAndReminders: return "Lieux, planning récurrent et rappels"
+            case .templates: return "Modèles de séance"
+            case .library: return "Favoris, tags et collections"
             case .customExercises: return "Exercices personnalisés"
             case .profile: return "Profil"
             }
@@ -43,6 +49,9 @@ enum DataDeletion {
             case .measurements: return "Poids, mensurations et pourcentage de masse grasse."
             case .checkIns: return "Énergie, sommeil, courbatures, stress et douleurs déclarées."
             case .goalsAndAdaptations: return "Objectifs suivis et journal des adaptations."
+            case .planningAndReminders: return "Lieux et inventaires, récurrences, rappels programmés et liens vers l’app Calendrier. Les événements déjà créés dans Calendrier ne sont pas retirés : faites-le depuis le planning avant cette suppression."
+            case .templates: return "Modèles de séance et de programme enregistrés."
+            case .library: return "Exercices favoris, tags personnels et collections."
             case .customExercises: return "Exercices que vous avez créés."
             case .profile: return "Objectif, niveau, matériel, jours disponibles et mesures de référence."
             }
@@ -76,6 +85,7 @@ enum DataDeletion {
             report.countsByModel["séries"] = try deleteAll(CompletedSet.self, in: context)
             report.countsByModel["séances en cours"] = try deleteAll(ActiveWorkout.self, in: context)
             report.countsByModel["liens Santé"] = try deleteAll(HealthWorkoutLink.self, in: context)
+            report.countsByModel["lignes en quarantaine"] = try deleteAll(ImportQuarantineEntry.self, in: context)
 
         case .records:
             report.countsByModel["records"] = try deleteAll(ExerciseRecord.self, in: context)
@@ -100,6 +110,19 @@ enum DataDeletion {
         case .goalsAndAdaptations:
             report.countsByModel["objectifs"] = try deleteAll(TrainingGoal.self, in: context)
             report.countsByModel["adaptations"] = try deleteAll(AdaptationEntry.self, in: context)
+
+        case .planningAndReminders:
+            report.countsByModel["lieux"] = try deleteAll(PlaceProfile.self, in: context)
+            report.countsByModel["récurrences"] = try deleteAll(PlanningSchedule.self, in: context)
+            report.countsByModel["rappels"] = try deleteAll(NotificationRecord.self, in: context)
+            report.countsByModel["liens calendrier"] = try deleteAll(CalendarLink.self, in: context)
+
+        case .templates:
+            report.countsByModel["modèles"] = try deleteAll(SessionTemplate.self, in: context)
+
+        case .library:
+            report.countsByModel["annotations d’exercices"] = try deleteAll(ExerciseLibraryEntry.self, in: context)
+            report.countsByModel["collections"] = try deleteAll(ExerciseCollection.self, in: context)
 
         case .customExercises:
             report.countsByModel["exercices personnalisés"] = try deleteAll(CustomExercise.self, in: context)
@@ -138,6 +161,9 @@ enum DataDeletion {
         "BodyMeasurement", "ReadinessEntry",
         "TrainingGoal", "AdaptationEntry",
         "CustomExercise", "AthleteProfile", "SyncState",
+        "PlanningSchedule", "NotificationRecord", "CalendarLink",
+        "SessionTemplate", "ExerciseLibraryEntry", "ExerciseCollection",
+        "ImportQuarantineEntry", "PlaceProfile",
     ]
 
     private static func deleteAll<T: PersistentModel>(_ type: T.Type, in context: ModelContext) throws -> Int {

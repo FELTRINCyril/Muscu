@@ -17,6 +17,12 @@ targets:
       base:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+        # Acces Calendrier : FACULTATIF. L'application fonctionne entierement
+        # sans cette permission ; elle n'est demandee qu'au moment ou
+        # l'utilisateur exporte lui-meme une seance vers son calendrier.
+        INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: >-
+          Muscu ajoute vos séances planifiées au calendrier que vous choisissez,
+          et ne modifie que les événements qu’il a lui-même créés.
         CODE_SIGN_STYLE: Automatic
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"

@@ -29,6 +29,19 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   - **Plan** : calendrier des semaines et des séances datées, déplacement d'une
     séance et marquage (prévue, terminée, partielle, ignorée, reportée). Le
     planning ne modifie jamais l'historique déjà enregistré.
+  - **Planning jour / semaine / mois** : séances prévues et réalisées côte à
+    côte, chevauchements signalés sans jamais bloquer une décision volontaire,
+    et proposition de replanification d'une séance manquée — appliquée
+    uniquement après confirmation.
+  - **Récurrence hebdomadaire** : jours, heure, dates de début et de fin,
+    semaines de pause. L'heure reste l'heure locale : un changement de fuseau
+    ou d'heure d'été ne décale rien.
+  - **Rappels facultatifs** : avant la séance, le matin même, ou après une
+    période sans entraînement. Rien n'est programmé sans autorisation
+    explicite, et un rappel supprimé ne réapparaît jamais. Depuis la
+    notification : démarrer, reporter à demain ou ignorer.
+  - **Calendrier Apple** (facultatif) : export d'une séance vers le calendrier
+    choisi. Muscu ne modifie que les événements qu'il a créés.
   - **Avant la séance** : check-in facultatif (énergie, sommeil, courbatures,
     stress, douleur) et suggestion expliquée. Une douleur déclenche un message
     prudent invitant à consulter un professionnel — jamais un diagnostic.
@@ -58,6 +71,25 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   - **AMRAP** : un maximum de répétitions dans un temps donné.
   - **For Time** : travail fixe, temps mesuré, plafond de temps facultatif.
   - **Échauffement** : montée en charge automatique avant l'exercice principal.
+- **Lieux et matériel** : profils de lieu (domicile, salle, voyage,
+  personnalisé) avec inventaire, charges minimale et maximale et incrément.
+  Un inventaire vide ne masque rien. Les remplacements d'exercice proposés en
+  séance tiennent compte du matériel réellement disponible, et chaque
+  proposition cite ses raisons.
+- **Bibliothèque** : recherche tolérante aux accents et aux fautes simples,
+  filtres cumulables (muscle, matériel, catégorie, difficulté, tags, lieu),
+  favoris, tags personnels et collections. Les annotations personnelles vivent
+  à part du catalogue, qui reste en lecture seule.
+- **Modèles** : enregistrer une séance ou un programme comme modèle, y compris
+  depuis une séance terminée — sans recopier les charges ni les répétitions
+  réalisées. Duplication, versions, archivage et partage par fichier.
+- **Import / export inter-apps** : export CSV stable et documenté
+  ([docs/formats/csv.md](docs/formats/csv.md)), et import CSV avec assistant de
+  correspondance des colonnes, aperçu, détection des doublons et **quarantaine**
+  des lignes illisibles. Préréglages Strong et Hevy.
+- **Raccourcis et Siri** : démarrer la prochaine séance, ouvrir un programme ou
+  un exercice, enregistrer le poids corporel (avec confirmation), lancer un
+  minuteur de repos, afficher le résumé de la semaine.
 - **Saisie détaillée d'une série** (facultative, repliée par défaut) : effort
   ressenti (RIR), échec musculaire, commentaire, tempo et type de charge
   (externe, poids du corps, lesté, assisté) avec convention unilatérale.
@@ -174,13 +206,15 @@ App/
 Packages/
   MuscuEngine/       Package SPM : catalogue, générateur de programme, 1RM,
                      pyramide, intervalles, échauffement, règles du modèle v3
-                     (Domain/, Runner/, Programming/, Analytics/, Sync/)
-                     - 261 tests unitaires
+                     (Domain/, Runner/, Programming/, Analytics/, Sync/,
+                     Planning/, Places/, Library/, Interop/)
+                     - 344 tests unitaires
 Tests/
   Fixtures/          Stores SwiftData figés (migration) et exports v1/v2 (import)
 docs/
   roadmap/           Plan produit complet et plan d'exécution par phases
   decisions/         Journal des décisions d'architecture et de migration
+  formats/           Formats d'échange documentés (CSV d'export et d'import)
   configuration/     Étapes externes requises (conteneur iCloud, signature)
   superpowers/       Spécification de design et plan d'implémentation
   screenshots/       Captures d'écran utilisées dans ce README

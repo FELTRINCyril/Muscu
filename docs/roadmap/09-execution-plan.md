@@ -17,7 +17,7 @@ Mettre à jour cette liste uniquement après validation des critères de la phas
 - [x] Phase 4 — Profil, mesures et analyses
 - [~] Phase 5 — iCloud, iPad et Mac (iPad et Mac faits ; iCloud prêt mais non
       activable sans conteneur CloudKit — action externe requise)
-- [ ] Phase 6 — Planning, notifications, contenus et imports
+- [x] Phase 6 — Planning, notifications, contenus et imports
 - [ ] Phase 7 — Watch, widgets, Live Activities et HealthKit
 - [ ] Phase 8 — Coach IA sécurisé
 - [ ] Phase 9 — Accessibilité, performance, confidentialité et Release
@@ -237,6 +237,82 @@ Livrer planning interne, notifications, profils de lieux, bibliothèque, modèle
 CSV et EventKit/App Intents facultatifs.
 
 Jalon : une semaine peut être planifiée, déplacée, rappelée et exportée.
+
+### Réalisé (13/09/2026)
+
+**Modèle**
+
+- Schéma **v4** obtenu en FIGEANT d'abord le v3
+  (`App/Sources/Models/SchemaVersions/MuscuSchemaV3.swift`, 21 modèles copiés,
+  valeurs par défaut en littéral). Migration V3 → V4 légère : huit nouveaux
+  modèles et quelques attributs facultatifs, aucune donnée transformée.
+- Un test écrit un store avec le schéma v3 figé puis l'ouvre avec le schéma
+  courant : c'est la seule façon de vérifier l'étape telle qu'elle se produira
+  chez un utilisateur déjà à jour.
+- Export JSON **v4** (lieux, récurrences, modèles, favoris/tags, collections),
+  toujours capable de lire les archives v1, v2 et v3.
+
+**Moteur** (`MuscuEngine/Planning`, `Places`, `Library`, `Interop`)
+
+- `WeeklyRecurrence` / `RecurrenceExpander` : jours, bornes, semaines de pause.
+  L'expansion avance jour par jour AVEC le calendrier puis pose l'heure voulue ;
+  un calcul en secondes décalerait tout d'une heure au changement d'heure.
+- `ScheduleConflictDetector` (même jour, récupération insuffisante) et
+  `RescheduleAdvisor` (séances manquées, proposition expliquée).
+- `NotificationPlanner` : sans autorisation, le plan est VIDE — l'invariant est
+  vérifiable par un test. `reconcile` ne reprogramme jamais un rappel supprimé.
+- `EquipmentInventory` (charges praticables, inventaire vide permissif) et
+  `SubstitutionFinder` (classement déterministe, chaque proposition porte ses
+  raisons).
+- `TextMatching` (Damerau-Levenshtein) et `LibrarySearch` : recherche unique,
+  partagée par l'onglet Exercices, le remplacement en séance et Siri.
+- `CSVParser` (RFC 4180 étendu) et `CSVImportPlanner` (correspondance des
+  colonnes, préréglages Strong/Hevy, doublons, quarantaine).
+
+**Application**
+
+- Planning jour / semaine / mois, déplacement par balayage, menu contextuel ET
+  action d'accessibilité ; chevauchements signalés sans jamais bloquer ;
+  replanification des séances manquées uniquement après confirmation.
+- Récurrences avec rappels par récurrence, interrupteur global dans Réglages.
+- Échanges avec l'app Calendrier : export vers un calendrier choisi, retrait
+  des seuls événements créés par Muscu, import d'un créneau décrit par
+  l'utilisateur.
+- Lieux et inventaire ; substitutions classées et expliquées, appliquées au
+  programme uniquement après confirmation explicite.
+- Bibliothèque : recherche tolérante, filtres cumulables, favoris, tags,
+  collections.
+- Modèles de séance et de programme, création depuis une séance terminée
+  **sans** recopier les performances, duplication, versions, archivage,
+  partage par fichier.
+- Assistant d'import CSV avec aperçu, rapport et quarantaine consultable.
+- App Intents : prochaine séance, programme, exercice, poids corporel (avec
+  confirmation), minuteur de repos, résumé hebdomadaire ; phrases FR et EN.
+- Décision consignée : `docs/decisions/0006-planning-et-integrations.md`.
+  Format CSV documenté : `docs/formats/csv.md`.
+
+**Deux défauts réels trouvés par les tests et corrigés**
+
+- Le lecteur CSV ne découpait jamais un fichier Windows : Swift regroupe CR+LF
+  en UN SEUL `Character`, et la boucle ne voyait donc ni `\r` ni `\n`. Le
+  fichier entier était lu comme une seule ligne.
+- `ISO8601DateFormatter` avec `withFullDate` acceptait « 2026-01-05 18:00:00 »
+  en n'en lisant que la date : l'heure disparaissait en silence, au point de
+  casser la déduplication à l'import. Les formats explicites passent désormais
+  avant la date seule.
+
+**Une limite assumée, non contournée**
+
+La roadmap demande « erreurs fréquentes et variantes » par exercice. Les
+variantes sont CALCULÉES depuis le catalogue (mêmes muscles principaux, même
+type de mouvement) et affichées avec leur raison. Les erreurs fréquentes ne
+sont pas affichées : aucune source ne les fournit, et les inventer produirait
+un conseil technique fabriqué. Cela relève des contenus éditoriaux déjà listés
+comme dépendance externe.
+
+Résultats : MuscuEngine 347 tests verts, MuscuTests 195 tests verts,
+MuscuUITests 35 tests verts (1 ignoré, spécifique iPad), builds Debug **et**
+Release réussis sur iPhone, iPad et Mac Catalyst sans avertissement.
 
 ## Phase 7 — Écosystème Apple
 

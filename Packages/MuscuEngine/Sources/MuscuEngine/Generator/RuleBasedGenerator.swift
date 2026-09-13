@@ -146,6 +146,7 @@ public struct RuleBasedGenerator: ProgramGenerator, Sendable {
                 experience: input.experience,
                 avoidAreas: input.avoidAreas,
                 excluded: Set(input.excludedExerciseIds),
+                inventory: input.inventory,
                 used: used,
                 rotation: sessionIndex + slotIndex
             ) else { continue }
@@ -182,6 +183,7 @@ public struct RuleBasedGenerator: ProgramGenerator, Sendable {
         experience: Experience,
         avoidAreas: [String],
         excluded: Set<String>,
+        inventory: EquipmentInventory?,
         used: Set<String>,
         rotation: Int
     ) -> CatalogExercise? {
@@ -193,7 +195,8 @@ public struct RuleBasedGenerator: ProgramGenerator, Sendable {
                     equipment: equipment,
                     experience: experience,
                     avoidAreas: avoidAreas,
-                    excluded: excluded
+                    excluded: excluded,
+                    inventory: inventory
                 )
             }
             .sorted { Self.selectionScore($0, preferredCompound: preferCompound, experience: experience) < Self.selectionScore($1, preferredCompound: preferCompound, experience: experience) }
@@ -211,7 +214,8 @@ public struct RuleBasedGenerator: ProgramGenerator, Sendable {
         equipment: TrainingEquipment,
         experience: Experience,
         avoidAreas: [String],
-        excluded: Set<String>
+        excluded: Set<String>,
+        inventory: EquipmentInventory? = nil
     ) -> Bool {
         guard exercise.primaryMuscles.contains(muscle) else { return false }
         guard !excluded.contains(exercise.id) else { return false }
@@ -221,6 +225,10 @@ public struct RuleBasedGenerator: ProgramGenerator, Sendable {
         guard exercise.category == "strength" || exercise.category == "powerlifting" else { return false }
         guard exercise.equipment != "foam roll" else { return false }
         guard Self.isEquipmentAllowed(exercise.equipment, for: equipment) else { return false }
+        // L'inventaire du lieu RESTREINT, il n'elargit jamais : un materiel
+        // present sur place mais exclu par le niveau d'equipement choisi
+        // reste exclu.
+        if let inventory, !inventory.allows(equipment: exercise.equipment) { return false }
         guard Self.isLevelAllowed(exercise.level, for: experience) else { return false }
         if avoidAreas.contains(where: { Self.exercise(exercise, stresses: $0) }) { return false }
         return true

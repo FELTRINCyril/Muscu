@@ -28,6 +28,16 @@ struct RootTabView: View {
     @State private var isExportingRecovery = false
     @State private var recoveryFilename = "muscu-base-de-secours"
 
+    /// Chrono lance par un raccourci Siri, hors seance.
+    @State private var standaloneTimer: StandaloneRestTimer?
+
+    /// `RestTimer` est une classe d'etat, pas une valeur identifiable :
+    /// cette enveloppe donne a la presentation une identite stable.
+    private struct StandaloneRestTimer: Identifiable {
+        let id = UUID()
+        let timer: RestTimer
+    }
+
     init(startupError: String? = nil) {
         self.startupError = startupError
         if let startupError {
@@ -83,6 +93,14 @@ struct RootTabView: View {
     var body: some View {
         adaptiveNavigation
             .tint(Theme.accent)
+            .onAppear(perform: applyIntentRequests)
+            // Un raccourci peut arriver alors que l'application est deja
+            // ouverte : on reagit aussi au depot d'une demande.
+            .onChange(of: IntentRouter.shared.pending) { _, _ in applyIntentRequests() }
+            .onChange(of: RestTimerLauncher.shared.pendingSeconds) { _, _ in applyIntentRequests() }
+            .fullScreenCover(item: $standaloneTimer) { entry in
+                RestTimerView(timer: entry.timer)
+            }
             .onReceive(NotificationCenter.default.publisher(for: .persistenceDidFail)) { notification in
             let action = notification.userInfo?["action"] as? String ?? "Enregistrement"
             let details = notification.userInfo?["message"] as? String ?? "Erreur inconnue"
@@ -177,6 +195,37 @@ struct RootTabView: View {
         case .exercises: ExercisesView()
         case .progress: ProgressTabView()
         case .settings: SettingsView()
+        }
+    }
+
+    /// Applique les demandes deposees par les raccourcis Siri. Chaque
+    /// demande est consommee une fois : revenir en arriere ne relance donc
+    /// pas la meme navigation en boucle.
+    private func applyIntentRequests() {
+        if let destination = IntentRouter.shared.pending {
+            switch destination {
+            case .home:
+                selectedTab = Destination.home.rawValue
+                _ = IntentRouter.shared.consume()
+            case .program:
+                // Consommee par `ProgramsView`, qui seule connait sa pile de
+                // navigation. On se contente d'ouvrir l'onglet.
+                selectedTab = Destination.programs.rawValue
+            case .exercise:
+                // Consommee par `ExercisesView`, qui porte sa pile de
+                // navigation. On se contente d'ouvrir l'onglet.
+                selectedTab = Destination.exercises.rawValue
+            case .weeklySummary:
+                selectedTab = Destination.progress.rawValue
+                _ = IntentRouter.shared.consume()
+            }
+        }
+
+        if let seconds = RestTimerLauncher.shared.consume() {
+            let timer = RestTimer()
+            timer.onFinished = { standaloneTimer = nil }
+            timer.start(seconds: seconds)
+            standaloneTimer = StandaloneRestTimer(timer: timer)
         }
     }
 

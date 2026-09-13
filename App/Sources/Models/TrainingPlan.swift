@@ -252,6 +252,16 @@ final class ScheduledWorkout {
     var completedSessionId: UUID?
     var notes: String = ""
 
+    // MARK: - Champs v4 (facultatifs, migration legere)
+
+    /// Lieu prevu pour cette seance. nil = lieu par defaut du profil.
+    var placeId: UUID?
+    /// Recurrence qui a produit cette seance, le cas echeant.
+    var scheduleId: UUID?
+    /// Date d'origine avant un report. Conservee pour expliquer le
+    /// deplacement : « reportee du 3 au 5 » est plus utile que « le 5 ».
+    var originalDate: Date?
+
     var week: TrainingWeek?
 
     var createdAt: Date = Date()
@@ -266,6 +276,9 @@ final class ScheduledWorkout {
         stateRaw: String = ScheduledWorkoutState.planned.rawValue,
         completedSessionId: UUID? = nil,
         notes: String = "",
+        placeId: UUID? = nil,
+        scheduleId: UUID? = nil,
+        originalDate: Date? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         deletedAt: Date? = nil
@@ -277,6 +290,9 @@ final class ScheduledWorkout {
         self.stateRaw = stateRaw
         self.completedSessionId = completedSessionId
         self.notes = notes
+        self.placeId = placeId
+        self.scheduleId = scheduleId
+        self.originalDate = originalDate
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
