@@ -59,10 +59,13 @@ final class PlanningFlowTests: XCTestCase {
         // Le check-in est présent et facultatif ; une douleur déclarée doit
         // déclencher un message prudent, jamais un diagnostic.
         _ = scroll(app, to: app.staticTexts["Comment vous sentez-vous ?"])
-        _ = scrollToStepper(app, identifier: "prep.pain")
-        let increment = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS[c] %@ AND label CONTAINS[c] %@", "Douleur", "Increment")
-        ).firstMatch
+        let painStepper = scrollToStepper(app, identifier: "prep.pain")
+        // Les deux boutons d'un Stepper sont fournis par UIKit et portent un
+        // libellé SYSTEME (« Increment » / « Incrémenter » selon la langue).
+        // On les adresse donc par leur rang dans le stepper, jamais par leur
+        // texte : sinon le test dirait « vert » ou « rouge » selon la langue.
+        waitAndAssert(painStepper, timeout: 10, "Le stepper de douleur devrait être présent")
+        let increment = painStepper.buttons.element(boundBy: 1)
         waitAndAssert(increment, timeout: 10, "Le bouton d'incrément de la douleur devrait être présent")
         for _ in 0..<6 { increment.tap() }
 

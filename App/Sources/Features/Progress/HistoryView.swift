@@ -124,7 +124,7 @@ private struct SessionRow: View {
     }
 
     private var durationLabel: String {
-        "\(session.durationSeconds / 60) min"
+        String(localized: "\(session.durationSeconds / 60) min")
     }
 }
 

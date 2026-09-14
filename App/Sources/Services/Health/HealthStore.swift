@@ -23,13 +23,13 @@ enum HealthStoreError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .unavailable:
-            return "L’app Santé n’est pas disponible sur cet appareil. Muscu fonctionne normalement sans."
+            return String(localized: "L’app Santé n’est pas disponible sur cet appareil. Muscu fonctionne normalement sans.")
         case .notAuthorized:
-            return "L’accès à Santé n’a pas été accordé. Muscu fonctionne normalement sans."
+            return String(localized: "L’accès à Santé n’a pas été accordé. Muscu fonctionne normalement sans.")
         case .writeFailed(let detail):
-            return "Écriture dans Santé impossible : \(detail)"
+            return String(localized: "Écriture dans Santé impossible : \(detail)")
         case .notFound:
-            return "L’entraînement n’existe plus dans Santé."
+            return String(localized: "L’entraînement n’existe plus dans Santé.")
         }
     }
 }

@@ -13,8 +13,8 @@ enum CSVImportPolicy: String, CaseIterable, Identifiable, Sendable {
 
     var displayName: String {
         switch self {
-        case .skipDuplicates: return "Ignorer les doublons"
-        case .importAnyway: return "Importer quand même"
+        case .skipDuplicates: return String(localized: "Ignorer les doublons")
+        case .importAnyway: return String(localized: "Importer quand même")
         }
     }
 }

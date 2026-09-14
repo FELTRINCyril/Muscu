@@ -1,0 +1,192 @@
+{
+  "sourceLanguage": "fr",
+  "strings": {
+    "%@ kg": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kg"
+          }
+        }
+      }
+    },
+    "%lld répétitions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld repetitions"
+          }
+        }
+      }
+    },
+    "%lld séance(s) en attente d’envoi": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld workout(s) waiting to be sent"
+          }
+        }
+      }
+    },
+    "Aucune séance connue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No known workout"
+          }
+        }
+      }
+    },
+    "Cette semaine": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This week"
+          }
+        }
+      }
+    },
+    "Elles partiront dès que l’iPhone sera joignable. Rien n’est perdu.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "They will go out as soon as the iPhone can be reached. Nothing is lost."
+          }
+        }
+      }
+    },
+    "Enregistré": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recorded"
+          }
+        }
+      }
+    },
+    "Envoyée": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sent"
+          }
+        }
+      }
+    },
+    "La séance part vers l’iPhone. Elle n’y sera ajoutée qu’une seule fois, même si l’envoi est rejoué.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The workout goes to the iPhone. It will be added there only once, even if the transfer is replayed."
+          }
+        }
+      }
+    },
+    "La séance sera envoyée à l’iPhone, qui la conservera dans l’historique.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The workout will be sent to the iPhone, which will keep it in the history."
+          }
+        }
+      }
+    },
+    "Muscu": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muscu"
+          }
+        }
+      }
+    },
+    "Ouvrez Muscu sur l’iPhone pour transmettre votre programme.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Muscu on the iPhone to send your program over."
+          }
+        }
+      }
+    },
+    "Prochaine séance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next workout"
+          }
+        }
+      }
+    },
+    "Séance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workout"
+          }
+        }
+      }
+    },
+    "Série %lld · %@ kg × %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set %lld · %@ kg × %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Série %1$lld · %2$@ kg × %3$lld"
+          }
+        }
+      }
+    },
+    "Séries": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sets"
+          }
+        }
+      }
+    },
+    "Terminer et envoyer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish and send"
+          }
+        }
+      }
+    },
+    "Valider la série": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm the set"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

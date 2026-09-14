@@ -10,12 +10,12 @@ enum PhotoStoreError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unreadableImage:
-            return "Cette image n’a pas pu être lue."
+            return String(localized: "Cette image n’a pas pu être lue.")
         case .tooLarge(let bytes):
             let megabytes = Double(bytes) / 1_048_576
-            return String(format: "L’image dépasse la limite de %.0f Mo.", megabytes)
+            return String(format: String(localized: "L’image dépasse la limite de %.0f Mo."), megabytes)
         case .writeFailed(let reason):
-            return "Enregistrement impossible : \(reason)"
+            return String(localized: "Enregistrement impossible : \(reason)")
         }
     }
 }

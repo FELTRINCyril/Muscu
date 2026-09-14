@@ -27,7 +27,7 @@ enum BackupService {
         var errorDescription: String? {
             switch self {
             case .exportFailed(let details):
-                return "La sauvegarde de sécurité n'a pas pu être créée : \(details)"
+                return String(localized: "La sauvegarde de sécurité n'a pas pu être créée : \(details)")
             }
         }
     }
@@ -90,17 +90,17 @@ extension ExportImport {
 
         var displayName: String {
             switch self {
-            case .merge: return "Fusionner"
-            case .replace: return "Remplacer"
+            case .merge: return String(localized: "Fusionner")
+            case .replace: return String(localized: "Remplacer")
             }
         }
 
         var explanation: String {
             switch self {
             case .merge:
-                return "Ajoute ce qui manque sans toucher à vos données actuelles. Réimporter deux fois le même fichier ne crée aucun doublon."
+                return String(localized: "Ajoute ce qui manque sans toucher à vos données actuelles. Réimporter deux fois le même fichier ne crée aucun doublon.")
             case .replace:
-                return "Efface les données de cet appareil et les remplace par celles du fichier. Une sauvegarde de sécurité est créée avant."
+                return String(localized: "Efface les données de cet appareil et les remplace par celles du fichier. Une sauvegarde de sécurité est créée avant.")
             }
         }
     }

@@ -96,11 +96,12 @@ struct IntervalRunnerView: View {
 
                 if let segment = controller.currentSegment {
                     Text(segment.kind == .work ? "EFFORT" : "REPOS")
-                        .font(.system(size: 44, weight: .black))
+                        .scaledSystemFont(size: 44, weight: .black)
+                        .minimumScaleFactor(0.5)
                         .foregroundStyle(segment.kind == .work ? Theme.accent : .blue)
 
                     Text(formattedTime(controller.isPaused ? Int(controller.pausedRemaining.rounded(.up)) : controller.remaining))
-                        .font(Theme.timerFont)
+                        .timerFont()
                         .monospacedDigit()
                         .foregroundStyle(.white)
 
@@ -155,10 +156,11 @@ struct IntervalRunnerView: View {
                         persistRuntime()
                     } label: {
                         Image(systemName: "minus.circle.fill")
-                            .font(.system(size: 36))
+                            .scaledSystemFont(size: 36, relativeTo: .title)
                     }
                     Text("\(totalReps)")
-                        .font(.system(size: 44, weight: .bold))
+                        .scaledSystemFont(size: 44, weight: .bold)
+                        .minimumScaleFactor(0.5)
                         .monospacedDigit()
                         .frame(minWidth: 100)
                     Button {
@@ -166,7 +168,7 @@ struct IntervalRunnerView: View {
                         persistRuntime()
                     } label: {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 36))
+                            .scaledSystemFont(size: 36, relativeTo: .title)
                     }
                 }
                 .foregroundStyle(Theme.accent)

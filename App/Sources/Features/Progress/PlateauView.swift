@@ -60,8 +60,8 @@ struct PlateauView: View {
 
     private var emptyMessage: String {
         completedSets.isEmpty
-            ? "Aucune séance enregistrée : il n’y a encore rien à comparer."
-            : "Aucune stagnation détectée sur les exercices de vos programmes."
+            ? String(localized: "Aucune séance enregistrée : il n’y a encore rien à comparer.")
+            : String(localized: "Aucune stagnation détectée sur les exercices de vos programmes.")
     }
 
     private func row(_ item: PlateauReview.Item) -> some View {

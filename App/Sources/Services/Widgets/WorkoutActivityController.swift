@@ -1,6 +1,10 @@
 import Foundation
-import ActivityKit
 import MuscuEngine
+// ActivityKit se compile sur Mac Catalyst mais chacun de ses symboles y est
+// marque indisponible : seul `targetEnvironment` distingue les deux cas.
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
+import ActivityKit
+#endif
 
 /// Pilote la Live Activity d'une séance en cours.
 ///
@@ -20,11 +24,13 @@ enum WorkoutActivityController {
 
     private static var currentIdentifier: String?
 
+    static var isRunning: Bool { currentIdentifier != nil }
+
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
+
     static var isSupported: Bool {
         ActivityAuthorizationInfo().areActivitiesEnabled
     }
-
-    static var isRunning: Bool { currentIdentifier != nil }
 
     @discardableResult
     static func start(sessionName: String, state: WorkoutActivityState, now: Date = .now) -> Bool {
@@ -100,4 +106,28 @@ enum WorkoutActivityController {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
     }
+
+#else
+
+    /// Mac Catalyst n'a pas de Live Activities. L'application y tourne sans,
+    /// et la séance se déroule exactement de la même manière : le contrôleur
+    /// répond simplement qu'il n'est pas disponible.
+    static var isSupported: Bool { false }
+
+    @discardableResult
+    static func start(sessionName: String, state: WorkoutActivityState, now: Date = .now) -> Bool {
+        false
+    }
+
+    static func update(_ state: WorkoutActivityState, now: Date = .now) async {}
+
+    static func end(finalState: WorkoutActivityState? = nil) async {
+        currentIdentifier = nil
+    }
+
+    static func endOrphans() async {
+        currentIdentifier = nil
+    }
+
+#endif
 }

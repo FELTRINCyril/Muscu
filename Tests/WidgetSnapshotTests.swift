@@ -53,7 +53,9 @@ final class WidgetSnapshotTests: XCTestCase {
     func testTheAppGroupContainerIsReachable() throws {
         XCTAssertNotNil(
             AppGroup.containerURL,
-            "Sans conteneur partagé, aucun widget ne peut lire quoi que ce soit"
+            "Conteneur « \(AppGroup.identifier) » introuvable : l’entitlement de groupe "
+            + "d’applications est absent du binaire de test. C’est le cas si la compilation "
+            + "a été faite avec CODE_SIGNING_ALLOWED=NO, qui retire les entitlements."
         )
     }
 

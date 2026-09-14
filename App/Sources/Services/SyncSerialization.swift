@@ -73,7 +73,7 @@ enum SyncSerialization {
         var errorDescription: String? {
             switch self {
             case .unsupportedKind(let kind):
-                return "Type d’entité non pris en charge par la synchronisation : \(kind.rawValue)."
+                return String(localized: "Type d’entité non pris en charge par la synchronisation : \(kind.rawValue).")
             }
         }
     }

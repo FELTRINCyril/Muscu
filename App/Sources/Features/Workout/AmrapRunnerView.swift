@@ -38,7 +38,7 @@ struct AmrapRunnerView: View {
                     }
 
                     Text(formattedTime(remaining))
-                        .font(Theme.timerFont)
+                        .timerFont()
                         .monospacedDigit()
                         .foregroundStyle(isFinished ? .secondary : Theme.accent)
 
@@ -100,7 +100,8 @@ struct AmrapRunnerView: View {
     private var counterCard: some View {
         VStack(spacing: 12) {
             Text("\(counter)")
-                .font(.system(size: 96, weight: .black))
+                .scaledSystemFont(size: 96, weight: .black)
+                .minimumScaleFactor(0.4)
                 .monospacedDigit()
                 .foregroundStyle(.white)
             Text("répétitions")

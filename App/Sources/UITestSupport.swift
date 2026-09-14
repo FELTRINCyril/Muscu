@@ -78,6 +78,7 @@ enum UITestSupport {
         AICoachLog.clear()
         HealthSettings.reset()
         WidgetSnapshotStore.clear()
+        DiagnosticsCenter.reset()
 
         let context = ModelContext(container)
         wipe(context: context)

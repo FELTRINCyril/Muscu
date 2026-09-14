@@ -176,10 +176,10 @@ struct SetLoggerView: View {
 
     private var validateTitle: String {
         switch role {
-        case .working: return "Valider la série"
-        case .warmup: return "Enregistrer l’échauffement"
-        case .approach: return "Enregistrer l’approche"
-        case .backoff: return "Enregistrer le back-off"
+        case .working: return String(localized: "Valider la série")
+        case .warmup: return String(localized: "Enregistrer l’échauffement")
+        case .approach: return String(localized: "Enregistrer l’approche")
+        case .backoff: return String(localized: "Enregistrer le back-off")
         }
     }
 
@@ -220,18 +220,18 @@ struct SetLoggerView: View {
             HStack(spacing: 24) {
                 Button(action: onDecrement) {
                     Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 36))
+                        .scaledSystemFont(size: 36, relativeTo: .title)
                 }
 
                 HStack(spacing: 4) {
                     field()
-                        .font(.system(size: 34, weight: .bold))
+                        .scaledSystemFont(size: 34, weight: .bold, relativeTo: .title)
                         .monospacedDigit()
                         .multilineTextAlignment(.center)
                         .frame(minWidth: 80)
                     if let suffix {
                         Text(suffix)
-                            .font(.system(size: 20, weight: .semibold))
+                            .scaledSystemFont(size: 20, weight: .semibold, relativeTo: .body)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -239,7 +239,7 @@ struct SetLoggerView: View {
 
                 Button(action: onIncrement) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 36))
+                        .scaledSystemFont(size: 36, relativeTo: .title)
                 }
             }
             .foregroundStyle(Theme.accent)

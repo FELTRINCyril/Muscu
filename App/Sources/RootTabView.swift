@@ -60,11 +60,11 @@ struct RootTabView: View {
 
         var title: String {
             switch self {
-            case .home: return "Accueil"
-            case .programs: return "Programmes"
-            case .exercises: return "Exercices"
-            case .progress: return "Progression"
-            case .settings: return "Réglages"
+            case .home: return String(localized: "Accueil")
+            case .programs: return String(localized: "Programmes")
+            case .exercises: return String(localized: "Exercices")
+            case .progress: return String(localized: "Progression")
+            case .settings: return String(localized: "Réglages")
             }
         }
 

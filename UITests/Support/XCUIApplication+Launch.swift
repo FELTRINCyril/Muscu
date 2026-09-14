@@ -6,9 +6,28 @@ import XCTest
 // (cote app, #if DEBUG) pour le detail du seed.
 @MainActor
 extension XCUIApplication {
+    /// Langue forcee pour toute la suite. Les tests verifient des libelles
+    /// francais : sans ce forcage, la suite passerait ou echouerait selon la
+    /// langue de la machine, ce qui n'est pas un test.
+    private static let frenchArguments = [
+        "-AppleLanguages", "(fr)",
+        "-AppleLocale", "fr_FR",
+    ]
+
     /// Store SwiftData entierement vide (aucun programme, aucun historique).
     func launchEmpty() {
-        launchArguments = ["--uitest-reset"]
+        launchArguments = ["--uitest-reset"] + Self.frenchArguments
+        launch()
+    }
+
+    /// Meme chose, dans la langue demandee. Sert a verifier que l'anglais
+    /// est reellement livre, et pas seulement traduit dans le catalogue.
+    func launchEmpty(language: String, locale: String) {
+        launchArguments = [
+            "--uitest-reset",
+            "-AppleLanguages", "(\(language))",
+            "-AppleLocale", locale,
+        ]
         launch()
     }
 
@@ -16,7 +35,7 @@ extension XCUIApplication {
     /// pyramide, Séance B intervalles + AMRAP), 1 séance dans l'historique,
     /// 2 records, 1 exercice perso. Cf. UITestSupport.seed pour le detail.
     func launchSeeded() {
-        launchArguments = ["--uitest-reset", "--uitest-seed"]
+        launchArguments = ["--uitest-reset", "--uitest-seed"] + Self.frenchArguments
         launch()
     }
 }

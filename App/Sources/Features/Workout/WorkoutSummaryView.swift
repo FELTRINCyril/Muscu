@@ -268,14 +268,14 @@ private struct RecordSuggestionCard: View {
         switch suggestion.kind {
         case .oneRepMax(let new, let old):
             if let old {
-                return "\(WorkoutState.formatWeight(old)) kg -> \(WorkoutState.formatWeight(new)) kg"
+                return String(localized: "\(WorkoutState.formatWeight(old)) kg -> \(WorkoutState.formatWeight(new)) kg")
             }
-            return "1RM estimé : \(WorkoutState.formatWeight(new)) kg"
+            return String(localized: "1RM estimé : \(WorkoutState.formatWeight(new)) kg")
         case .maxReps(let new, let old):
             if let old {
-                return "\(old) -> \(new) répétitions"
+                return String(localized: "\(old) -> \(new) répétitions")
             }
-            return "\(new) répétitions"
+            return String(localized: "\(new) répétitions")
         }
     }
 }

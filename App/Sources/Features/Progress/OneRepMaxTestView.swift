@@ -80,9 +80,9 @@ struct OneRepMaxTestView: View {
 
     private var unavailableMessage: String {
         guard let reference else {
-            return "Aucune référence connue pour « \(displayName) ». Enregistrez d’abord quelques séries : l’estimation issue de vos performances sert de base au protocole."
+            return String(localized: "Aucune référence connue pour « \(displayName) ». Enregistrez d’abord quelques séries : l’estimation issue de vos performances sert de base au protocole.")
         }
-        return "La référence connue (\(WeightFormatter.number(reference)) kg) est trop faible pour justifier un test maximal : la montée en charge n’aurait pas assez de paliers."
+        return String(localized: "La référence connue (\(WeightFormatter.number(reference)) kg) est trop faible pour justifier un test maximal : la montée en charge n’aurait pas assez de paliers.")
     }
 
     private var protocolSection: some View {

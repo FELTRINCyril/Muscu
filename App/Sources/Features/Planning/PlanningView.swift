@@ -15,9 +15,9 @@ struct PlanningView: View {
 
         var title: String {
             switch self {
-            case .day: return "Jour"
-            case .week: return "Semaine"
-            case .month: return "Mois"
+            case .day: return String(localized: "Jour")
+            case .week: return String(localized: "Semaine")
+            case .month: return String(localized: "Mois")
             }
         }
     }
@@ -426,7 +426,7 @@ struct PlanningView: View {
         case .day: return Self.longDate.string(from: anchor).capitalized
         case .week:
             guard let first = weekDays.first, let last = weekDays.last else { return "" }
-            return "\(Self.shortDate.string(from: first)) – \(Self.shortDate.string(from: last))"
+            return String(localized: "\(Self.shortDate.string(from: first)) – \(Self.shortDate.string(from: last))")
         case .month: return Self.month.string(from: anchor).capitalized
         }
     }

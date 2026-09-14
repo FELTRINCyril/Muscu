@@ -172,10 +172,10 @@ struct TrainingPlanView: View {
 
     private var statusLabel: String {
         switch plan.status {
-        case .draft: return "Brouillon"
-        case .active: return "En cours"
-        case .completed: return "Terminé"
-        case .archived: return "Archivé"
+        case .draft: return String(localized: "Brouillon")
+        case .active: return String(localized: "En cours")
+        case .completed: return String(localized: "Terminé")
+        case .archived: return String(localized: "Archivé")
         }
     }
 

@@ -429,32 +429,32 @@ struct ExercisePrescriptionRow: View {
         switch exercise.format {
         case .classic:
             if let percentMaxReps = exercise.percentMaxReps {
-                return "\(exercise.sets) x \(Int(percentMaxReps)) % max reps - repos \(exercise.restSeconds) s"
+                return String(localized: "\(exercise.sets) x \(Int(percentMaxReps)) % max reps - repos \(exercise.restSeconds) s")
             }
             let reps = exercise.repsLower == exercise.repsUpper
-                ? "\(exercise.repsLower)"
-                : "\(exercise.repsLower)-\(exercise.repsUpper)"
-            return "\(exercise.sets) x \(reps) - repos \(exercise.restSeconds) s"
+                ? String(localized: "\(exercise.repsLower)")
+                : String(localized: "\(exercise.repsLower)-\(exercise.repsUpper)")
+            return String(localized: "\(exercise.sets) x \(reps) - repos \(exercise.restSeconds) s")
         case .pyramid:
             return "Pyramide " + exercise.pyramidReps.map(String.init).joined(separator: "-")
         case .dropset:
             let unit = exercise.dropsetUsesPercent ? "%" : "kg"
             let drops = exercise.dropsetDrops.map { String(format: "%g", $0) }.joined(separator: "/")
-            return "Dropset \(exercise.sets) x — paliers -\(drops) \(unit)"
+            return String(localized: "Dropset \(exercise.sets) x — paliers -\(drops) \(unit)")
         case .restPause:
-            return "Rest-pause \(exercise.sets) x — \(exercise.restPauseMaxMiniSets) mini-séries, \(exercise.restPauseMicroRestSeconds) s"
+            return String(localized: "Rest-pause \(exercise.sets) x — \(exercise.restPauseMaxMiniSets) mini-séries, \(exercise.restPauseMicroRestSeconds) s")
         case .myoReps:
-            return "Myo-reps \(exercise.myoRepsActivationLower)-\(exercise.myoRepsActivationUpper) puis \(exercise.myoRepsMaxMiniSets) x \(exercise.myoRepsMiniSetReps)"
+            return String(localized: "Myo-reps \(exercise.myoRepsActivationLower)-\(exercise.myoRepsActivationUpper) puis \(exercise.myoRepsMaxMiniSets) x \(exercise.myoRepsMiniSetReps)")
         case .intervals:
-            return "\(exercise.intervalWork)-\(exercise.intervalRest) x \(exercise.intervalRounds)"
+            return String(localized: "\(exercise.intervalWork)-\(exercise.intervalRest) x \(exercise.intervalRounds)")
         case .emom:
-            return "EMOM \(exercise.intervalRounds) min"
+            return String(localized: "EMOM \(exercise.intervalRounds) min")
         case .amrap:
-            return "AMRAP \(exercise.amrapSeconds) s"
+            return String(localized: "AMRAP \(exercise.amrapSeconds) s")
         case .forTime:
             return exercise.forTimeCapSeconds > 0
-                ? "For Time (cap \(exercise.forTimeCapSeconds) s)"
-                : "For Time"
+                ? String(localized: "For Time (cap \(exercise.forTimeCapSeconds) s)")
+                : String(localized: "For Time")
         }
     }
 }

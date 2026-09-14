@@ -239,7 +239,7 @@ private struct ProgramRow: View {
 
     private var sessionCountLabel: String {
         let count = program.sessions.count
-        return count > 1 ? "\(count) séances" : "\(count) séance"
+        return count > 1 ? String(localized: "\(count) séances") : String(localized: "\(count) séance")
     }
 }
 

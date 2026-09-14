@@ -53,9 +53,9 @@ struct HealthSyncOutcome: Equatable, Sendable {
 
     var summary: String {
         guard authorization == .authorized else {
-            return "Santé n’est pas autorisée : rien n’a été partagé."
+            return String(localized: "Santé n’est pas autorisée : rien n’a été partagé.")
         }
-        return "\(written) séance(s) ajoutée(s), \(deleted) retirée(s), \(alreadyWritten) déjà présente(s), \(importedMeasurements) mesure(s) importée(s)."
+        return String(localized: "\(written) séance(s) ajoutée(s), \(deleted) retirée(s), \(alreadyWritten) déjà présente(s), \(importedMeasurements) mesure(s) importée(s).")
     }
 }
 
@@ -175,6 +175,7 @@ enum HealthSyncService {
                 // Un échec sur une séance n'interrompt pas les autres, et ne
                 // laisse jamais de lien vers un entraînement inexistant.
                 outcome.failures.append(error.localizedDescription)
+                DiagnosticsCenter.record(.health, code: "health.workout.writeFailed", error: error)
             }
         }
 
@@ -184,6 +185,7 @@ enum HealthSyncService {
                 outcome.deleted += 1
             } catch {
                 outcome.failures.append(error.localizedDescription)
+                DiagnosticsCenter.record(.health, code: "health.workout.deleteFailed", error: error)
             }
             // Le lien est retiré même si l'entraînement avait déjà disparu :
             // le garder ferait croire à un doublon protégé.
@@ -229,6 +231,7 @@ enum HealthSyncService {
             _ = PersistenceSupport.save(context, action: "Import du poids depuis Santé")
         } catch {
             outcome.failures.append(error.localizedDescription)
+            DiagnosticsCenter.record(.health, code: "health.bodyweight.importFailed", error: error)
         }
         return outcome
     }

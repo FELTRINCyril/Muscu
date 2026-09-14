@@ -419,15 +419,15 @@ enum ExportImport {
         var errorDescription: String? {
             switch self {
             case .unsupportedVersion(let version):
-                return "Version de fichier non prise en charge (\(version)). Cette version de l'app attend la version \(ExportImport.currentVersion)."
+                return String(localized: "Version de fichier non prise en charge (\(version)). Cette version de l'app attend la version \(ExportImport.currentVersion).")
             case .malformedData(let details):
-                return "Le fichier importé est illisible ou corrompu : \(details)"
+                return String(localized: "Le fichier importé est illisible ou corrompu : \(details)")
             case .invalidData(let details):
-                return "Le fichier importé contient une valeur invalide : \(details)"
+                return String(localized: "Le fichier importé contient une valeur invalide : \(details)")
             case .fileTooLarge(let bytes):
-                return "Le fichier importé est trop volumineux (\(bytes) octets, maximum \(ExportImport.maximumImportBytes))."
+                return String(localized: "Le fichier importé est trop volumineux (\(bytes) octets, maximum \(ExportImport.maximumImportBytes)).")
             case .checksumMismatch:
-                return "Le fichier importé est incomplet ou a été modifié : sa somme de contrôle ne correspond pas."
+                return String(localized: "Le fichier importé est incomplet ou a été modifié : sa somme de contrôle ne correspond pas.")
             }
         }
     }

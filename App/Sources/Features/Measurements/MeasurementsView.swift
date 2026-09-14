@@ -137,7 +137,7 @@ struct MeasurementsView: View {
 
     private var textAlternative: String {
         guard let last = filtered.first, let first = filtered.last else {
-            return "Aucune valeur enregistrée."
+            return String(localized: "Aucune valeur enregistrée.")
         }
         let unit = last.canonicalUnitSymbol
         return "\(filtered.count) valeur(s), de \(WeightFormatter.number(first.value)) \(unit) le \(Self.dateFormatter.string(from: first.measuredAt)) à \(WeightFormatter.number(last.value)) \(unit) le \(Self.dateFormatter.string(from: last.measuredAt))."

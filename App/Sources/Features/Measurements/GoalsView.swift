@@ -313,9 +313,9 @@ struct GoalEditorView: View {
 
     private var defaultTitle: String {
         switch kind {
-        case .sessionsPerWeek: return "\(sessionsPerWeek) séances par semaine"
-        case .weeklySets: return "\(weeklySets) séries · \(FrenchLabels.muscle(muscle))"
-        case .bodyweight: return "Poids visé"
+        case .sessionsPerWeek: return String(localized: "\(sessionsPerWeek) séances par semaine")
+        case .weeklySets: return String(localized: "\(weeklySets) séries · \(FrenchLabels.muscle(muscle))")
+        case .bodyweight: return String(localized: "Poids visé")
         }
     }
 

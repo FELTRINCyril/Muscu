@@ -26,7 +26,7 @@ struct RestTimerView: View {
                             .animation(.linear(duration: 0.5), value: timer.progress)
 
                         Text(formattedTime(timer.remaining))
-                            .font(Theme.timerFont)
+                            .timerFont()
                             .foregroundStyle(.white)
                             .monospacedDigit()
                             .lineLimit(1)

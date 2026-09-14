@@ -223,11 +223,11 @@ private struct DraftExerciseRow: View {
 
     private var summary: String {
         let reps = exercise.repsLower == exercise.repsUpper
-            ? "\(exercise.repsLower)"
-            : "\(exercise.repsLower)-\(exercise.repsUpper)"
-        var text = "\(exercise.sets) x \(reps) - repos \(exercise.restSeconds) s"
+            ? String(localized: "\(exercise.repsLower)")
+            : String(localized: "\(exercise.repsLower)-\(exercise.repsUpper)")
+        var text = String(localized: "\(exercise.sets) x \(reps) - repos \(exercise.restSeconds) s")
         if let percent = exercise.percentOneRepMax {
-            text += " - \(Int(percent))% 1RM"
+            text += String(localized: " - \(Int(percent))% 1RM")
         }
         return text
     }

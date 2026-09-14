@@ -139,6 +139,6 @@ struct SessionOverviewView: View {
 
     private var progressLabel: String {
         let progress = state.progress
-        return "\(progress.completed)/\(progress.total)"
+        return String(localized: "\(progress.completed)/\(progress.total)")
     }
 }

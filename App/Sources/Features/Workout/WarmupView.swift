@@ -153,7 +153,7 @@ struct WarmupView: View {
                         .animation(.linear(duration: 0.5), value: remaining)
 
                     Text(Self.formatSeconds(remaining))
-                        .font(Theme.timerFont)
+                        .timerFont()
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.4)
@@ -195,7 +195,7 @@ struct WarmupView: View {
             VStack(spacing: 24) {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(Self.formatSeconds(Int(context.date.timeIntervalSince(startedAt).rounded(.down))))
-                        .font(Theme.timerFont)
+                        .timerFont()
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.4)

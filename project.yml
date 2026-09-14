@@ -1,6 +1,10 @@
 name: Muscu
 options:
   bundleIdPrefix: com.cyril
+  # Le francais est la langue SOURCE : les litteraux ecrits dans le code
+  # sont deja en francais, l'anglais est une traduction du catalogue.
+  developmentLanguage: fr
+  knownRegions: [fr, en, Base]
   deploymentTarget:
     iOS: "18.0"
 packages:
@@ -13,11 +17,17 @@ targets:
     sources: [App/Sources, App/Resources, Shared]
     dependencies:
       - package: MuscuEngine
+      # `platformFilter: iOS` exclut ces deux dependances de la variante
+      # Mac Catalyst : macOS refuse d'embarquer un binaire iOS ou watchOS.
+      # Sur Mac, l'application tourne donc sans widget ni app Watch, ce qui
+      # est exactement ce que le systeme permet.
       - target: MuscuWidgets
+        platformFilter: iOS
       # L'application Watch est embarquee dans l'app iOS : elle s'installe
       # avec elle, comme n'importe quelle app Watch a cible unique.
       - target: MuscuWatch
         embed: true
+        platformFilter: iOS
         copy:
           destination: productsDirectory
           subpath: $(CONTENTS_FOLDER_PATH)/Watch
@@ -56,6 +66,11 @@ targets:
         # Live Activity de seance en cours. Sans cette cle, ActivityKit
         # refuse de demarrer l'activite.
         INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        # Extraction automatique des litteraux SwiftUI vers le catalogue de
+        # chaines : sans elle, `Localizable.xcstrings` resterait vide et la
+        # traduction anglaise ne s'appliquerait jamais.
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
       configs:
         Debug:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
@@ -82,6 +97,8 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         SKIP_INSTALL: YES
         TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
 
   # Application Watch a cible unique (watchOS 7+). Elle n'a pas de base :
   # elle affiche l'instantane recu du telephone et lui renvoie les seances.
@@ -101,6 +118,8 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         SKIP_INSTALL: YES
         TARGETED_DEVICE_FAMILY: "4"
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
 
   MuscuUITests:
     type: bundle.ui-testing

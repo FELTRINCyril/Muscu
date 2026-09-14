@@ -38,7 +38,7 @@ enum StoreRecovery {
         var errorDescription: String? {
             switch self {
             case .noStoreFound:
-                return "Aucune base locale n’a été trouvée sur cet appareil."
+                return String(localized: "Aucune base locale n’a été trouvée sur cet appareil.")
             }
         }
     }

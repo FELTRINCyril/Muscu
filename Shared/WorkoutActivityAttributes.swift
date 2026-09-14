@@ -1,5 +1,7 @@
 import Foundation
-#if canImport(ActivityKit)
+// ActivityKit se compile sur Mac Catalyst mais chacun de ses symboles y est
+// marque indisponible : seul `targetEnvironment` distingue les deux cas.
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
 import ActivityKit
 #endif
 
@@ -31,7 +33,7 @@ struct WorkoutActivityState: Codable, Hashable, Sendable {
     }
 }
 
-#if canImport(ActivityKit)
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
 struct WorkoutActivityAttributes: ActivityAttributes {
     typealias ContentState = WorkoutActivityState
 

@@ -2,6 +2,8 @@
 xcuserdata/
 *.xcodeproj
 .build/
+# Journaux produits par Scripts/ci.sh
+.ci-*.log
 DerivedData/
 # Produits de `xcodebuild -target ... -sdk ...`, qui ecrit dans ./build
 # faute de dossier de derivation explicite.

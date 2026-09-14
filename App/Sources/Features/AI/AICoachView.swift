@@ -218,7 +218,7 @@ struct AICoachView: View {
 
     private var confirmationMessage: String {
         let categories = AISettings.consent.sharedSummary().joined(separator: "\n")
-        return "Catégories partagées :\n\(categories)\n\n\(AIBudgetGuard.summary(usage: AISettings.usage, budget: AISettings.budget, now: .now))"
+        return String(localized: "Catégories partagées :\n\(categories)\n\n\(AIBudgetGuard.summary(usage: AISettings.usage, budget: AISettings.budget, now: .now))")
     }
 
     private func requestSend() {

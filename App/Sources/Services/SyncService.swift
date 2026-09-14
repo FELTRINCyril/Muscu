@@ -127,8 +127,10 @@ final class SyncService {
             state.lastFailure = nil
         } catch let error as SyncTransportError {
             state.lastFailure = error.kind
+            DiagnosticsCenter.record(.sync, .failure, code: "sync.cycle.failed", detail: error.kind.rawValue)
         } catch {
             state.lastFailure = .unknown
+            DiagnosticsCenter.record(.sync, code: "sync.cycle.failed", error: error)
         }
 
         persist(state)

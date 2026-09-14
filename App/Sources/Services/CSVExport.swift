@@ -29,10 +29,10 @@ enum CSVExport {
 
         var displayName: String {
             switch self {
-            case .sessions: return "Séances"
-            case .sets: return "Séries"
-            case .measurements: return "Mesures"
-            case .checkIns: return "Check-in"
+            case .sessions: return String(localized: "Séances")
+            case .sets: return String(localized: "Séries")
+            case .measurements: return String(localized: "Mesures")
+            case .checkIns: return String(localized: "Check-in")
             }
         }
     }

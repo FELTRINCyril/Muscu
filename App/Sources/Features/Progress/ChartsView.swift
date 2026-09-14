@@ -132,9 +132,9 @@ struct ChartsView: View {
     }
 
     private var heatmapMaximumLabel: String {
-        guard heatmapMaximum > 0 else { return "aucune donnée" }
+        guard heatmapMaximum > 0 else { return String(localized: "aucune donnée") }
         let value = WeightFormatter.number(heatmapMaximum)
-        return heatmapMetric.unit.map { "\(value) \($0)" } ?? value
+        return heatmapMetric.unit.map { String(localized: "\(value) \($0)") } ?? value
     }
 
     /// Semaines couvertes par la fenêtre, de la plus ancienne à la plus
@@ -156,18 +156,22 @@ struct ChartsView: View {
     private var heatmapMissingNote: String? {
         let unknown = heatmapValues.values.reduce(0) { $0 + $1.unknownSets }
         guard unknown > 0 else { return nil }
-        return "\(unknown) série(s) sans charge effective connue ne sont pas comptées."
+        return String(localized: "\(unknown) série(s) sans charge effective connue ne sont pas comptées.")
     }
 
     private var heatmapAlternative: String {
         let active = heatmapValues.values.filter { $0.value > 0 }
         guard !active.isEmpty else {
-            return "Aucune donnée de \(heatmapMetric.displayName.lowercased()) sur la période."
+            return String(localized: "Aucune donnée de \(heatmapMetric.displayName.lowercased()) sur la période.")
         }
         let total = active.reduce(0) { $0 + $1.value }
         let best = active.max { $0.value < $1.value }
         let bestDay = best.map { Self.dayFormatter.string(from: $0.date) } ?? ""
-        return "\(active.count) jour(s) actif(s) sur la période, total \(WeightFormatter.number(total))\(heatmapMetric.unit.map { " " + $0 } ?? ""), maximum le \(bestDay)."
+        // Le suffixe d'unite est assemble AVANT la chaine localisee : un
+        // litteral imbrique dans une interpolation ne peut pas etre
+        // extrait par le catalogue.
+        let unit = heatmapMetric.unit.map { " " + $0 } ?? ""
+        return String(localized: "\(active.count) jour(s) actif(s) sur la période, total \(WeightFormatter.number(total))\(unit), maximum le \(bestDay).")
     }
 
     private static let dayFormatter: DateFormatter = {
@@ -202,16 +206,16 @@ struct ChartsView: View {
     private var missingTonnageNote: String? {
         let unknown = weeks.reduce(0) { $0 + $1.tonnage.unknownSets }
         guard unknown > 0 else { return nil }
-        return "\(unknown) série(s) sans poids de corps connu : leur tonnage n'est pas comptabilisé. Renseignez votre poids dans le profil pour les inclure."
+        return String(localized: "\(unknown) série(s) sans poids de corps connu : leur tonnage n'est pas comptabilisé. Renseignez votre poids dans le profil pour les inclure.")
     }
 
     private var volumeAlternative: String {
-        guard let last = weeks.last else { return "Aucune semaine sur la période." }
+        guard let last = weeks.last else { return String(localized: "Aucune semaine sur la période.") }
         let total = TrainingAnalytics.merged(weeks)
         let tonnage = total.tonnage.isComplete
-            ? "\(WeightFormatter.string(kilograms: total.tonnage.value)) de tonnage"
-            : "tonnage partiel (\(total.tonnage.unknownSets) séries non mesurables)"
-        return "\(weeks.count) semaines analysées, \(total.workingSetCount) séries de travail, \(tonnage). Dernière semaine : \(last.workingSetCount) séries, \(last.sessionCount) séance(s)."
+            ? String(localized: "\(WeightFormatter.string(kilograms: total.tonnage.value)) de tonnage")
+            : String(localized: "tonnage partiel (\(total.tonnage.unknownSets) séries non mesurables)")
+        return String(localized: "\(weeks.count) semaines analysées, \(total.workingSetCount) séries de travail, \(tonnage). Dernière semaine : \(last.workingSetCount) séries, \(last.sessionCount) séance(s).")
     }
 
     // MARK: - Répartition par muscle
@@ -240,15 +244,15 @@ struct ChartsView: View {
         let findings = TrainingAnalytics.imbalances(weeklySetsByMuscle: setsByMuscle)
         guard !findings.isEmpty else { return nil }
         let names = findings.prefix(3).map { FrenchLabels.muscle($0.muscle) }.joined(separator: ", ")
-        return "Nettement moins travaillé(s) que la médiane sur la période : \(names). C'est un écart de volume observé, pas un jugement sur votre programme."
+        return String(localized: "Nettement moins travaillé(s) que la médiane sur la période : \(names). C'est un écart de volume observé, pas un jugement sur votre programme.")
     }
 
     private var distributionAlternative: String {
-        guard !topMuscles.isEmpty else { return "Aucun muscle identifié sur la période." }
+        guard !topMuscles.isEmpty else { return String(localized: "Aucun muscle identifié sur la période.") }
         let detail = topMuscles.prefix(5)
-            .map { "\(FrenchLabels.muscle($0.muscle)) \($0.sets) séries" }
+            .map { String(localized: "\(FrenchLabels.muscle($0.muscle)) \($0.sets) séries") }
             .joined(separator: ", ")
-        return "Répartition sur \(periodLabel) : \(detail)."
+        return String(localized: "Répartition sur \(periodLabel) : \(detail).")
     }
 
     // MARK: - Fréquence
@@ -274,20 +278,20 @@ struct ChartsView: View {
 
     private var adherenceLabel: String {
         guard let first = weeks.first?.weekStart, let last = weeks.last?.weekStart else {
-            return "Aucune séance planifiée sur la période."
+            return String(localized: "Aucune séance planifiée sur la période.")
         }
         let end = calendar.date(byAdding: .day, value: 7, to: last) ?? last
         let adherence = AnalyticsBridge.adherence(context: modelContext, from: first, to: end)
         guard let ratio = adherence.ratio else {
-            return "Aucune séance planifiée sur la période : l'adhérence n'est pas calculable."
+            return String(localized: "Aucune séance planifiée sur la période : l'adhérence n'est pas calculable.")
         }
-        return "Adhérence au planning : \(adherence.completedCount)/\(adherence.plannedCount) séances prévues (\(Int(ratio * 100)) %)."
+        return String(localized: "Adhérence au planning : \(adherence.completedCount)/\(adherence.plannedCount) séances prévues (\(Int(ratio * 100)) %).")
     }
 
     private var frequencyAlternative: String {
         let streak = TrainingAnalytics.currentWeeklyStreak(sessions: sessions, now: .now, calendar: calendar)
         let total = weeks.reduce(0) { $0 + $1.sessionCount }
-        return "\(total) séance(s) sur \(periodLabel). Semaines consécutives avec au moins une séance : \(streak)."
+        return String(localized: "\(total) séance(s) sur \(periodLabel). Semaines consécutives avec au moins une séance : \(streak).")
     }
 
     // MARK: - Évolution par exercice
@@ -342,17 +346,17 @@ struct ChartsView: View {
         }
         let missing = sessionsWithExercise.count - exerciseSeries.count
         guard missing > 0 else { return nil }
-        return "\(missing) séance(s) sans valeur exploitable pour cet indicateur : elles sont absentes de la courbe plutôt qu'affichées à zéro."
+        return String(localized: "\(missing) séance(s) sans valeur exploitable pour cet indicateur : elles sont absentes de la courbe plutôt qu'affichées à zéro.")
     }
 
     private var exerciseAlternative: String {
         guard let first = exerciseSeries.first, let last = exerciseSeries.last else {
-            return "Aucune valeur exploitable pour cet exercice sur la période."
+            return String(localized: "Aucune valeur exploitable pour cet exercice sur la période.")
         }
         let unit = effectiveMetric.unitSymbol
         let start = WeightFormatter.number(first.value) + (unit.isEmpty ? "" : " " + unit)
         let end = WeightFormatter.number(last.value) + (unit.isEmpty ? "" : " " + unit)
-        return "\(exerciseSeries.count) point(s), de \(start) à \(end) sur \(periodLabel)."
+        return String(localized: "\(exerciseSeries.count) point(s), de \(start) à \(end) sur \(periodLabel).")
     }
 
     // MARK: - Comparaison de périodes
@@ -441,7 +445,7 @@ struct ChartsView: View {
     }
 
     private var periodLabel: String {
-        window == .all ? "tout l'historique" : window.rawValue.lowercased()
+        window == .all ? String(localized: "tout l'historique") : window.rawValue.lowercased()
     }
 
     private func metricLabel(_ metric: ExerciseMetric) -> String {

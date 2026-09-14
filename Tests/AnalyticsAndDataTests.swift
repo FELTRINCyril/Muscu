@@ -262,7 +262,12 @@ final class AnalyticsAndDataTests: XCTestCase {
     func testDeletionOnAnEmptyStoreIsHarmless() throws {
         let report = try DataDeletion.deleteEverything(context: context)
         XCTAssertEqual(report.total, 0)
-        XCTAssertEqual(report.summary, "Aucune donnée à supprimer.")
+        // Le compte rendu est localisé : comparer au littéral français ferait
+        // dépendre ce test de la langue de la machine. Ce qui compte ici est
+        // qu'un store vide produise la phrase « rien à supprimer » et non une
+        // énumération vide.
+        XCTAssertEqual(report.summary, String(localized: "Aucune donnée à supprimer."))
+        XCTAssertFalse(report.summary.contains("0"))
     }
 
     // MARK: - Performance sur gros historique

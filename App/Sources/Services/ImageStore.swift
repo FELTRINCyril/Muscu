@@ -183,11 +183,11 @@ enum ImageStoreError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .cacheFull: "Le cache d’images a atteint sa limite de 250 Mo. Videz-le avant de continuer."
-        case .badResponse: "Le serveur n’a pas renvoyé une image valide."
-        case .deallocated: "Le service d’images n’est plus disponible."
-        case .invalidPath: "Le chemin de l’image est invalide."
-        case .invalidSize: "L’image est vide ou dépasse la limite de 10 Mo."
+        case .cacheFull: String(localized: "Le cache d’images a atteint sa limite de 250 Mo. Videz-le avant de continuer.")
+        case .badResponse: String(localized: "Le serveur n’a pas renvoyé une image valide.")
+        case .deallocated: String(localized: "Le service d’images n’est plus disponible.")
+        case .invalidPath: String(localized: "Le chemin de l’image est invalide.")
+        case .invalidSize: String(localized: "L’image est vide ou dépasse la limite de 10 Mo.")
         }
     }
 }

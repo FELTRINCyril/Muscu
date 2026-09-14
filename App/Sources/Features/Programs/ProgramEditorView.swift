@@ -149,7 +149,7 @@ private struct SessionRow: View {
 
     private var exerciseCountLabel: String {
         let count = session.exercises.count
-        return count > 1 ? "\(count) exercices" : "\(count) exercice"
+        return count > 1 ? String(localized: "\(count) exercices") : String(localized: "\(count) exercice")
     }
 }
 

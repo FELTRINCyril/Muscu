@@ -154,11 +154,12 @@ private struct PyramidStepControl: View {
                     reps = max(0, reps - 1)
                 } label: {
                     Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 36))
+                        .scaledSystemFont(size: 36, relativeTo: .title)
                 }
 
                 Text("\(reps) reps")
-                    .font(.system(size: 56, weight: .bold))
+                    .scaledSystemFont(size: 56, weight: .bold)
+                    .minimumScaleFactor(0.5)
                     .monospacedDigit()
                     .frame(minWidth: 180)
 
@@ -166,7 +167,7 @@ private struct PyramidStepControl: View {
                     reps += 1
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 36))
+                        .scaledSystemFont(size: 36, relativeTo: .title)
                 }
             }
             .foregroundStyle(Theme.accent)

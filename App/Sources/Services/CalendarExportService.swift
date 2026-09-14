@@ -10,7 +10,7 @@ struct CalendarExportOutcome: Equatable, Sendable {
     var authorization: CalendarAuthorization = .notDetermined
 
     var summary: String {
-        "\(created) créé(s), \(updated) mis à jour, \(removed) retiré(s), \(failed) échec(s)."
+        String(localized: "\(created) créé(s), \(updated) mis à jour, \(removed) retiré(s), \(failed) échec(s).")
     }
 }
 

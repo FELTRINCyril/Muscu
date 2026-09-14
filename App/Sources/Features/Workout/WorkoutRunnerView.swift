@@ -222,7 +222,7 @@ struct WorkoutRunnerView: View {
 
     private var progressLabel: String {
         let progress = state.progress
-        return "Série \(min(progress.completed + 1, progress.total))/\(progress.total)"
+        return String(localized: "Série \(min(progress.completed + 1, progress.total))/\(progress.total)")
     }
 }
 

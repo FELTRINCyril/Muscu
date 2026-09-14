@@ -263,9 +263,9 @@ struct ExercisesView: View {
 
     private var emptyMessage: String {
         if !searchText.isEmpty {
-            return "Aucun exercice ne correspond à « \(searchText) ». La recherche ignore les accents et tolère une faute simple."
+            return String(localized: "Aucun exercice ne correspond à « \(searchText) ». La recherche ignore les accents et tolère une faute simple.")
         }
-        return "Aucun exercice ne correspond aux filtres actifs."
+        return String(localized: "Aucun exercice ne correspond aux filtres actifs.")
     }
 
     /// La recherche et les filtres passent par `LibrarySearch` : l'onglet

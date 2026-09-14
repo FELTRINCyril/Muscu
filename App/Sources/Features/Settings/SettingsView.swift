@@ -89,6 +89,13 @@ struct SettingsView: View {
                     Label("Coach IA", systemImage: "sparkles")
                 }
                 .accessibilityIdentifier("settings.aiCoach")
+
+                NavigationLink {
+                    DiagnosticsView()
+                } label: {
+                    Label("Diagnostic", systemImage: "stethoscope")
+                }
+                .accessibilityIdentifier("settings.diagnostics")
             } footer: {
                 Text("Objectif, niveau, matériel, jours disponibles et charges réellement disponibles. Facultatif.")
             }

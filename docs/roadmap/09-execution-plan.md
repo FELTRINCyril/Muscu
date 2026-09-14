@@ -463,6 +463,83 @@ Tester migrations, archives et TestFlight sur chaque famille d’appareils annon
 
 Jalon : checklist de `08` complète et archive Release distribuable.
 
+### Réalisé (14/09/2026)
+
+**CI reproductible.** `Scripts/ci.sh` est le point d'entrée unique :
+génération du projet, contrôle de localisation, tests du moteur, tests
+unitaires de l'application, suite UI optionnelle, puis builds Release pour
+iPhone, iPad, Mac Catalyst et watchOS, avec refus de tout avertissement
+nouveau provenant de nos propres sources. `.github/workflows/ci.yml`
+l'appelle tel quel : « vert en local » et « vert en CI » veulent dire la même
+chose.
+
+La CI a trouvé trois vrais défauts dès ses premiers passages :
+
+1. `CODE_SIGNING_ALLOWED=NO` retire les entitlements, donc le groupe
+   d'applications, donc quatre tests de widgets échouaient. La signature
+   ad hoc est conservée pour le simulateur ; seul Mac Catalyst s'en passe.
+2. `ActivityKit` **se compile** sur Mac Catalyst mais chacun de ses symboles
+   y est indisponible : `canImport` ne suffit pas, il faut
+   `!targetEnvironment(macCatalyst)`. `WorkoutActivityController` a désormais
+   un repli explicite.
+3. macOS refuse d'embarquer un binaire iOS ou watchOS : `MuscuWidgets` et
+   `MuscuWatch` portent `platformFilter: iOS`.
+
+**Localisation français/anglais.** Le français reste la langue source ; un
+catalogue de chaînes par bundle porte l'anglais (918 chaînes pour
+l'application, 14 pour les widgets, 18 pour la montre). 138 littéraux qui
+vivaient **hors des vues** — titres d'onglets, catégories de suppression,
+modes d'import, messages d'erreur — passent par `String(localized:)` : sans
+cela, `Text(uneVariable)` affiche la chaîne telle quelle et la traduction ne
+s'applique jamais. `Scripts/check-localization.py` refuse une traduction
+manquante, restée à l'état `new`, ou dont les spécificateurs de format
+diffèrent de la source. `Scripts/sync-strings.sh` régénère les catalogues
+sans ouvrir Xcode.
+
+**Journal de diagnostic.** `MuscuEngine/Diagnostics` porte la logique
+testable : journal borné à 200 lignes, expurgation appliquée à la
+construction de chaque évènement (adresses, jetons, noms de compte dans les
+chemins, longues suites de chiffres), rapport limité aux versions, compteurs,
+dates et codes d'erreur. `PersistenceSupport` étant le point unique de
+sauvegarde, aucun échec de stockage ne passe inaperçu. Couper le journal
+efface aussi les lignes déjà écrites, et `DataDeletion` gagne une catégorie
+`diagnostics` pour que la « suppression totale » reste vraie.
+
+**Dynamic Type.** Les quatorze `Font.system(size:)` figés du runner passent
+par `scaledSystemFont` / `timerFont` (`@ScaledMetric`) : les gros chiffres
+suivent enfin le réglage système, et se réduisent au lieu de se tronquer là
+où le gabarit est fixe.
+
+**Performance et robustesse.** `PerformanceAndRobustnessTests` (12 tests)
+travaille sur trois ans d'historique — 468 séances de 15 séries.
+`DecodingFuzzTests` (5 tests) attaque le décodage avec un générateur
+pseudo-aléatoire déterministe.
+
+**Documentation.** `docs/decisions/0010-localisation-et-diagnostic.md`,
+`docs/qualite/localisation.md`, `docs/qualite/accessibilite.md`,
+`docs/qualite/preparation-app-store.md`,
+`docs/confidentialite/inventaire-des-donnees.md`,
+`docs/securite/modele-de-menaces.md`.
+
+### Limites, écrites précisément
+
+- **Les phrases produites par `MuscuEngine` restent en français** dans une
+  application anglaise (justifications de progression, rationnel d'un plan,
+  avertissements du validateur, motifs de quarantaine, messages de
+  synchronisation et du coach IA). Mesuré, pas supposé : SwiftPM ne compile
+  pas les catalogues de chaînes, et le paramètre `locale:` de
+  `String(localized:bundle:locale:)` ne choisit pas la langue de recherche.
+  Aucun moyen d'épingler la langue dans `swift test` : une trentaine de tests
+  du moteur deviendraient dépendants de la langue de la machine de CI. La
+  correction est de faire renvoyer au moteur des résultats **structurés** et
+  de laisser les mots à l'application — un incrément à part entière.
+- **Aucun audit avec VoiceOver réellement activé**, ni parcours clavier
+  complet sur iPad/Mac : demande une revue manuelle sur appareil.
+- **Archive Release signée, TestFlight et validation sur appareils réels** :
+  bloqués par l'absence de compte Apple Developer payant.
+- Les captures d'écran App Store dans les deux langues restent à produire une
+  fois les écrans figés.
+
 ## Dépendances externes à signaler
 
 L’agent doit préparer code et documentation, mais demander au propriétaire lorsque requis :

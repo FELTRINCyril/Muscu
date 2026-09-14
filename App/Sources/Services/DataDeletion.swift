@@ -22,6 +22,7 @@ enum DataDeletion {
         case library
         case aiCoach
         case healthSharing
+        case diagnostics
         case customExercises
         case profile
 
@@ -29,37 +30,39 @@ enum DataDeletion {
 
         var displayName: String {
             switch self {
-            case .history: return "Historique des séances"
-            case .records: return "Records"
-            case .programsAndPlans: return "Programmes et plans"
-            case .measurements: return "Mesures corporelles et photos"
-            case .checkIns: return "Check-in de forme"
-            case .goalsAndAdaptations: return "Objectifs et adaptations"
-            case .planningAndReminders: return "Lieux, planning récurrent et rappels"
-            case .templates: return "Modèles de séance"
-            case .library: return "Favoris, tags et collections"
-            case .aiCoach: return "Coach IA"
-            case .healthSharing: return "Partage avec Santé"
-            case .customExercises: return "Exercices personnalisés"
-            case .profile: return "Profil"
+            case .history: return String(localized: "Historique des séances")
+            case .records: return String(localized: "Records")
+            case .programsAndPlans: return String(localized: "Programmes et plans")
+            case .measurements: return String(localized: "Mesures corporelles et photos")
+            case .checkIns: return String(localized: "Check-in de forme")
+            case .goalsAndAdaptations: return String(localized: "Objectifs et adaptations")
+            case .planningAndReminders: return String(localized: "Lieux, planning récurrent et rappels")
+            case .templates: return String(localized: "Modèles de séance")
+            case .library: return String(localized: "Favoris, tags et collections")
+            case .aiCoach: return String(localized: "Coach IA")
+            case .healthSharing: return String(localized: "Partage avec Santé")
+            case .diagnostics: return String(localized: "Journal de diagnostic")
+            case .customExercises: return String(localized: "Exercices personnalisés")
+            case .profile: return String(localized: "Profil")
             }
         }
 
         var explanation: String {
             switch self {
-            case .history: return "Séances terminées et séries associées."
-            case .records: return "Records par exercice, y compris les records typés."
-            case .programsAndPlans: return "Programmes, séances types, groupes, plans et planning."
-            case .measurements: return "Poids, mensurations, pourcentage de masse grasse et photos de progression (fichiers compris)."
-            case .checkIns: return "Énergie, sommeil, courbatures, stress et douleurs déclarées."
-            case .goalsAndAdaptations: return "Objectifs suivis et journal des adaptations."
-            case .planningAndReminders: return "Lieux et inventaires, récurrences, rappels programmés et liens vers l’app Calendrier. Les événements déjà créés dans Calendrier ne sont pas retirés : faites-le depuis le planning avant cette suppression."
-            case .templates: return "Modèles de séance et de programme enregistrés."
-            case .library: return "Exercices favoris, tags personnels et collections."
-            case .aiCoach: return "Réglages du coach IA, consentement, compteur d’usage, journal technique et clé personnelle du Trousseau."
-            case .healthSharing: return "Réglages de partage avec Santé et liens vers les entraînements écrits. Les entraînements déjà présents dans l’app Santé ne sont pas retirés : ils vous appartiennent, et se suppriment depuis Santé."
-            case .customExercises: return "Exercices que vous avez créés."
-            case .profile: return "Objectif, niveau, matériel, jours disponibles et mesures de référence."
+            case .history: return String(localized: "Séances terminées et séries associées.")
+            case .records: return String(localized: "Records par exercice, y compris les records typés.")
+            case .programsAndPlans: return String(localized: "Programmes, séances types, groupes, plans et planning.")
+            case .measurements: return String(localized: "Poids, mensurations, pourcentage de masse grasse et photos de progression (fichiers compris).")
+            case .checkIns: return String(localized: "Énergie, sommeil, courbatures, stress et douleurs déclarées.")
+            case .goalsAndAdaptations: return String(localized: "Objectifs suivis et journal des adaptations.")
+            case .planningAndReminders: return String(localized: "Lieux et inventaires, récurrences, rappels programmés et liens vers l’app Calendrier. Les événements déjà créés dans Calendrier ne sont pas retirés : faites-le depuis le planning avant cette suppression.")
+            case .templates: return String(localized: "Modèles de séance et de programme enregistrés.")
+            case .library: return String(localized: "Exercices favoris, tags personnels et collections.")
+            case .aiCoach: return String(localized: "Réglages du coach IA, consentement, compteur d’usage, journal technique et clé personnelle du Trousseau.")
+            case .healthSharing: return String(localized: "Réglages de partage avec Santé et liens vers les entraînements écrits. Les entraînements déjà présents dans l’app Santé ne sont pas retirés : ils vous appartiennent, et se suppriment depuis Santé.")
+            case .customExercises: return String(localized: "Exercices que vous avez créés.")
+            case .diagnostics: return String(localized: "Journal technique local : codes d’erreur, versions et compteurs. Il ne contient aucune donnée d’entraînement.")
+            case .profile: return String(localized: "Objectif, niveau, matériel, jours disponibles et mesures de référence.")
             }
         }
     }
@@ -71,11 +74,11 @@ enum DataDeletion {
         var total: Int { countsByModel.values.reduce(0, +) }
 
         var summary: String {
-            guard total > 0 else { return "Aucune donnée à supprimer." }
+            guard total > 0 else { return String(localized: "Aucune donnée à supprimer.") }
             return countsByModel
                 .filter { $0.value > 0 }
                 .sorted { $0.key < $1.key }
-                .map { "\($0.value) \($0.key)" }
+                .map { String(localized: "\($0.value) \($0.key)") }
                 .joined(separator: ", ")
         }
     }
@@ -151,6 +154,14 @@ enum DataDeletion {
             AICoachLog.clear()
             report.countsByModel["lignes de journal IA"] = hadEntries
             report.countsByModel["clé IA"] = hadKey ? 1 : 0
+
+        case .diagnostics:
+            // Le journal vit dans les reglages de l'application, pas dans
+            // SwiftData. L'oublier ici rendrait la « suppression totale »
+            // mensongere, exactement comme pour le coach IA.
+            let hadEvents = DiagnosticsCenter.events.count
+            DiagnosticsCenter.clear()
+            report.countsByModel["lignes de journal"] = hadEvents
 
         case .customExercises:
             report.countsByModel["exercices personnalisés"] = try deleteAll(CustomExercise.self, in: context)

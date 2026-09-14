@@ -39,6 +39,7 @@ struct MuscuApp: App {
             // Ne jamais effacer le store automatiquement. Un conteneur
             // temporaire permet d'ouvrir l'app et d'expliquer le probleme;
             // les donnees originales restent intactes sur disque.
+            DiagnosticsCenter.record(.store, code: "store.open.failed", error: error)
             do {
                 let fallback = ModelConfiguration(isStoredInMemoryOnly: true)
                 let schema = Schema(versionedSchema: MuscuCurrentSchema.self)

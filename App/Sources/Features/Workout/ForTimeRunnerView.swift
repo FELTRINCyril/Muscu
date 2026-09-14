@@ -40,7 +40,7 @@ struct ForTimeRunnerView: View {
                     }
 
                     Text(formattedTime(elapsedSeconds))
-                        .font(Theme.timerFont)
+                        .timerFont()
                         .monospacedDigit()
                         .foregroundStyle(isFinished ? .secondary : Theme.accent)
                         .accessibilityLabel("Temps écoulé : \(elapsedSeconds) secondes")
@@ -68,7 +68,8 @@ struct ForTimeRunnerView: View {
         VStack(spacing: 16) {
             VStack(spacing: 4) {
                 Text("\(completedRounds)")
-                    .font(.system(size: 72, weight: .black))
+                    .scaledSystemFont(size: 72, weight: .black)
+                    .minimumScaleFactor(0.4)
                     .monospacedDigit()
                     .foregroundStyle(.white)
                 Text("tours complets")
