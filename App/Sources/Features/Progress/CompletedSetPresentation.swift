@@ -5,10 +5,16 @@ import MuscuEngine
 /// recapitulatif de fin de seance affichent la meme chose : ce type evite que
 /// deux ecrans decrivent differemment la meme serie.
 enum CompletedSetPresentation {
-    /// Libelle de gauche : distingue explicitement echauffement, tour d'un
-    /// groupe, serie et sous-serie (palier de dropset, mini-serie).
+    /// Libelle de gauche : distingue explicitement echauffement, approche,
+    /// back-off, tour d'un groupe, serie et sous-serie (palier de dropset,
+    /// mini-serie).
+    ///
+    /// Une serie qui ne consomme pas de serie prescrite porte son role et
+    /// non un numero : « Série 3 » deux fois de suite serait faux.
     static func label(for set: CompletedSet, inGroup: Bool) -> String {
         if set.role == .warmup { return String(localized: "Échauffement") }
+        if set.role == .approach { return String(localized: "Approche") }
+        if set.role == .backoff { return String(localized: "Back-off") }
 
         var parts: [String] = []
         if inGroup {

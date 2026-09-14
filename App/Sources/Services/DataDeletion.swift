@@ -20,6 +20,7 @@ enum DataDeletion {
         case planningAndReminders
         case templates
         case library
+        case aiCoach
         case customExercises
         case profile
 
@@ -30,12 +31,13 @@ enum DataDeletion {
             case .history: return "Historique des séances"
             case .records: return "Records"
             case .programsAndPlans: return "Programmes et plans"
-            case .measurements: return "Mesures corporelles"
+            case .measurements: return "Mesures corporelles et photos"
             case .checkIns: return "Check-in de forme"
             case .goalsAndAdaptations: return "Objectifs et adaptations"
             case .planningAndReminders: return "Lieux, planning récurrent et rappels"
             case .templates: return "Modèles de séance"
             case .library: return "Favoris, tags et collections"
+            case .aiCoach: return "Coach IA"
             case .customExercises: return "Exercices personnalisés"
             case .profile: return "Profil"
             }
@@ -46,12 +48,13 @@ enum DataDeletion {
             case .history: return "Séances terminées et séries associées."
             case .records: return "Records par exercice, y compris les records typés."
             case .programsAndPlans: return "Programmes, séances types, groupes, plans et planning."
-            case .measurements: return "Poids, mensurations et pourcentage de masse grasse."
+            case .measurements: return "Poids, mensurations, pourcentage de masse grasse et photos de progression (fichiers compris)."
             case .checkIns: return "Énergie, sommeil, courbatures, stress et douleurs déclarées."
             case .goalsAndAdaptations: return "Objectifs suivis et journal des adaptations."
             case .planningAndReminders: return "Lieux et inventaires, récurrences, rappels programmés et liens vers l’app Calendrier. Les événements déjà créés dans Calendrier ne sont pas retirés : faites-le depuis le planning avant cette suppression."
             case .templates: return "Modèles de séance et de programme enregistrés."
             case .library: return "Exercices favoris, tags personnels et collections."
+            case .aiCoach: return "Réglages du coach IA, consentement, compteur d’usage, journal technique et clé personnelle du Trousseau."
             case .customExercises: return "Exercices que vous avez créés."
             case .profile: return "Objectif, niveau, matériel, jours disponibles et mesures de référence."
             }
@@ -103,6 +106,10 @@ enum DataDeletion {
 
         case .measurements:
             report.countsByModel["mesures"] = try deleteAll(BodyMeasurement.self, in: context)
+            // Les fichiers partent avec les lignes : effacer la ligne sans
+            // effacer l'image laisserait la photo sur l'appareil.
+            PhotoStore.deleteAll()
+            report.countsByModel["photos"] = try deleteAll(ProgressPhoto.self, in: context)
 
         case .checkIns:
             report.countsByModel["check-in"] = try deleteAll(ReadinessEntry.self, in: context)
@@ -123,6 +130,17 @@ enum DataDeletion {
         case .library:
             report.countsByModel["annotations d’exercices"] = try deleteAll(ExerciseLibraryEntry.self, in: context)
             report.countsByModel["collections"] = try deleteAll(ExerciseCollection.self, in: context)
+
+        case .aiCoach:
+            // Le coach IA ne stocke aucune entite SwiftData : ses reglages,
+            // son journal et sa cle vivent hors de la base. Les oublier ici
+            // rendrait la « suppression totale » mensongere.
+            let hadEntries = AICoachLog.entries.count
+            let hadKey = AIKeychain.hasKey
+            AISettings.reset()
+            AICoachLog.clear()
+            report.countsByModel["lignes de journal IA"] = hadEntries
+            report.countsByModel["clé IA"] = hadKey ? 1 : 0
 
         case .customExercises:
             report.countsByModel["exercices personnalisés"] = try deleteAll(CustomExercise.self, in: context)
@@ -163,7 +181,7 @@ enum DataDeletion {
         "CustomExercise", "AthleteProfile", "SyncState",
         "PlanningSchedule", "NotificationRecord", "CalendarLink",
         "SessionTemplate", "ExerciseLibraryEntry", "ExerciseCollection",
-        "ImportQuarantineEntry", "PlaceProfile",
+        "ImportQuarantineEntry", "PlaceProfile", "ProgressPhoto",
     ]
 
     private static func deleteAll<T: PersistentModel>(_ type: T.Type, in context: ModelContext) throws -> Int {

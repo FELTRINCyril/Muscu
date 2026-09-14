@@ -17,6 +17,10 @@ struct SetLoggerView: View {
         var effort: EffortRating?
         var reachedFailure: Bool
         var notes: String
+        /// Role de la serie. Une serie d'APPROCHE ou de BACK-OFF s'ajoute a
+        /// la prescription sans la consommer : elle ne fait pas avancer le
+        /// compteur de series prevues.
+        var role: SetRole = .working
     }
 
     let initialWeight: Double
@@ -29,6 +33,7 @@ struct SetLoggerView: View {
     @State private var reachedFailure = false
     @State private var notes = ""
     @State private var showingDetails = false
+    @State private var role: SetRole = .working
     @FocusState private var focusedField: Field?
 
     private enum Field {
@@ -89,11 +94,16 @@ struct SetLoggerView: View {
                         reps: reps,
                         effort: repsInReserve.map { EffortRating.rir($0) },
                         reachedFailure: reachedFailure,
-                        notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
+                        notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
+                        role: role
                     )
                 )
+                // Le role ne « colle » pas d'une serie a l'autre : une serie
+                // d'approche est ponctuelle, et la suivante est de travail
+                // sauf demande explicite.
+                role = .working
             } label: {
-                Text("Valider la série")
+                Text(validateTitle)
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
@@ -133,6 +143,19 @@ struct SetLoggerView: View {
                     ), in: 0...10)
                 }
 
+                Picker("Type de série", selection: $role) {
+                    ForEach(SetRole.allCases, id: \.self) { value in
+                        Text(Self.label(for: value)).tag(value)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("setLogger.rolePicker")
+
+                Text(Self.explanation(for: role))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("setLogger.roleExplanation")
+
                 Toggle("Échec musculaire atteint", isOn: $reachedFailure)
                     .accessibilityIdentifier("setLogger.failureToggle")
 
@@ -149,6 +172,37 @@ struct SetLoggerView: View {
                 .foregroundStyle(.secondary)
         }
         .accessibilityIdentifier("setLogger.detailsDisclosure")
+    }
+
+    private var validateTitle: String {
+        switch role {
+        case .working: return "Valider la série"
+        case .warmup: return "Enregistrer l’échauffement"
+        case .approach: return "Enregistrer l’approche"
+        case .backoff: return "Enregistrer le back-off"
+        }
+    }
+
+    static func label(for role: SetRole) -> String {
+        switch role {
+        case .warmup: return "Échauff."
+        case .approach: return "Approche"
+        case .working: return "Travail"
+        case .backoff: return "Back-off"
+        }
+    }
+
+    static func explanation(for role: SetRole) -> String {
+        switch role {
+        case .working:
+            return "Série prescrite : elle compte dans le volume et fait avancer la séance."
+        case .warmup:
+            return "Montée en charge : ne compte pas dans le volume et ne consomme pas de série prévue."
+        case .approach:
+            return "Série d’approche entre l’échauffement et le travail : ne compte pas dans le volume et ne consomme pas de série prévue."
+        case .backoff:
+            return "Série allégée après le travail : elle compte dans le volume mais ne consomme pas de série prévue."
+        }
     }
 
     private func editableValue(

@@ -90,4 +90,22 @@ public enum SetRole: String, Codable, CaseIterable, Sendable {
         case .warmup, .approach: return false
         }
     }
+
+    /// Une serie PRESCRITE consomme une serie du programme ; les autres
+    /// s'ajoutent sans faire avancer la seance.
+    ///
+    /// Le back-off compte dans le VOLUME (c'est un vrai effort) mais ne
+    /// consomme pas de serie prevue : ce sont deux questions distinctes.
+    public var consumesPrescribedSet: Bool {
+        self == .working
+    }
+
+    public var displayName: String {
+        switch self {
+        case .warmup: return "Échauffement"
+        case .approach: return "Approche"
+        case .working: return "Travail"
+        case .backoff: return "Back-off"
+        }
+    }
 }

@@ -114,14 +114,22 @@ final class ProgramsFlowTests: XCTestCase {
         // Le row de programme (NavigationLink) agrège nom + badge + nb de
         // séances dans un seul élément d'accessibilité : CONTAINS plutôt
         // qu'un match exact.
+        //
+        // On interroge `buttons` et non tout l'arbre : une requête
+        // `descendants(matching: .any)` est lente et devient peu fiable quand
+        // la suite complète tourne depuis longtemps.
         func row(containing text: String) -> XCUIElement {
-            app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@", text)).firstMatch
+            app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", text)).firstMatch
         }
 
         let originalRow = row(containing: "Programme Test")
         waitAndAssert(originalRow)
 
-        originalRow.press(forDuration: 1.0)
+        // Un appui long peut se perdre pendant une transition : on insiste
+        // jusqu'à voir le menu plutôt que de supposer qu'il est arrivé.
+        for _ in 0..<3 where !app.buttons["Dupliquer"].waitForExistence(timeout: 6) {
+            originalRow.press(forDuration: 1.0)
+        }
         waitAndAssert(app.buttons["Dupliquer"], "Le menu contextuel devrait proposer Dupliquer")
         tapWhenReady(app.buttons["Dupliquer"])
 

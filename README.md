@@ -45,11 +45,22 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   - **Avant la séance** : check-in facultatif (énergie, sommeil, courbatures,
     stress, douleur) et suggestion expliquée. Une douleur déclenche un message
     prudent invitant à consulter un professionnel — jamais un diagnostic.
+  - **Plateaux** : détection de stagnation avec sa fenêtre et son seuil
+    affichés, puis décharge ou variante **proposées** — jamais appliquées sans
+    votre accord, et annulables depuis le journal.
+  - **Recalcul du plan** : les semaines à venir sont réalignées après
+    confirmation ; les semaines déjà entamées ne bougent jamais.
   - **Progression expliquée** : huit règles sélectionnables (double progression,
     charge fixe, répétitions, séries, % du 1RM, cible de RIR, lesté/assisté,
     temporelle). Chaque proposition cite les performances qui la justifient,
     n'est appliquée qu'après votre accord, et reste **annulable** depuis le
     journal d'adaptation.
+- **Rôles de série** : échauffement, approche, travail ou back-off. Une
+  approche ou un back-off s'ajoute sans consommer de série prescrite ; seul le
+  travail fait avancer la séance.
+- **Test de 1RM guidé** (facultatif) : avertissement de sécurité, protocole
+  construit sur une référence connue — jamais inventée — et résultat enregistré
+  comme performance **mesurée**, distincte d'un 1RM estimé.
 - **Séances en direct** : saisie rapide poids/répétitions, chrono de repos
   automatique avec notifications, reprise après interruption (kill de l'app en
   pleine séance).
@@ -76,6 +87,10 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   Un inventaire vide ne masque rien. Les remplacements d'exercice proposés en
   séance tiennent compte du matériel réellement disponible, et chaque
   proposition cite ses raisons.
+- **Photos de progression** : privées, stockées hors de la base, exclues des
+  exports et de la sauvegarde iCloud, supprimées avec leur fichier.
+- **Calendrier de chaleur** : séances, séries difficiles ou tonnage par jour,
+  avec l'échelle, le maximum de la période et les données manquantes annoncés.
 - **Bibliothèque** : recherche tolérante aux accents et aux fautes simples,
   filtres cumulables (muscle, matériel, catégorie, difficulté, tags, lieu),
   favoris, tags personnels et collections. Les annotations personnelles vivent
@@ -87,6 +102,11 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   ([docs/formats/csv.md](docs/formats/csv.md)), et import CSV avec assistant de
   correspondance des colonnes, aperçu, détection des doublons et **quarantaine**
   des lignes illisibles. Préréglages Strong et Hevy.
+- **Coach IA** (facultatif, **désactivé par défaut**) : demande en français,
+  brouillon prévisualisé et confirmé avant toute écriture, corrections
+  appliquées affichées, repli annoncé sur le générateur local. Votre clé reste
+  dans le Trousseau ; les catégories de données sensibles sont exclues par
+  défaut et le partage se règle catégorie par catégorie.
 - **Raccourcis et Siri** : démarrer la prochaine séance, ouvrir un programme ou
   un exercice, enregistrer le poids corporel (avec confirmation), lancer un
   minuteur de repos, afficher le résumé de la semaine.
@@ -207,8 +227,8 @@ Packages/
   MuscuEngine/       Package SPM : catalogue, générateur de programme, 1RM,
                      pyramide, intervalles, échauffement, règles du modèle v3
                      (Domain/, Runner/, Programming/, Analytics/, Sync/,
-                     Planning/, Places/, Library/, Interop/)
-                     - 344 tests unitaires
+                     Planning/, Places/, Library/, Interop/, AI/)
+                     - 410 tests unitaires
 Tests/
   Fixtures/          Stores SwiftData figés (migration) et exports v1/v2 (import)
 docs/

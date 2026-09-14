@@ -1,17 +1,16 @@
 import Foundation
 import SwiftData
 
-/// Version courante du schema : modele v4 du produit. Ajoute au modele v3 le
-/// planning recurrent et ses rappels, les lieux et leur inventaire, les
-/// modeles de seance, les annotations de bibliotheque, le lien vers
-/// l'application Calendrier et la quarantaine d'import.
+/// Version courante du schema : modele v5 du produit. Ajoute au modele v4
+/// les photos de progression et les reglages de periodisation conserves sur
+/// un plan, necessaires pour recalculer ses semaines a venir.
 ///
-/// Contrairement aux versions figees (`MuscuSchemaV1`, `MuscuSchemaV2`,
-/// `MuscuSchemaV3`), celle-ci pointe sur les modeles reellement utilises par
-/// l'application. Une evolution future doit d'abord FIGER une copie de ces
-/// modeles dans une nouvelle `VersionedSchema` avant de les modifier ici.
-enum MuscuSchemaV4: VersionedSchema {
-    static let versionIdentifier = Schema.Version(4, 0, 0)
+/// Contrairement aux versions figees (`MuscuSchemaV1` a `MuscuSchemaV4`),
+/// celle-ci pointe sur les modeles reellement utilises par l'application.
+/// Une evolution future doit d'abord FIGER une copie de ces modeles dans une
+/// nouvelle `VersionedSchema` avant de les modifier ici.
+enum MuscuSchemaV5: VersionedSchema {
+    static let versionIdentifier = Schema.Version(5, 0, 0)
 
     static var models: [any PersistentModel.Type] {
         [
@@ -44,21 +43,22 @@ enum MuscuSchemaV4: VersionedSchema {
             ExerciseLibraryEntry.self,
             ExerciseCollection.self,
             ImportQuarantineEntry.self,
+            ProgressPhoto.self,
         ]
     }
 }
 
 /// Schema courant de l'application. Un seul point a changer lors de l'ajout
 /// d'une version ; les tests de migration s'appuient dessus.
-typealias MuscuCurrentSchema = MuscuSchemaV4
+typealias MuscuCurrentSchema = MuscuSchemaV5
 
 enum MuscuMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [MuscuSchemaV1.self, MuscuSchemaV2.self, MuscuSchemaV3.self, MuscuSchemaV4.self]
+        [MuscuSchemaV1.self, MuscuSchemaV2.self, MuscuSchemaV3.self, MuscuSchemaV4.self, MuscuSchemaV5.self]
     }
 
     static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5]
     }
 
     /// V1 -> V2 : ajout des identifiants uniques, du typage de charge des
@@ -84,5 +84,13 @@ enum MuscuMigrationPlan: SchemaMigrationPlan {
     static let migrateV3toV4 = MigrationStage.lightweight(
         fromVersion: MuscuSchemaV3.self,
         toVersion: MuscuSchemaV4.self
+    )
+
+    /// V4 -> V5 : le modele `ProgressPhoto` et deux attributs facultatifs sur
+    /// `TrainingPlan`. Que des ajouts a valeur par defaut : aucune donnee
+    /// existante n'est relue ni reecrite.
+    static let migrateV4toV5 = MigrationStage.lightweight(
+        fromVersion: MuscuSchemaV4.self,
+        toVersion: MuscuSchemaV5.self
     )
 }

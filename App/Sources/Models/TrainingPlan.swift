@@ -61,6 +61,15 @@ final class TrainingPlan {
     var version: Int = 1
     var notes: String = ""
 
+    // MARK: - Champs v5 (facultatifs, migration legere)
+
+    /// Style de periodisation ayant produit ce plan (`PeriodizationStyle`).
+    /// Vide = inconnu : le recalcul ne re-derive alors aucun multiplicateur
+    /// plutot que d'en inventer.
+    var periodizationStyleRaw: String = ""
+    /// Frequence des semaines de decharge. Zero = aucune.
+    var deloadEveryWeeks: Int = 0
+
     @Relationship(deleteRule: .cascade, inverse: \TrainingBlock.plan)
     var blocks: [TrainingBlock] = []
 
@@ -76,6 +85,8 @@ final class TrainingPlan {
         statusRaw: String = TrainingPlanStatus.draft.rawValue,
         version: Int = 1,
         notes: String = "",
+        periodizationStyleRaw: String = "",
+        deloadEveryWeeks: Int = 0,
         blocks: [TrainingBlock] = [],
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
@@ -88,6 +99,8 @@ final class TrainingPlan {
         self.statusRaw = statusRaw
         self.version = version
         self.notes = notes
+        self.periodizationStyleRaw = periodizationStyleRaw
+        self.deloadEveryWeeks = deloadEveryWeeks
         self.blocks = blocks
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -96,6 +109,13 @@ final class TrainingPlan {
 }
 
 extension TrainingPlan {
+    /// Style de periodisation connu, ou `nil` quand le plan a ete cree avant
+    /// que cette information soit conservee.
+    var periodizationStyle: PeriodizationStyle? {
+        get { periodizationStyleRaw.isEmpty ? nil : PeriodizationStyle(rawValue: periodizationStyleRaw) }
+        set { periodizationStyleRaw = newValue?.rawValue ?? "" }
+    }
+
     var status: TrainingPlanStatus {
         get { TrainingPlanStatus(rawValue: statusRaw) ?? .draft }
         set { statusRaw = newValue.rawValue }

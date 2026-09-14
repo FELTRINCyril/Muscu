@@ -128,65 +128,95 @@ final class AdvancedFormatsFlowTests: XCTestCase {
         }
     }
 
-    /// Sélectionne deux exercices via leur menu contextuel, puis vérifie le
-    /// compteur. Réessaie la SÉQUENCE COMPLÈTE tant que le compteur n'est pas
-    /// là.
+    /// Sélectionne plusieurs exercices via leur menu contextuel.
     ///
-    /// Trois pièges, tous rencontrés sur cette suite :
+    /// Le compteur affiché par l'écran est le SEUL signal fiable de ce qui a
+    /// été pris en compte : il pilote donc les reprises. Trois pièges,
+    /// rencontrés un par un sur cette suite :
     /// 1. l'appui long peut se perdre s'il arrive pendant une transition ;
-    /// 2. l'item du menu précédent reste un instant dans l'arbre
-    ///    d'accessibilité : viser un élément simplement « existant » revient à
-    ///    taper un élément périmé, et la sélection ne se produit jamais ;
-    /// 3. un menu resté ouvert recouvre les lignes : l'appui long suivant
-    ///    échoue alors avec « Not hittable ».
-    /// D'où : on ferme tout menu ouvert avant chaque geste, on exige un
-    /// élément HITTABLE, et une ligne déjà sélectionnée n'est pas
-    /// re-basculée — on referme simplement son menu.
+    /// 2. un menu resté ouvert recouvre les lignes, et l'appui long suivant
+    ///    échoue avec « Not hittable » ;
+    /// 3. l'item du menu change de libellé selon l'état de la ligne : viser
+    ///    « Sélectionner » revient à taper un élément dont le libellé peut
+    ///    avoir changé entre la recherche et le tap. On vise donc son
+    ///    IDENTIFIANT, stable, et on ne rouvre jamais le menu d'une ligne
+    ///    déjà sélectionnée.
     private func selectExercises(
         _ app: XCUIApplication,
         labelsContaining labels: [String],
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        let counter = app.staticTexts["\(labels.count) exercices sélectionnés"]
-
         for _ in 0..<3 {
-            for label in labels {
+            for (index, label) in labels.enumerated() {
+                // Déjà compté : on ne retouche pas cette ligne.
+                guard selectionCount(app) <= index else { continue }
                 dismissAnyContextMenu(app)
-                selectOne(app, labelContains: label)
+                selectOne(app, labelContains: label, expectedCountAfter: index + 1)
             }
             dismissAnyContextMenu(app)
-            if counter.waitForExistence(timeout: 8) { return }
+            if selectionCount(app) >= labels.count { return }
         }
 
-        XCTFail("Sélection jamais enregistrée pour \(labels.joined(separator: ", "))", file: file, line: line)
+        XCTFail(
+            "Sélection jamais enregistrée pour \(labels.joined(separator: ", ")) "
+            + "(compteur : \(selectionCount(app)), menu ouvert : \(isContextMenuOpen(app)))",
+            file: file,
+            line: line
+        )
     }
 
-    private func selectOne(_ app: XCUIApplication, labelContains text: String) {
-        // La cible du menu contextuel est le BOUTON de la ligne : un appui
-        // long sur un texte qu'elle contient ne déclenche rien.
-        let row = app.firstHittableButton(labelContains: text, timeout: 15)
+    private func selectOne(_ app: XCUIApplication, labelContains text: String, expectedCountAfter expected: Int) {
+        var row = app.firstHittableButton(labelContains: text, timeout: 10)
+        if !(row.exists && row.isHittable) {
+            // Une ligne non « hittable » signifie presque toujours qu'un menu
+            // recouvre encore la liste.
+            dismissAnyContextMenu(app)
+            row = app.firstHittableButton(labelContains: text, timeout: 10)
+        }
         guard row.exists, row.isHittable else { return }
         row.press(forDuration: 1.2)
 
-        let select = app.firstHittableButton(exactLabel: "Sélectionner", timeout: 6)
-        if select.exists, select.isHittable {
-            select.tap()
+        // On vise l'identifiant : le libellé, lui, bascule entre
+        // « Sélectionner » et « Désélectionner ».
+        let toggle = app.buttons["session.selectionToggle"]
+        guard toggle.waitForExistence(timeout: 15), toggle.isHittable else {
+            dismissAnyContextMenu(app)
             return
         }
-        // Ligne déjà sélectionnée : le menu propose « Désélectionner ». On ne
-        // la bascule surtout pas, on referme le menu.
-        dismissAnyContextMenu(app)
+        toggle.tap()
+
+        // On attend que l'écran confirme, plutôt que de supposer.
+        for _ in 0..<20 where selectionCount(app) < expected {
+            usleep(300_000)
+        }
     }
 
-    /// Referme un menu contextuel ouvert en tapant en dehors de lui, sans
-    /// choisir d'action.
+    /// Nombre d'exercices sélectionnés, lu sur le compteur de l'écran.
+    private func selectionCount(_ app: XCUIApplication) -> Int {
+        let counter = app.staticTexts["session.selectionCount"]
+        guard counter.exists else { return 0 }
+        let digits = counter.label.prefix { $0.isNumber }
+        return Int(digits) ?? 0
+    }
+
+    private func isContextMenuOpen(_ app: XCUIApplication) -> Bool {
+        app.buttons["session.selectionToggle"].isHittable
+    }
+
+    /// Referme un menu contextuel ouvert en tapant sur la barre de navigation,
+    /// zone inerte : taper au centre de l'écran risquerait d'ouvrir la ligne
+    /// qui se trouve dessous une fois le menu refermé.
     private func dismissAnyContextMenu(_ app: XCUIApplication) {
-        for _ in 0..<6 {
-            let isOpen = app.buttons["Sélectionner"].isHittable || app.buttons["Désélectionner"].isHittable
-            guard isOpen else { return }
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.04)).tap()
-            usleep(400_000)
+        for _ in 0..<8 {
+            guard isContextMenuOpen(app) else { return }
+            let navigationBar = app.navigationBars.firstMatch
+            if navigationBar.exists {
+                navigationBar.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            } else {
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.04)).tap()
+            }
+            usleep(500_000)
         }
     }
 

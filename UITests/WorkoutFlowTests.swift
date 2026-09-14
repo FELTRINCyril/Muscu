@@ -117,8 +117,12 @@ final class WorkoutFlowTests: XCTestCase {
         tapWhenReady(app.buttons["Valider la série"], timeout: 45)
         tapWhenReady(app.buttons["Passer"], timeout: 10)
 
-        tapWhenReady(app.buttons["workout.exitButton"])
-        waitAndAssert(app.buttons["Reprendre plus tard"])
+        // Le tap sur la sortie peut se perdre : on re-tape jusqu'à voir la
+        // confirmation, au lieu de supposer qu'elle est affichée.
+        tapUntilReveals(
+            app.buttons["workout.exitButton"],
+            reveals: app.buttons["Reprendre plus tard"]
+        )
         tapWhenReady(app.buttons["Reprendre plus tard"])
 
         waitAndAssert(app.buttons["Reprendre la séance"], timeout: 10)

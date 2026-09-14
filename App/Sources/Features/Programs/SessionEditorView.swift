@@ -49,9 +49,14 @@ struct SessionEditorView: View {
             } header: {
                 Text("Exercices")
             } footer: {
-                if selection.count >= 2 {
+                if selection.count == 1 {
+                    Text("1 exercice sélectionné · sélectionnez-en un second pour créer un groupe")
+                        .font(.caption)
+                        .accessibilityIdentifier("session.selectionCount")
+                } else if selection.count >= 2 {
                     Text("\(selection.count) exercices sélectionnés")
                         .font(.caption)
+                        .accessibilityIdentifier("session.selectionCount")
                 } else if !ungroupedExercises.isEmpty {
                     Text("Appuyez longuement sur un exercice pour le sélectionner et créer un superset ou un circuit.")
                         .font(.caption)
@@ -167,6 +172,7 @@ struct SessionEditorView: View {
                         systemImage: "checkmark.circle"
                     )
                 }
+                .accessibilityIdentifier("session.selectionToggle")
             } else {
                 Button {
                     removeFromGroup(exercise)

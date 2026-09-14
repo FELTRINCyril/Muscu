@@ -12,6 +12,10 @@ struct DraftPreviewView: View {
     /// Plan pluri-semaines associe, quand le generateur en a produit un.
     /// Sans plan, l'enregistrement cree simplement le programme.
     var plan: DraftPlan?
+    /// Reglages de periodisation ayant produit ce plan. Conserves sur le
+    /// plan enregistre pour pouvoir recalculer ses semaines a venir.
+    var periodizationStyle: PeriodizationStyle?
+    var deloadEveryWeeks: Int?
 
     // Ferme la sheet racine du flux (TemplatePickerView ou GeneratorWizardView),
     // passee explicitement plutot que d'utiliser @Environment(\.dismiss) qui ne
@@ -27,11 +31,15 @@ struct DraftPreviewView: View {
         draft: DraftProgram,
         regenerate: (() -> DraftProgram?)? = nil,
         plan: DraftPlan? = nil,
+        periodizationStyle: PeriodizationStyle? = nil,
+        deloadEveryWeeks: Int? = nil,
         onSaved: @escaping () -> Void
     ) {
         self.draft = draft
         self.regenerate = regenerate
         self.plan = plan
+        self.periodizationStyle = periodizationStyle
+        self.deloadEveryWeeks = deloadEveryWeeks
         self.onSaved = onSaved
         self._currentDraft = State(initialValue: draft)
         self._expandedSessions = State(initialValue: Set(draft.sessions.indices))
@@ -168,7 +176,13 @@ struct DraftPreviewView: View {
         if let plan {
             // Le plan porte deja son programme : on ne cree pas deux fois les
             // memes seances.
-            PlanImporter.insert(draft: plan, into: modelContext, activateProgram: true)
+            PlanImporter.insert(
+                draft: plan,
+                into: modelContext,
+                activateProgram: true,
+                periodizationStyle: periodizationStyle,
+                deloadEveryWeeks: deloadEveryWeeks
+            )
             _ = PersistenceSupport.save(modelContext, action: "Enregistrement du plan")
         } else {
             let program = currentDraft.toModel()

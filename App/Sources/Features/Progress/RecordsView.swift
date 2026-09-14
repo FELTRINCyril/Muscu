@@ -31,6 +31,21 @@ struct RecordsView: View {
                 } label: {
                     RecordRow(record: record)
                 }
+                .swipeActions(edge: .leading) {
+                    NavigationLink {
+                        OneRepMaxTestView(exerciseId: record.exerciseId, displayName: record.displayName)
+                    } label: {
+                        Label("Tester", systemImage: "figure.strengthtraining.traditional")
+                    }
+                    .tint(.orange)
+                }
+                .contextMenu {
+                    NavigationLink {
+                        OneRepMaxTestView(exerciseId: record.exerciseId, displayName: record.displayName)
+                    } label: {
+                        Label("Tester mon 1RM", systemImage: "figure.strengthtraining.traditional")
+                    }
+                }
             }
             .onDelete(perform: delete)
         }

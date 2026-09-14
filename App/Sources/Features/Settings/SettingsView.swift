@@ -75,6 +75,13 @@ struct SettingsView: View {
                     Label("Importer un CSV", systemImage: "square.and.arrow.down")
                 }
                 .accessibilityIdentifier("settings.csvImport")
+
+                NavigationLink {
+                    AICoachView()
+                } label: {
+                    Label("Coach IA", systemImage: "sparkles")
+                }
+                .accessibilityIdentifier("settings.aiCoach")
             } footer: {
                 Text("Objectif, niveau, matériel, jours disponibles et charges réellement disponibles. Facultatif.")
             }

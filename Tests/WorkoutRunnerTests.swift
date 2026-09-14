@@ -324,6 +324,55 @@ final class WorkoutRunnerTests: XCTestCase {
         XCTAssertEqual(prescription.exerciseId, "a", "Le programme source ne doit pas être modifié")
     }
 
+    // MARK: - Rôles de série
+
+    /// Une série d'approche s'AJOUTE : elle est enregistrée, mais la série
+    /// prescrite reste à faire.
+    func testApproachSetDoesNotConsumeAPrescribedSet() throws {
+        let session = try makeSession { session in
+            _ = addExercise(to: session, id: "a", name: "Développé", sets: 3)
+        }
+        let state = makeState(session)
+        let setNumberBefore = state.currentTarget?.setNumber
+
+        state.logSet(weight: 40, reps: 5, role: .approach)
+
+        XCTAssertEqual(state.currentTarget?.setNumber, setNumberBefore, "La série prévue reste à faire")
+        XCTAssertEqual(state.loggedSets.count, 1)
+        XCTAssertEqual(state.loggedSets.first?.role, .approach)
+        XCTAssertFalse(state.loggedSets.first?.isWarmup ?? true, "Une approche n'est pas un échauffement")
+    }
+
+    /// Un back-off compte dans le volume, mais ne consomme pas de série non
+    /// plus : ce sont deux questions distinctes.
+    func testBackoffSetCountsAsVolumeWithoutAdvancing() throws {
+        let session = try makeSession { session in
+            _ = addExercise(to: session, id: "a", name: "Développé", sets: 2)
+        }
+        let state = makeState(session)
+        state.logSet(weight: 80, reps: 5)
+        let setNumberAfterWorking = state.currentTarget?.setNumber
+
+        state.logSet(weight: 60, reps: 10, role: .backoff)
+
+        XCTAssertEqual(state.currentTarget?.setNumber, setNumberAfterWorking)
+        XCTAssertEqual(state.loggedSets.count, 2)
+        XCTAssertTrue(SetRole.backoff.countsAsWorkingSet)
+        XCTAssertFalse(SetRole.approach.countsAsWorkingSet)
+    }
+
+    func testWorkingSetStillAdvances() throws {
+        let session = try makeSession { session in
+            _ = addExercise(to: session, id: "a", name: "Développé", sets: 3)
+        }
+        let state = makeState(session)
+        let before = try XCTUnwrap(state.currentTarget?.setNumber)
+
+        state.logSet(weight: 80, reps: 8)
+
+        XCTAssertEqual(state.currentTarget?.setNumber, before + 1)
+    }
+
     // MARK: - Estimation partagée
 
     func testSessionDurationUsesTheSharedEngineCalculation() throws {

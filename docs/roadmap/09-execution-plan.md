@@ -19,7 +19,8 @@ Mettre à jour cette liste uniquement après validation des critères de la phas
       activable sans conteneur CloudKit — action externe requise)
 - [x] Phase 6 — Planning, notifications, contenus et imports
 - [ ] Phase 7 — Watch, widgets, Live Activities et HealthKit
-- [ ] Phase 8 — Coach IA sécurisé
+- [~] Phase 8 — Coach IA sécurisé (protocole, mock, validation locale et mode
+      BYOK faits ; backend géré non implémenté — décisions externes requises)
 - [ ] Phase 9 — Accessibilité, performance, confidentialité et Release
 
 ## Phase 0 — Référence
@@ -314,6 +315,39 @@ Résultats : MuscuEngine 347 tests verts, MuscuTests 195 tests verts,
 MuscuUITests 35 tests verts (1 ignoré, spécifique iPad), builds Debug **et**
 Release réussis sur iPhone, iPad et Mac Catalyst sans avertissement.
 
+## Écarts fermés après la phase 6 (13/09/2026)
+
+Six éléments spécifiés dans la roadmap restaient non livrés alors que leur
+phase était cochée. Aucun ne dépendait d'une action externe.
+
+- **Séries d'approche et de back-off** (`02`) : rôle choisi à la saisie. Une
+  série d'approche ou de back-off s'AJOUTE sans consommer de série prescrite ;
+  le back-off compte dans le volume, l'approche non. L'historique affiche le
+  rôle au lieu d'un numéro de série qui serait faux.
+- **Test de 1RM guidé** (`03`) : avertissement de sécurité affiché AVANT le
+  protocole, protocole construit sur une référence connue et refusé sans elle,
+  tentatives strictement croissantes, résultat enregistré comme performance
+  mesurée et distinct d'un 1RM estimé.
+- **Recalcul des séances futures** (`03`) : aperçu confirmé avant écriture,
+  semaines déjà entamées listées et laissées intactes, historique jamais
+  touché. Le plan conserve désormais son style de périodisation ; un plan plus
+  ancien ne voit que ses dates réalignées, faute de pouvoir deviner le reste.
+- **Photos de progression** (`06`) : stockées hors de la base, exclues de la
+  sauvegarde iCloud et des exports, supprimées avec leur fichier.
+- **Calendrier de chaleur** (`06`) : trois grandeurs, définition, échelle et
+  maximum affichés ; un jour sans donnée n'est pas un jour à zéro.
+- **Détection de plateau** (`06`) : écran dédié, fenêtre et seuil visibles,
+  décharge ou variante proposées et jamais appliquées sans accord, décisions
+  journalisées et annulables.
+
+Un défaut réel trouvé par les tests : `UIGraphicsImageRenderer` suit l'échelle
+de l'écran par défaut ; une photo « réduite à 1 600 px » était stockée en
+4 800 px sur un appareil 3x, soit trois fois le poids voulu.
+
+Schéma **v5** : le v4 a d'abord été figé (29 modèles), puis un modèle et deux
+attributs facultatifs ajoutés. Décision consignée :
+`docs/decisions/0007-reliquat-et-schema-v5.md`.
+
 ## Phase 7 — Écosystème Apple
 
 Ajouter HealthKit, cible Watch, App Group, widgets et Live Activities. Vérifier
@@ -328,6 +362,50 @@ BYOK, puis éventuellement le backend géré. L’IA reste derrière un feature 
 que sécurité, politique de confidentialité et évaluations ne sont pas validées.
 
 Jalon : génération/adaptation structurée, consentie, validée et avec fallback local.
+
+### Réalisé (14/09/2026)
+
+**Fait et vérifié**
+
+- `MuscuEngine/AI/` : schémas versionnés (`AICoachRequest` / `AICoachResponse`),
+  assainissement des contenus non fiables, validation locale avec réparation
+  **bornée**, filtre de sécurité (progression > 10 %, valeurs impossibles),
+  consentement granulaire et garde-fou de budget mensuel.
+- Protocole `AICoachService` : service mock déterministe pour tests et
+  previews, service distant en mode **BYOK** (clé dans le Trousseau).
+- `AICoachCoordinator` : consentement, budget, assainissement, envoi, contrôle
+  de schéma, validation, filtre de sécurité, puis repli déterministe sur le
+  générateur local. Aucune étape n'est optionnelle.
+- Écrans : demande et aperçu du brouillon (rien n'est écrit sans confirmation),
+  réglages (drapeau, fournisseur, consentement par catégorie, budget, journal),
+  journal technique expurgé.
+- Faux fournisseur HTTP : codes 401/429/500, réponse tronquée, texte libre,
+  schéma inconnu, mauvaise capacité, dépassement de délai et annulation.
+- Corpus d'évaluation : huit combinaisons objectif × niveau × matériel × durée
+  × restrictions, vérifiant le déterminisme du repli local et le refus des
+  propositions hors contraintes.
+- Suppression : catégorie « Coach IA » effaçant réglages, consentement, usage,
+  journal **et** clé du Trousseau.
+- Décision consignée : `docs/decisions/0008-coach-ia.md`.
+
+**Un défaut réel trouvé par un test UI**
+
+`--uitest-reset` vidait SwiftData mais ni `UserDefaults` ni le Trousseau :
+l'état du coach IA d'un test survivait au suivant, et le harnais mentait sur
+ce qu'il réinitialisait.
+
+**Non validé, car dépendant d'une action externe**
+
+- Le **backend géré** n'est pas implémenté : il suppose des décisions de
+  conservation, de région, de fournisseur et de facturation qui appartiennent
+  au propriétaire. Écrire un client pour un service inexistant produirait du
+  code jamais exécuté.
+- Le mode **BYOK n'a jamais été exécuté contre un vrai fournisseur**. Le
+  comportement de l'application est couvert par un faux service ; l'essai réel
+  avec une clé reste à faire.
+
+Cette case ne sera cochée qu'après un essai réel et la publication d'une
+politique de confidentialité décrivant fournisseur, région et conservation.
 
 ## Phase 9 — Distribution
 

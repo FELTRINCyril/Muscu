@@ -354,3 +354,84 @@ struct TrainingAnalyticsTests {
         }
     }
 }
+
+@Suite("Calendrier de chaleur")
+struct HeatmapTests {
+    private var calendar: Calendar { TrainingAnalytics.calendar(timeZone: TimeZone(identifier: "Europe/Paris")!) }
+
+    private func day(_ offsetDays: Int) -> Date {
+        let reference = Date(timeIntervalSince1970: 1_770_000_000)
+        return calendar.date(byAdding: .day, value: offsetDays, to: reference) ?? reference
+    }
+
+    private func session(_ offsetDays: Int, sets: [AnalyticsSet]) -> AnalyticsSession {
+        AnalyticsSession(id: UUID(), date: day(offsetDays), durationSeconds: 3_600, sets: sets)
+    }
+
+    private func workingSet(weight: Double, reps: Int, rir: Int? = nil, failure: Bool = false) -> AnalyticsSet {
+        AnalyticsSet(
+            exerciseId: "bench",
+            displayName: "Développé",
+            metrics: SetMetricsInput(weightKilograms: weight, reps: reps, loadKind: .external),
+            effort: rir.map { EffortRating.rir($0) },
+            reachedFailure: failure
+        )
+    }
+
+    @Test("Le nombre de séances est compté par jour")
+    func sessionsPerDay() {
+        let sessions = [
+            session(0, sets: [workingSet(weight: 60, reps: 10)]),
+            session(0, sets: [workingSet(weight: 60, reps: 10)]),
+            session(2, sets: [workingSet(weight: 60, reps: 10)]),
+        ]
+        let map = TrainingAnalytics.heatmap(sessions: sessions, metric: .sessions, calendar: calendar)
+
+        #expect(map[calendar.startOfDay(for: day(0))]?.value == 2)
+        #expect(map[calendar.startOfDay(for: day(2))]?.value == 1)
+        #expect(map[calendar.startOfDay(for: day(1))] == nil, "Un jour sans donnée est absent, pas à zéro")
+    }
+
+    @Test("Une série sans effort déclaré n'est jamais comptée comme difficile")
+    func hardSetsRequireADeclaredEffort() {
+        let sessions = [
+            session(0, sets: [
+                workingSet(weight: 60, reps: 10),
+                workingSet(weight: 60, reps: 10, rir: 1),
+                workingSet(weight: 60, reps: 10, failure: true),
+            ]),
+        ]
+        let map = TrainingAnalytics.heatmap(sessions: sessions, metric: .hardSets, calendar: calendar)
+        #expect(map[calendar.startOfDay(for: day(0))]?.value == 2)
+    }
+
+    @Test("Le tonnage signale les séries dont la charge est inconnue")
+    func tonnageReportsUnknownSets() {
+        let unknown = AnalyticsSet(
+            exerciseId: "pullup",
+            displayName: "Tractions",
+            metrics: SetMetricsInput(weightKilograms: 0, reps: 8, loadKind: .bodyweight, bodyweightKilograms: nil)
+        )
+        let sessions = [session(0, sets: [workingSet(weight: 60, reps: 10), unknown])]
+        let map = TrainingAnalytics.heatmap(sessions: sessions, metric: .tonnage, calendar: calendar)
+
+        let entry = map[calendar.startOfDay(for: day(0))]
+        #expect(entry?.value == 600)
+        #expect(entry?.unknownSets == 1)
+    }
+
+    @Test("Les niveaux couvrent zéro puis quatre paliers")
+    func levelsAreLinear() {
+        #expect(TrainingAnalytics.heatmapLevel(value: 0, maximum: 100) == 0)
+        #expect(TrainingAnalytics.heatmapLevel(value: 1, maximum: 100) == 1)
+        #expect(TrainingAnalytics.heatmapLevel(value: 25, maximum: 100) == 1)
+        #expect(TrainingAnalytics.heatmapLevel(value: 26, maximum: 100) == 2)
+        #expect(TrainingAnalytics.heatmapLevel(value: 100, maximum: 100) == 4)
+        #expect(TrainingAnalytics.heatmapLevel(value: 150, maximum: 100) == 4)
+    }
+
+    @Test("Sans maximum exploitable, aucun niveau n'est inventé")
+    func withoutMaximumThereIsNoLevel() {
+        #expect(TrainingAnalytics.heatmapLevel(value: 10, maximum: 0) == 0)
+    }
+}

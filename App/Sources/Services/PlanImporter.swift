@@ -19,7 +19,9 @@ enum PlanImporter {
     static func insert(
         draft: DraftPlan,
         into context: ModelContext,
-        activateProgram: Bool
+        activateProgram: Bool,
+        periodizationStyle: PeriodizationStyle? = nil,
+        deloadEveryWeeks: Int? = nil
     ) -> Result {
         let program = draft.program.toModel()
         if activateProgram {
@@ -35,7 +37,12 @@ enum PlanImporter {
             programId: program.id,
             startDate: draft.weeks.first?.startDate ?? .now,
             statusRaw: TrainingPlanStatus.active.rawValue,
-            notes: draft.rationale.joined(separator: "\n")
+            notes: draft.rationale.joined(separator: "\n"),
+            // Reglages conserves pour pouvoir RECALCULER les semaines a venir
+            // plus tard : sans eux, un recalcul devrait deviner la
+            // periodisation d'origine.
+            periodizationStyleRaw: periodizationStyle?.rawValue ?? "",
+            deloadEveryWeeks: deloadEveryWeeks ?? 0
         )
         context.insert(plan)
 

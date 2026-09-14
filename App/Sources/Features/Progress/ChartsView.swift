@@ -18,6 +18,7 @@ struct ChartsView: View {
     @State private var selectedExerciseId: String?
     @State private var selectedMetric: ExerciseMetric = .estimatedOneRepMax
     @State private var window: AnalysisWindow = .twelveWeeks
+    @State private var heatmapMetric: TrainingAnalytics.HeatmapMetric = .sessions
 
     /// Fenêtre d'analyse. Toujours affichée : un indicateur sans période
     /// n'est pas interprétable.
@@ -53,6 +54,7 @@ struct ChartsView: View {
                     volumeCard
                     muscleDistributionCard
                     frequencyCard
+                    heatmapCard
                     exerciseCard
                     comparisonCard
                 }
@@ -72,6 +74,108 @@ struct ChartsView: View {
         .pickerStyle(.segmented)
         .accessibilityIdentifier("charts.windowPicker")
     }
+
+    // MARK: - Calendrier de chaleur
+
+    private var heatmapCard: some View {
+        ChartCard(
+            title: "Calendrier de chaleur",
+            subtitle: "\(heatmapMetric.displayName) par jour · \(periodLabel)",
+            footnote: heatmapMetric.explanation + " Échelle linéaire sur \(TrainingAnalytics.heatmapLevelCount) niveaux, maximum de la période : \(heatmapMaximumLabel).",
+            missingDataNote: heatmapMissingNote,
+            textAlternative: heatmapAlternative
+        ) {
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("Grandeur", selection: $heatmapMetric) {
+                    ForEach(TrainingAnalytics.HeatmapMetric.allCases) { metric in
+                        Text(metric.displayName).tag(metric)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("charts.heatmapMetric")
+
+                heatmapGrid
+            }
+        }
+    }
+
+    private var heatmapGrid: some View {
+        // Une colonne par semaine, une ligne par jour de la semaine : la
+        // lecture verticale suit la semaine, comme un calendrier.
+        HStack(alignment: .top, spacing: 3) {
+            ForEach(heatmapWeeks, id: \.self) { weekStart in
+                VStack(spacing: 3) {
+                    ForEach(0..<7, id: \.self) { offset in
+                        let day = calendar.date(byAdding: .day, value: offset, to: weekStart) ?? weekStart
+                        heatmapCell(day)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func heatmapCell(_ day: Date) -> some View {
+        let entry = heatmapValues[calendar.startOfDay(for: day)]
+        let level = TrainingAnalytics.heatmapLevel(value: entry?.value ?? 0, maximum: heatmapMaximum)
+        return RoundedRectangle(cornerRadius: 2)
+            .fill(day > Date.now ? Color.clear : Theme.accent.opacity(level == 0 ? 0.12 : 0.2 + 0.2 * Double(level)))
+            .frame(width: 10, height: 10)
+    }
+
+    private var heatmapValues: [Date: TrainingAnalytics.HeatmapDay] {
+        TrainingAnalytics.heatmap(sessions: windowedSessions, metric: heatmapMetric, calendar: calendar)
+    }
+
+    private var heatmapMaximum: Double {
+        heatmapValues.values.map(\.value).max() ?? 0
+    }
+
+    private var heatmapMaximumLabel: String {
+        guard heatmapMaximum > 0 else { return "aucune donnée" }
+        let value = WeightFormatter.number(heatmapMaximum)
+        return heatmapMetric.unit.map { "\(value) \($0)" } ?? value
+    }
+
+    /// Semaines couvertes par la fenêtre, de la plus ancienne à la plus
+    /// récente.
+    private var heatmapWeeks: [Date] {
+        let days = windowedSessions.map(\.date)
+        guard let first = days.min() else { return [] }
+        var weeks: [Date] = []
+        var cursor = TrainingAnalytics.startOfWeek(for: first, calendar: calendar)
+        let end = TrainingAnalytics.startOfWeek(for: Date.now, calendar: calendar)
+        while cursor <= end, weeks.count < 60 {
+            weeks.append(cursor)
+            guard let next = calendar.date(byAdding: .weekOfYear, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        return weeks
+    }
+
+    private var heatmapMissingNote: String? {
+        let unknown = heatmapValues.values.reduce(0) { $0 + $1.unknownSets }
+        guard unknown > 0 else { return nil }
+        return "\(unknown) série(s) sans charge effective connue ne sont pas comptées."
+    }
+
+    private var heatmapAlternative: String {
+        let active = heatmapValues.values.filter { $0.value > 0 }
+        guard !active.isEmpty else {
+            return "Aucune donnée de \(heatmapMetric.displayName.lowercased()) sur la période."
+        }
+        let total = active.reduce(0) { $0 + $1.value }
+        let best = active.max { $0.value < $1.value }
+        let bestDay = best.map { Self.dayFormatter.string(from: $0.date) } ?? ""
+        return "\(active.count) jour(s) actif(s) sur la période, total \(WeightFormatter.number(total))\(heatmapMetric.unit.map { " " + $0 } ?? ""), maximum le \(bestDay)."
+    }
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.setLocalizedDateFormatFromTemplate("dMMMM")
+        return formatter
+    }()
 
     // MARK: - Volume hebdomadaire
 

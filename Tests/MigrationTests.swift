@@ -291,6 +291,68 @@ final class MigrationTests: XCTestCase {
         XCTAssertEqual(try context.fetch(FetchDescriptor<PlaceProfile>()).count, 1)
     }
 
+    // MARK: - V4 -> V5
+
+    /// Ecrit un store avec le schema V4 FIGE, puis l'ouvre avec le schema
+    /// courant : c'est l'etape que vivra un utilisateur deja a jour.
+    func testV4StoreMigratesToV5WithoutLoss() throws {
+        let url = temporaryDirectory.appendingPathComponent("v4-written.store")
+
+        do {
+            let container = try ModelContainer(
+                for: Schema(versionedSchema: MuscuSchemaV4.self),
+                configurations: ModelConfiguration(url: url)
+            )
+            let context = ModelContext(container)
+
+            let program = MuscuSchemaV4.Program(name: "Programme v4", isActive: true)
+            context.insert(program)
+
+            let plan = MuscuSchemaV4.TrainingPlan(name: "Plan v4")
+            context.insert(plan)
+
+            let place = MuscuSchemaV4.PlaceProfile(name: "Salle v4")
+            context.insert(place)
+
+            let schedule = MuscuSchemaV4.PlanningSchedule(name: "Semaine type v4")
+            context.insert(schedule)
+
+            let completed = MuscuSchemaV4.CompletedSession(
+                date: Date(timeIntervalSince1970: 1_700_000_000),
+                programName: "Programme v4",
+                sessionName: "Séance A",
+                durationSeconds: 1_800
+            )
+            context.insert(completed)
+
+            try context.save()
+        }
+
+        let container = try ModelContainer(
+            for: Schema(versionedSchema: MuscuCurrentSchema.self),
+            migrationPlan: MuscuMigrationPlan.self,
+            configurations: ModelConfiguration(url: url)
+        )
+        let context = ModelContext(container)
+
+        XCTAssertEqual(try context.fetch(FetchDescriptor<Program>()).first?.name, "Programme v4")
+        XCTAssertEqual(try context.fetch(FetchDescriptor<PlaceProfile>()).first?.name, "Salle v4")
+        XCTAssertEqual(try context.fetch(FetchDescriptor<PlanningSchedule>()).first?.name, "Semaine type v4")
+        XCTAssertEqual(try context.fetch(FetchDescriptor<CompletedSession>()).first?.durationSeconds, 1_800)
+
+        let plan = try XCTUnwrap(try context.fetch(FetchDescriptor<TrainingPlan>()).first)
+        XCTAssertEqual(plan.name, "Plan v4")
+        // Champs ajoutes en v5 : vides, jamais inventes.
+        XCTAssertNil(plan.periodizationStyle)
+        XCTAssertEqual(plan.deloadEveryWeeks, 0)
+
+        XCTAssertTrue(try context.fetch(FetchDescriptor<ProgressPhoto>()).isEmpty)
+
+        context.insert(ProgressPhoto(assetName: "photo.jpg"))
+        try context.save()
+        XCTAssertEqual(try context.fetch(FetchDescriptor<ProgressPhoto>()).count, 1)
+    }
+
     /// Un store corrompu ne doit pas faire disparaitre le fichier d'origine :
     /// l'ouverture echoue proprement et les octets restent sur disque.
     func testCorruptedStoreFailsWithoutDestroyingTheFile() throws {

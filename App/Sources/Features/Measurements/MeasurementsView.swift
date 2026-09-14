@@ -70,6 +70,14 @@ struct MeasurementsView: View {
                 }
                 .accessibilityIdentifier("measurements.add")
             }
+            ToolbarItem(placement: .topBarLeading) {
+                NavigationLink {
+                    ProgressPhotosView()
+                } label: {
+                    Label("Photos", systemImage: "photo.on.rectangle")
+                }
+                .accessibilityIdentifier("measurements.photos")
+            }
         }
         .sheet(isPresented: $showingEditor) {
             MeasurementEditorView(kind: kind)

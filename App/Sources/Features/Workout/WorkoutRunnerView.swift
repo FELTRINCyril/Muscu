@@ -398,7 +398,8 @@ private struct SetEntryCard: View {
                             reps: result.reps,
                             effort: result.effort,
                             reachedFailure: result.reachedFailure,
-                            notes: result.notes
+                            notes: result.notes,
+                            role: result.role
                         )
                     }
                 )

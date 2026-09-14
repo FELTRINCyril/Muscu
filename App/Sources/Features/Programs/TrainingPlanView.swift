@@ -13,6 +13,7 @@ struct TrainingPlanView: View {
 
     @State private var workoutToMove: ScheduledWorkout?
     @State private var newDate = Date.now
+    @State private var isRecalculating = false
 
     var body: some View {
         List {
@@ -37,6 +38,19 @@ struct TrainingPlanView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $workoutToMove) { workout in
             moveSheet(workout)
+        }
+        .sheet(isPresented: $isRecalculating) {
+            PlanRecalculationView(plan: plan)
+        }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    isRecalculating = true
+                } label: {
+                    Label("Recalculer", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .accessibilityIdentifier("plan.recalculate")
+            }
         }
     }
 

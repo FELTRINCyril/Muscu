@@ -320,6 +320,99 @@ public enum TrainingAnalytics {
             .mapValues(\.count)
     }
 
+    // MARK: - Calendrier de chaleur
+
+    /// Grandeur affichee par le calendrier de chaleur.
+    public enum HeatmapMetric: String, CaseIterable, Sendable, Identifiable {
+        case sessions
+        case hardSets
+        case tonnage
+
+        public var id: String { rawValue }
+
+        public var displayName: String {
+            switch self {
+            case .sessions: return "Séances"
+            case .hardSets: return "Séries difficiles"
+            case .tonnage: return "Tonnage"
+            }
+        }
+
+        public var unit: String? {
+            switch self {
+            case .sessions, .hardSets: return nil
+            case .tonnage: return "kg"
+            }
+        }
+
+        /// Ce que la valeur compte vraiment, a afficher sous le calendrier :
+        /// une couleur sans legende n'est pas une information.
+        public var explanation: String {
+            switch self {
+            case .sessions:
+                return "Nombre de séances terminées ce jour-là."
+            case .hardSets:
+                return "Séries de travail déclarées difficiles : effort à 2 répétitions en réserve ou moins, ou échec marqué. Une série sans effort saisi n’est jamais supposée difficile."
+            case .tonnage:
+                return "Charge effective × répétitions, séries de travail uniquement. Les séries dont la charge effective est inconnue ne sont pas comptées."
+            }
+        }
+    }
+
+    /// Valeur d'une journee du calendrier de chaleur.
+    public struct HeatmapDay: Equatable, Sendable {
+        public let date: Date
+        public let value: Double
+        /// Series de travail dont la charge effective est inconnue. Elles ne
+        /// sont pas comptees dans le tonnage : le dire evite de faire passer
+        /// une donnee manquante pour un jour leger.
+        public let unknownSets: Int
+
+        public init(date: Date, value: Double, unknownSets: Int = 0) {
+            self.date = date
+            self.value = value
+            self.unknownSets = unknownSets
+        }
+    }
+
+    /// Valeurs par jour, pour un calendrier de chaleur. Seuls les jours
+    /// AYANT une valeur sont renvoyes : un jour absent est un jour sans
+    /// donnee, ce qui n'est pas la meme chose qu'un jour a zero.
+    public static func heatmap(
+        sessions: [AnalyticsSession],
+        metric: HeatmapMetric,
+        calendar: Calendar = TrainingAnalytics.calendar()
+    ) -> [Date: HeatmapDay] {
+        var result: [Date: HeatmapDay] = [:]
+
+        for (day, daySessions) in Dictionary(grouping: sessions, by: { calendar.startOfDay(for: $0.date) }) {
+            let sets = daySessions.flatMap(\.sets)
+            switch metric {
+            case .sessions:
+                result[day] = HeatmapDay(date: day, value: Double(daySessions.count))
+            case .hardSets:
+                result[day] = HeatmapDay(date: day, value: Double(sets.filter(\.isHardSet).count))
+            case .tonnage:
+                let tonnage = SetMetrics.totalTonnage(sets.filter(\.isWorkingSet).map(\.metrics))
+                result[day] = HeatmapDay(date: day, value: tonnage.total, unknownSets: tonnage.unknownSets)
+            }
+        }
+
+        return result.filter { $0.value.value > 0 || $0.value.unknownSets > 0 }
+    }
+
+    /// Nombre de niveaux d'intensite du calendrier, zero exclu.
+    public static let heatmapLevelCount = 4
+
+    /// Repartit une valeur sur `heatmapLevelCount` niveaux, par rapport au
+    /// maximum de la periode. Le decoupage est LINEAIRE et le maximum est
+    /// affiche : une echelle qu'on ne peut pas lire ne veut rien dire.
+    public static func heatmapLevel(value: Double, maximum: Double) -> Int {
+        guard value > 0, maximum > 0 else { return 0 }
+        let ratio = min(1, value / maximum)
+        return max(1, Int((ratio * Double(heatmapLevelCount)).rounded(.up)))
+    }
+
     /// Adherence : seances realisees rapportees aux seances planifiees.
     public static func adherence(plannedCount: Int, completedCount: Int) -> AdherenceSummary {
         AdherenceSummary(plannedCount: max(0, plannedCount), completedCount: max(0, completedCount))

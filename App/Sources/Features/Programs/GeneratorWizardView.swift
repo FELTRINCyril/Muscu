@@ -63,6 +63,8 @@ struct GeneratorWizardView: View {
                     draft: draft,
                     regenerate: { regenerate() },
                     plan: generatedPlan,
+                    periodizationStyle: createsPlan ? periodizationStyle : nil,
+                    deloadEveryWeeks: createsPlan ? deloadEveryWeeks : nil,
                     onSaved: {
                         onSaved()
                         dismiss()

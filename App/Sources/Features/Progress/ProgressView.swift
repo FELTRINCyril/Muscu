@@ -53,6 +53,12 @@ struct ProgressTabView: View {
                         } label: {
                             Label("Adaptations", systemImage: "arrow.triangle.branch")
                         }
+                        NavigationLink {
+                            PlateauView()
+                        } label: {
+                            Label("Plateaux", systemImage: "chart.line.flattrend.xyaxis")
+                        }
+                        .accessibilityIdentifier("progress.plateaus")
                     } label: {
                         Label("Plus", systemImage: "ellipsis.circle")
                     }

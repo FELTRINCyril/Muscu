@@ -323,7 +323,8 @@ final class WorkoutState: Identifiable {
         effort: EffortRating? = nil,
         reachedFailure: Bool = false,
         notes: String = "",
-        stopsSubSets: Bool = false
+        stopsSubSets: Bool = false,
+        role: SetRole = .working
     ) {
         guard let target = currentTarget, weight >= 0, weight.isFinite, reps > 0 else { return }
         let exercise = target.exercise
@@ -334,10 +335,21 @@ final class WorkoutState: Identifiable {
             weight: weight,
             reps: reps,
             loadKind: resolvedLoadKind,
+            role: role,
             effort: effort ?? exercise.targetEffort,
             reachedFailure: reachedFailure,
             notes: notes
         )
+
+        // Une serie d'echauffement, d'approche ou de back-off S'AJOUTE a la
+        // prescription : elle est enregistree, mais la serie prevue reste a
+        // faire. Sans cela, ajouter une approche ferait sauter une serie de
+        // travail sans que rien ne le dise.
+        guard role.consumesPrescribedSet else {
+            _ = PersistenceSupport.save(modelContext, action: "Enregistrement d’une série supplémentaire")
+            return
+        }
+
         advance(outcome: WorkoutSetOutcome(reps: reps, weightKilograms: weight, stopsSubSets: stopsSubSets))
     }
 
@@ -714,6 +726,7 @@ final class WorkoutState: Identifiable {
         weight: Double,
         reps: Int,
         loadKind: LoadKind,
+        role: SetRole = .working,
         effort: EffortRating? = nil,
         reachedFailure: Bool = false,
         notes: String = "",
@@ -727,7 +740,7 @@ final class WorkoutState: Identifiable {
             setIndex: target.setNumber - 1,
             weight: weight,
             reps: reps,
-            role: .working,
+            role: role,
             loadKind: loadKind,
             format: target.exercise.format,
             groupId: target.groupKind == .single ? nil : target.groupId,
