@@ -36,6 +36,13 @@ struct WorkoutRunnerView: View {
         ) {
             RestTimerView(timer: state.restTimer)
         }
+        // La Live Activity suit la seance : elle demarre avec le runner et
+        // se met a jour a chaque changement d'etape ou de repos.
+        .onAppear {
+            guard !state.isSessionComplete else { return }
+            state.startLiveActivity()
+        }
+        .onChange(of: state.restTimer.isRunning) { _, _ in state.refreshLiveActivity() }
     }
 
     private var runningBody: some View {

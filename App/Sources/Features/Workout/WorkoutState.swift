@@ -584,6 +584,10 @@ final class WorkoutState: Identifiable {
         modelContext.delete(workout)
         if PersistenceSupport.save(modelContext, action: "Abandon de la séance") {
             activeWorkout = nil
+            // Abandonner doit faire disparaitre la Live Activity : la laisser
+            // sur l'ecran verrouille apres une seance abandonnee serait un
+            // defaut visible sans meme ouvrir l'application.
+            Task { await WorkoutActivityController.end() }
         }
     }
 
@@ -617,6 +621,7 @@ final class WorkoutState: Identifiable {
             return nil
         }
         activeWorkout = nil
+        Task { await WorkoutActivityController.end() }
         return completedSession
     }
 
@@ -648,6 +653,34 @@ final class WorkoutState: Identifiable {
         if !isSessionComplete, let rest = result.rest, rest.seconds > 0 {
             restTimer.start(seconds: rest.seconds)
         }
+
+        refreshLiveActivity()
+    }
+
+    /// Etat courant publie sur la Live Activity. Rien de plus que ce que
+    /// l'ecran affiche deja.
+    func liveActivityState() -> WorkoutActivityState {
+        let target = currentTarget
+        return WorkoutActivityState(
+            exerciseName: target?.exercise.displayName ?? currentExercise?.displayName ?? programSession.name,
+            setNumber: target?.setNumber ?? 0,
+            totalSets: target?.totalSets ?? 0,
+            restEndsAt: restTimer.isRunning ? restTimer.endDate : nil,
+            completedSets: loggedSets.filter { $0.role.countsAsWorkingSet }.count
+        )
+    }
+
+    func startLiveActivity() {
+        WorkoutActivityController.start(
+            sessionName: programSession.name,
+            state: liveActivityState()
+        )
+    }
+
+    func refreshLiveActivity() {
+        guard WorkoutActivityController.isRunning else { return }
+        let state = liveActivityState()
+        Task { await WorkoutActivityController.update(state) }
     }
 
     @discardableResult

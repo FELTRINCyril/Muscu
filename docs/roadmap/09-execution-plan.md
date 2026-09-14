@@ -18,7 +18,9 @@ Mettre à jour cette liste uniquement après validation des critères de la phas
 - [~] Phase 5 — iCloud, iPad et Mac (iPad et Mac faits ; iCloud prêt mais non
       activable sans conteneur CloudKit — action externe requise)
 - [x] Phase 6 — Planning, notifications, contenus et imports
-- [ ] Phase 7 — Watch, widgets, Live Activities et HealthKit
+- [~] Phase 7 — Watch, widgets, Live Activities et HealthKit (tout est
+      implémenté et exécuté en simulateur ; la validation sur appareils
+      réels, exigée par le jalon, reste à faire)
 - [~] Phase 8 — Coach IA sécurisé (protocole, mock, validation locale et mode
       BYOK faits ; backend géré non implémenté — décisions externes requises)
 - [ ] Phase 9 — Accessibilité, performance, confidentialité et Release
@@ -354,6 +356,53 @@ Ajouter HealthKit, cible Watch, App Group, widgets et Live Activities. Vérifier
 autonomie, permissions, expiration et déduplication sur appareils réels.
 
 Jalon : une séance Watch rejoint l’historique une seule fois et la Live Activity expire proprement.
+
+### Réalisé (14/09/2026)
+
+**Fait et vérifié**
+
+- **HealthKit** : écriture des séances terminées, lecture et écriture du poids
+  corporel, `HealthWorkoutLink` pour la déduplication, réconciliation des
+  suppressions. L'autorisation est expliquée AVANT la demande système et n'est
+  déclenchée que par l'activation de l'interrupteur. Un refus n'active rien,
+  ne supprime rien, ne bloque rien ; un appareil sans Santé est traité comme
+  indisponible, pas comme un refus.
+- **App Group** `group.com.cyril.Muscu` : conteneur partagé entre
+  l'application, ses widgets et la montre.
+- **Widgets** (prochaine séance, semaine écoulée) alimentés par un instantané
+  écrit par l'application. Les widgets ne lisent jamais la base, et
+  l'instantané ne contient que ce qu'ils affichent — vérifié par un test.
+- **Live Activity** de séance en cours : elle se termine à la fin ET à
+  l'abandon, porte une péremption de quatre heures, et toute activité restée
+  ouverte après un arrêt brutal est fermée au démarrage.
+- **Application Watch** à cible unique, embarquée dans l'app iOS :
+  enregistrement de séries, envoi en file d'attente vers l'iPhone, état vide
+  explicite quand rien n'a été reçu. **Installée et lancée** sur un simulateur
+  Apple Watch Series 11.
+- **Déduplication du transfert** : l'identifiant est frappé à la montre et
+  devient l'identifiant unique de la séance. Rejouer un transfert dix fois
+  n'ajoute rien.
+- Décision consignée : `docs/decisions/0009-ecosysteme-apple.md`.
+
+**Deux défauts réels trouvés en exécutant**
+
+- L'extension widget compilait mais **refusait de s'installer** : son
+  `Info.plist` écrit à la main n'avait pas de `CFBundleExecutable`.
+- `--uitest-reset` ne réinitialisait ni les réglages Santé ni l'instantané des
+  widgets : l'état d'un test survivait au suivant. Même défaut que celui
+  trouvé en phase 8 pour le coach IA, sur d'autres clés.
+
+**Non validé, car dépendant d'appareils réels**
+
+Le jalon exige une vérification sur appareils réels. Ne sont PAS démontrés :
+l'autonomie pendant une séance Watch, la livraison différée d'un transfert
+quand l'iPhone est réellement hors de portée, l'expiration de la Live Activity
+sur un écran verrouillé physique, HealthKit avec des données réelles et
+plusieurs sources d'écriture, et le rendu des widgets sur un vrai écran
+d'accueil.
+
+Cette case ne sera cochée qu'après ces vérifications, qui demandent une équipe
+Apple Developer, un iPhone et une Apple Watch appairés.
 
 ## Phase 8 — IA
 

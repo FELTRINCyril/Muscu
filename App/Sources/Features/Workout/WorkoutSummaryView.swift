@@ -87,6 +87,19 @@ struct WorkoutSummaryView: View {
             return
         }
         finishedSets = completedSession.sets
+
+        // Les widgets affichent la semaine écoulée : ils doivent refléter
+        // cette séance immédiatement.
+        WidgetSnapshotService.refresh(in: state.modelContext)
+
+        // Écriture dans Santé, si et seulement si l'utilisateur l'a activée.
+        // Un échec n'affecte pas la séance : elle est déjà enregistrée.
+        Task {
+            await HealthSyncService.synchronize(
+                in: state.modelContext,
+                store: AppServices.healthStore
+            )
+        }
         let records = (try? state.modelContext.fetch(FetchDescriptor<ExerciseRecord>())) ?? []
         // Le poids de corps fige sur la seance prime ; a defaut on retombe
         // sur la derniere mesure connue, sans jamais supposer une valeur.

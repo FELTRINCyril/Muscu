@@ -21,6 +21,7 @@ enum DataDeletion {
         case templates
         case library
         case aiCoach
+        case healthSharing
         case customExercises
         case profile
 
@@ -38,6 +39,7 @@ enum DataDeletion {
             case .templates: return "Modèles de séance"
             case .library: return "Favoris, tags et collections"
             case .aiCoach: return "Coach IA"
+            case .healthSharing: return "Partage avec Santé"
             case .customExercises: return "Exercices personnalisés"
             case .profile: return "Profil"
             }
@@ -55,6 +57,7 @@ enum DataDeletion {
             case .templates: return "Modèles de séance et de programme enregistrés."
             case .library: return "Exercices favoris, tags personnels et collections."
             case .aiCoach: return "Réglages du coach IA, consentement, compteur d’usage, journal technique et clé personnelle du Trousseau."
+            case .healthSharing: return "Réglages de partage avec Santé et liens vers les entraînements écrits. Les entraînements déjà présents dans l’app Santé ne sont pas retirés : ils vous appartiennent, et se suppriment depuis Santé."
             case .customExercises: return "Exercices que vous avez créés."
             case .profile: return "Objectif, niveau, matériel, jours disponibles et mesures de référence."
             }
@@ -130,6 +133,13 @@ enum DataDeletion {
         case .library:
             report.countsByModel["annotations d’exercices"] = try deleteAll(ExerciseLibraryEntry.self, in: context)
             report.countsByModel["collections"] = try deleteAll(ExerciseCollection.self, in: context)
+
+        case .healthSharing:
+            // Les liens partent, mais PAS les entrainements deja ecrits dans
+            // Sante : les effacer sans le demander serait une suppression
+            // decidee a la place de l'utilisateur, dans une autre application.
+            report.countsByModel["liens Santé"] = try deleteAll(HealthWorkoutLink.self, in: context)
+            HealthSettings.reset()
 
         case .aiCoach:
             // Le coach IA ne stocke aucune entite SwiftData : ses reglages,

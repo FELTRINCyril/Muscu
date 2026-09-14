@@ -77,6 +77,13 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.csvImport")
 
                 NavigationLink {
+                    HealthSettingsView()
+                } label: {
+                    Label("Santé", systemImage: "heart")
+                }
+                .accessibilityIdentifier("settings.health")
+
+                NavigationLink {
                     AICoachView()
                 } label: {
                     Label("Coach IA", systemImage: "sparkles")

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Écosystème Apple (phase 7)
+
+- HealthKit facultatif : séances terminées écrites une seule fois, poids
+  corporel partagé sur demande, suppression réconciliée. L'autorisation est
+  expliquée avant d'être demandée, et un refus ne bloque rien.
+- Widgets « Prochaine séance » et « Semaine », alimentés par un instantané qui
+  ne contient que ce qu'ils affichent.
+- Live Activity de séance en cours, fermée à la fin comme à l'abandon.
+- Application Watch : enregistrement de séries et envoi en file d'attente vers
+  l'iPhone. Une séance rejoint l'historique une seule fois, même si le
+  transfert est rejoué.
+
 ### Coach IA (phase 8, derrière un drapeau désactivé par défaut)
 
 - Protocole de service indépendant du fournisseur, service mock déterministe

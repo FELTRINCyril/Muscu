@@ -107,6 +107,15 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   appliquées affichées, repli annoncé sur le générateur local. Votre clé reste
   dans le Trousseau ; les catégories de données sensibles sont exclues par
   défaut et le partage se règle catégorie par catégorie.
+- **Santé** (facultatif) : vos séances terminées sont écrites dans l'app Santé
+  — une seule fois, même après plusieurs synchronisations — et votre poids peut
+  être partagé dans les deux sens. Ce que Muscu lit et n'écrit pas est annoncé
+  avant la demande système ; un refus ne bloque aucune fonction.
+- **Widgets et Live Activity** : la prochaine séance et la semaine écoulée sur
+  l'écran d'accueil, la séance en cours sur l'écran verrouillé. Les widgets
+  lisent un instantané qui ne contient que ce qu'ils affichent.
+- **Apple Watch** : enregistrez vos séries au poignet ; la séance part vers
+  l'iPhone dès qu'il est joignable et rejoint l'historique **une seule fois**.
 - **Raccourcis et Siri** : démarrer la prochaine séance, ouvrir un programme ou
   un exercice, enregistrer le poids corporel (avec confirmation), lancer un
   minuteur de repos, afficher le résumé de la semaine.
@@ -223,12 +232,15 @@ App/
     MuscuApp.swift, RootTabView.swift, Theme.swift
   Resources/
     Assets.xcassets  Icône de l'app
+Shared/             Code partagé app / widgets / Watch (App Group, instantané)
+Widgets/            Extension WidgetKit et Live Activity
+Watch/              Application watchOS à cible unique
 Packages/
   MuscuEngine/       Package SPM : catalogue, générateur de programme, 1RM,
                      pyramide, intervalles, échauffement, règles du modèle v3
                      (Domain/, Runner/, Programming/, Analytics/, Sync/,
-                     Planning/, Places/, Library/, Interop/, AI/)
-                     - 410 tests unitaires
+                     Planning/, Places/, Library/, Interop/, AI/, Health/)
+                     - 429 tests unitaires
 Tests/
   Fixtures/          Stores SwiftData figés (migration) et exports v1/v2 (import)
 docs/

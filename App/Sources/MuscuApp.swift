@@ -31,6 +31,7 @@ struct MuscuApp: App {
             try DataIntegrityRepair.run(context: container.mainContext)
             self.container = container
             self.startupError = nil
+            self._phoneConnectivity = State(initialValue: PhoneConnectivityService(modelContainer: container))
             self.notificationResponder = NotificationResponder(container: container)
             UNUserNotificationCenter.current().delegate = self.notificationResponder
             return
@@ -44,6 +45,7 @@ struct MuscuApp: App {
                 let container = try ModelContainer(for: schema, configurations: fallback)
                 self.container = container
                 self.startupError = error.localizedDescription
+                self._phoneConnectivity = State(initialValue: PhoneConnectivityService(modelContainer: container))
                 self.notificationResponder = NotificationResponder(container: container)
                 UNUserNotificationCenter.current().delegate = self.notificationResponder
             } catch {
@@ -54,6 +56,7 @@ struct MuscuApp: App {
 
     @State private var catalogStore = CatalogStore()
     @State private var networkStatus = NetworkStatus()
+    @State private var phoneConnectivity: PhoneConnectivityService
     @Environment(\.scenePhase) private var scenePhase
 
     /// Delegue retenu par l'application : `UNUserNotificationCenter` ne
@@ -66,7 +69,17 @@ struct MuscuApp: App {
                 .preferredColorScheme(.dark)
                 .environment(catalogStore)
                 .environment(networkStatus)
-                .task { await refreshReminders() }
+                .task {
+                    await refreshReminders()
+                    // Une seance interrompue par un arret brutal peut laisser
+                    // une Live Activity ouverte : on la ferme au demarrage.
+                    await WorkoutActivityController.endOrphans()
+                    WidgetSnapshotService.refresh(in: container.mainContext, catalogStore: catalogStore)
+                    // La montre recoit le meme instantane que les widgets :
+                    // un seul calcul, donc aucun risque de divergence.
+                    phoneConnectivity.publish(WidgetSnapshotStore.read())
+                }
+                .environment(phoneConnectivity)
                 .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name.NSSystemTimeZoneDidChange)) { _ in
                     // Un changement de fuseau decale tous les rappels : on
                     // recalcule au lieu de laisser des heures fausses.

@@ -37,6 +37,9 @@ final class SyncFlowTests: XCTestCase {
         let exportLabel = app.firstDescendant(labelContains: "Exporter")
         for _ in 0..<6 where !exportLabel.exists {
             app.swipeUp()
+            // Laisser la ligne se matérialiser : enchaîner les balayages la
+            // ferait dépasser sans jamais la voir.
+            _ = exportLabel.waitForExistence(timeout: 2)
         }
         waitAndAssert(exportLabel, timeout: 15)
     }

@@ -69,12 +69,15 @@ enum UITestSupport {
         // alerte de notification ou de calendrier bloquerait la suite.
         AppServices.useInMemoryServices()
 
-        // Les reglages du coach IA vivent dans UserDefaults et le Trousseau,
-        // pas dans SwiftData : sans cette remise a zero, l'etat d'un test
-        // survivrait au suivant et « --uitest-reset » mentirait sur ce qu'il
-        // reinitialise.
+        // Reglages du coach IA, de Sante et instantane des widgets : tout
+        // cela vit dans UserDefaults, le Trousseau ou le groupe
+        // d'applications, pas dans SwiftData. Sans cette remise a zero,
+        // l'etat d'un test survit au suivant et « --uitest-reset » ment sur
+        // ce qu'il reinitialise.
         AISettings.reset()
         AICoachLog.clear()
+        HealthSettings.reset()
+        WidgetSnapshotStore.clear()
 
         let context = ModelContext(container)
         wipe(context: context)

@@ -10,11 +10,15 @@ import Foundation
 enum AppServices {
     static private(set) var notificationScheduler: NotificationScheduling = UserNotificationScheduler()
     static private(set) var calendarStore: CalendarStoring = EventKitCalendarStore()
+    static private(set) var healthStore: HealthStoring = HealthKitStore()
 
     /// Bascule vers des doubles en memoire. Appelee uniquement depuis le
     /// harnais de tests UI, lui-meme compile en DEBUG seulement.
     static func useInMemoryServices() {
         notificationScheduler = InMemoryNotificationScheduler(status: .authorized)
         calendarStore = InMemoryCalendarStore(status: .authorized)
+        // Sante reste NON DETERMINEE dans les tests UI : le parcours a
+        // verifier est justement celui ou rien n'est encore autorise.
+        healthStore = InMemoryHealthStore(status: .notDetermined)
     }
 }

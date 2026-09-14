@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- HealthKit : lecture et ecriture des entrainements et du poids.
+	     L'application fonctionne entierement sans, et ne demande jamais
+	     l'autorisation avant que l'utilisateur ait active la fonction. -->
+	<key>com.apple.developer.healthkit</key>
+	<true/>
+	<key>com.apple.developer.healthkit.access</key>
+	<array/>
+
+	<!-- Groupe d'applications : conteneur partage entre l'application, ses
+	     widgets et l'application Watch. Aucune donnee personnelle n'y est
+	     ecrite en clair au-dela de ce que les widgets affichent. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.cyril.Muscu</string>
+	</array>
+</dict>
+</plist>

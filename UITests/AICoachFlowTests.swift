@@ -73,21 +73,27 @@ final class AICoachFlowTests: XCTestCase {
         tapUntilReveals(app.buttons["aiCoach.settings"], reveals: app.switches["ai.enabled"])
         app.switches["ai.enabled"].switches.firstMatch.tap()
 
-        // Le formulaire rend ses lignes paresseusement : il faut défiler
-        // jusqu'à la section de consentement.
+        // Le formulaire rend ses lignes paresseusement. On LAISSE D'ABORD la
+        // section apparaître : défiler trop vite décharge les lignes hors
+        // écran de l'arbre d'accessibilité, et la cible disparaît juste avant
+        // d'être trouvée.
         let measurements = app.switches["ai.consent.bodyMeasurements"]
-        for _ in 0..<8 where !measurements.exists {
-            app.swipeUp()
+        if !measurements.waitForExistence(timeout: 12) {
+            for _ in 0..<4 where !measurements.exists {
+                app.swipeUp()
+                _ = measurements.waitForExistence(timeout: 3)
+            }
         }
-        XCTAssertTrue(measurements.waitForExistence(timeout: 10), "Le consentement doit être détaillé par catégorie")
+        XCTAssertTrue(measurements.exists, "Le consentement doit être détaillé par catégorie")
         XCTAssertEqual(measurements.value as? String, "0", "Une catégorie sensible est refusée par défaut")
 
         let summary = app.staticTexts["ai.consent.summary"]
-        for _ in 0..<8 where !summary.exists {
+        for _ in 0..<4 where !summary.exists {
             app.swipeUp()
+            _ = summary.waitForExistence(timeout: 3)
         }
         XCTAssertTrue(
-            summary.waitForExistence(timeout: 10),
+            summary.exists,
             "L’écran doit résumer ce qui partirait réellement"
         )
     }

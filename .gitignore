@@ -3,6 +3,9 @@ xcuserdata/
 *.xcodeproj
 .build/
 DerivedData/
+# Produits de `xcodebuild -target ... -sdk ...`, qui ecrit dans ./build
+# faute de dossier de derivation explicite.
+build/
 .swiftpm/
 Scripts/exercises_source.json
 .superpowers/

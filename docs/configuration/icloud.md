@@ -33,12 +33,15 @@ n'ont pas été faites.
 2. **Créer le conteneur CloudKit** `iCloud.com.cyril.Muscu` depuis Xcode
    (onglet *Signing & Capabilities* → *+ Capability* → *iCloud* → *CloudKit*)
    ou depuis le tableau de bord CloudKit.
-3. **Activer le fichier d'entitlements** : renommer
-   `App/Resources/Muscu.entitlements.modele` en `Muscu.entitlements`, puis
-   ajouter dans `project.yml`, sous `targets.Muscu.settings.base` :
-   ```yaml
-   CODE_SIGN_ENTITLEMENTS: App/Resources/Muscu.entitlements
-   ```
+3. **Fusionner les clés iCloud dans le fichier d'entitlements ACTIF.**
+   Depuis la phase 7, `App/Resources/Muscu.entitlements` existe et est déjà
+   référencé par `project.yml` : il porte HealthKit et le groupe
+   d'applications. Il ne faut donc PAS renommer le modèle par-dessus, sous
+   peine de perdre ces deux capacités. Copiez les clés de
+   `App/Resources/Muscu.entitlements.modele` dans le fichier actif :
+   `com.apple.developer.icloud-container-identifiers`,
+   `com.apple.developer.icloud-services`,
+   `com.apple.developer.ubiquity-kvstore-identifier` et `aps-environment`.
 4. **Renseigner l'identifiant du conteneur** dans
    `CloudKitSyncTransport.containerIdentifier`.
 5. **Implémenter puis valider le transport** : la conversion `SyncRecord` ↔

@@ -18,7 +18,13 @@ final class SettingsFlowTests: XCTestCase {
         soundToggle.tap()
 
         // Repos par défaut : le Stepper expose 2 boutons (décrément, incrément).
+        // L'écran Réglages s'allonge au fil des versions : on défile jusqu'à
+        // la ligne plutôt que de supposer qu'elle tient dans le premier écran.
         let stepper = app.steppers.firstMatch
+        for _ in 0..<6 where !stepper.exists {
+            app.swipeUp()
+            _ = stepper.waitForExistence(timeout: 2)
+        }
         waitAndAssert(stepper, "Le stepper de repos par défaut devrait être présent")
         let stepperButtons = stepper.buttons
         if stepperButtons.count >= 2 {
@@ -31,6 +37,7 @@ final class SettingsFlowTests: XCTestCase {
         // (rendu lazy), il faut scroller jusqu'a elle.
         for _ in 0..<6 where !app.staticTexts["Version"].exists {
             app.swipeUp()
+            _ = app.staticTexts["Version"].waitForExistence(timeout: 2)
         }
         waitAndAssert(app.staticTexts["Version"], "La section À propos devrait afficher la version")
     }
@@ -47,6 +54,9 @@ final class SettingsFlowTests: XCTestCase {
         let exportButton = app.firstDescendant(labelContains: "Exporter mes données")
         for _ in 0..<6 where !exportButton.exists {
             app.swipeUp()
+            // Laisser la ligne se matérialiser : enchaîner les balayages la
+            // ferait dépasser sans jamais la voir.
+            _ = exportButton.waitForExistence(timeout: 2)
         }
         tapWhenReady(exportButton)
 
