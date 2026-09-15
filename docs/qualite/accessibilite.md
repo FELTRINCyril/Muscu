@@ -1,6 +1,6 @@
 # Accessibilité — ce qui est fait, ce qui reste
 
-Dernière vérification : 14/09/2026.
+Dernière vérification : 15/09/2026.
 
 ## Dynamic Type
 
@@ -29,6 +29,9 @@ et suivent Dynamic Type par construction.
   photo.
 - Les écrans de saisie exposent des identifiants stables, utilisés par les
   tests UI — ce qui garantit qu'ils restent présents.
+- Les boutons `+` / `−` de la saisie de série portent un libellé explicite
+  (« Augmenter le poids », « Diminuer les répétitions »). Sans lui, VoiceOver
+  annonçait le nom du symbole SF : « plus circle fill ».
 
 ## Information portée par la couleur
 
@@ -44,9 +47,11 @@ Les commandes du runner (valider, passer, ajouter une série) sont des boutons
 `.controlSize(.large)` occupant la largeur disponible. Les listes utilisent les
 lignes standard de SwiftUI, déjà conformes.
 
-Point à surveiller : les glyphes `+` / `−` des steppers personnalisés de
-`SetLoggerView`. Ils sont dimensionnés en points de police, pas en cible
-tactile explicite.
+Les glyphes `+` / `−` de `SetLoggerView` étaient dimensionnés en points de
+police (36 pt), donc sous le minimum recommandé. Ils portent désormais un
+`frame(minWidth: 44, minHeight: 44)` et un `contentShape(Rectangle())` : la
+zone touchable est explicite, sans grossir le glyphe. Un test le vérifie en
+mesurant la hauteur réelle du bouton.
 
 ## Confirmations et annulation
 
@@ -60,14 +65,32 @@ tactile explicite.
 Sons et retour haptique sont configurables dans Réglages. Les animations se
 limitent à des transitions système et à l'anneau du chrono.
 
+## Tailles de texte extrêmes
+
+`UITests/DynamicTypeFlowTests.swift` lance l'application en **AX5**
+(`UICTContentSizeCategoryAccessibilityXXXL`, la plus grande taille proposée
+par iOS) et vérifie trois choses :
+
+- les cinq onglets restent présents quand la barre passe en libellés empilés ;
+- un écran de réglages long reste utilisable : la ligne visée est
+  *atteignable en défilant* et son interrupteur reste **actionnable** ;
+- la saisie de série reste actionnable, et la cible tactile du `+` mesure au
+  moins 44 points.
+
+Le critère retenu est « atteignable en défilant », pas « visible d'emblée » :
+la carte de saisie est dans une `ScrollView`, donc en AX5 les commandes
+descendent sous l'écran — elles ne disparaissent pas. Exiger le contraire
+aurait fait échouer un test sur un comportement correct.
+
 ## Ce qui n'est pas vérifié
 
 - **Aucun audit avec VoiceOver réellement activé** : les libellés et l'ordre de
-  lecture sont écrits avec soin et couverts par des tests d'identifiants, mais
-  l'expérience réelle au lecteur d'écran n'a pas été parcourue.
+  lecture sont écrits avec soin, couverts par des tests d'identifiants et,
+  depuis le 15/09, par des libellés explicites sur les commandes qui n'en
+  avaient pas. L'expérience réelle au lecteur d'écran n'a pas été parcourue.
 - **Navigation au clavier sur iPad et Mac** : les raccourcis ⌘1–⌘5 existent,
   le parcours complet au clavier n'a pas été éprouvé.
-- **Tailles de texte extrêmes** (AX5) sur chaque écran : le mécanisme est en
-  place, la revue écran par écran reste à faire.
+- **Revue écran par écran en AX5** : trois écrans représentatifs sont couverts
+  par des tests, pas les trente autres.
 
 Ces trois points demandent une revue manuelle sur appareil, pas du code.

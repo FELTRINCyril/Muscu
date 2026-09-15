@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- Muscu ne suit personne et ne collecte rien : aucune donnée ne quitte
+         l'appareil sans un geste explicite de l'utilisateur (export, partage,
+         demande au coach IA). Ces deux tableaux sont donc vides, et le
+         restent tant que c'est vrai. -->
     <key>NSPrivacyTracking</key>
     <false/>
     <key>NSPrivacyCollectedDataTypes</key>
@@ -11,11 +15,28 @@
     <key>NSPrivacyAccessedAPITypes</key>
     <array>
         <dict>
+            <!-- Réglages de l'application : unités, préférences de chrono,
+                 consentements, journal de diagnostic. CA92.1 = accès limité
+                 aux données de l'app elle-même. -->
             <key>NSPrivacyAccessedAPIType</key>
             <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
             <key>NSPrivacyAccessedAPITypeReasons</key>
             <array>
                 <string>CA92.1</string>
+            </array>
+        </dict>
+        <dict>
+            <!-- Dates de fichiers, lues UNIQUEMENT dans le conteneur de
+                 l'application : classer les sauvegardes automatiques de la
+                 plus récente à la plus ancienne (BackupService), dater la
+                 dernière sauvegarde dans le diagnostic (DiagnosticsHealth),
+                 et inspecter le store local avant une récupération
+                 (StoreRecovery, PhotoStore). C617.1 = fichiers du conteneur. -->
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>C617.1</string>
             </array>
         </dict>
     </array>

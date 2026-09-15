@@ -29,6 +29,19 @@ struct MuscuApp: App {
             #endif
             try SchemaUpgrade.run(context: container.mainContext)
             try DataIntegrityRepair.run(context: container.mainContext)
+            // Purge differee des suppressions logiques : un tombstone garde
+            // sa raison d'etre 90 jours, le temps qu'un appareil hors ligne
+            // recoive la suppression. Au-dela il ne sert plus a rien.
+            //
+            // Volontairement NON propagee : une purge est un entretien de
+            // confort. La propager ferait basculer tout le demarrage vers le
+            // conteneur de secours en memoire, et l'utilisateur perdrait
+            // l'acces a ses donnees pour une tache qui pouvait attendre.
+            do {
+                try TombstonePurge.run(context: container.mainContext)
+            } catch {
+                DiagnosticsCenter.record(.store, code: "store.tombstones.purgeFailed", error: error)
+            }
             self.container = container
             self.startupError = nil
             self._phoneConnectivity = State(initialValue: PhoneConnectivityService(modelContainer: container))

@@ -1943,6 +1943,26 @@
         }
       }
     },
+    "Augmenter le poids": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Increase the weight"
+          }
+        }
+      }
+    },
+    "Augmenter les répétitions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Increase the repetitions"
+          }
+        }
+      }
+    },
     "Aujourd’hui": {
       "localizations": {
         "en": {
@@ -2921,6 +2941,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Difficulty"
+          }
+        }
+      }
+    },
+    "Diminuer le poids": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decrease the weight"
+          }
+        }
+      }
+    },
+    "Diminuer les répétitions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decrease the repetitions"
           }
         }
       }
@@ -7645,6 +7685,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Week %lld"
+          }
+        }
+      }
+    },
+    "Semaine allégée : volume %lld %%, intensité %lld %%. Les séries et charges de cette séance ont été réduites.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lighter week: volume %lld %%, intensity %lld %%. The sets and loads of this workout have been reduced."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Semaine allégée : volume %1$lld %%, intensité %2$lld %%. Les séries et charges de cette séance ont été réduites."
           }
         }
       }

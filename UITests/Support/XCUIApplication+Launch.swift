@@ -20,6 +20,23 @@ extension XCUIApplication {
         launch()
     }
 
+    /// Meme chose, a une taille de texte donnee. Sert a verifier que les
+    /// ecrans restent utilisables pour qui a agrandi le texte de son iPhone.
+    /// `category` est un nom de `UIContentSizeCategory`, par exemple
+    /// `UICTContentSizeCategoryAccessibilityXXXL` (la plus grande, AX5).
+    func launchEmpty(contentSizeCategory category: String) {
+        launchArguments = ["--uitest-reset"] + Self.frenchArguments
+            + ["-UIPreferredContentSizeCategoryName", category]
+        launch()
+    }
+
+    /// Store seede, a une taille de texte donnee.
+    func launchSeeded(contentSizeCategory category: String) {
+        launchArguments = ["--uitest-reset", "--uitest-seed"] + Self.frenchArguments
+            + ["-UIPreferredContentSizeCategoryName", category]
+        launch()
+    }
+
     /// Meme chose, dans la langue demandee. Sert a verifier que l'anglais
     /// est reellement livre, et pas seulement traduit dans le catalogue.
     func launchEmpty(language: String, locale: String) {

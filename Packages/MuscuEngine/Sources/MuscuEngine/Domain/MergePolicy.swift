@@ -117,7 +117,15 @@ public enum MergePolicy {
 
     /// Un tombstone peut-il etre purge a cette date ?
     public static func canPurge(_ metadata: SyncMetadata, now: Date) -> Bool {
-        guard let deletedAt = metadata.deletedAt else { return false }
+        canPurge(deletedAt: metadata.deletedAt, now: now)
+    }
+
+    /// Meme regle, pour un appelant qui n'a que la date de suppression sous
+    /// la main — typiquement une entite persistee. Fabriquer une
+    /// `SyncMetadata` factice juste pour poser la question reviendrait a
+    /// inventer un `createdAt` qui n'existe pas.
+    public static func canPurge(deletedAt: Date?, now: Date) -> Bool {
+        guard let deletedAt else { return false }
         return now.timeIntervalSince(deletedAt) > tombstoneRetention
     }
 }

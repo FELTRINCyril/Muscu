@@ -13,7 +13,10 @@ Mettre à jour cette liste uniquement après validation des critères de la phas
 - [x] Phase 0 — État de référence figé et reproductible
 - [x] Phase 1 — Fondations et modèle v3
 - [x] Phase 2 — Formats avancés et runner unifié
-- [x] Phase 3 — Programmation, périodisation et adaptation
+- [~] Phase 3 — Programmation, périodisation et adaptation (la décharge
+      planifiée est désormais réellement appliquée ; deux adaptations
+      acceptées restent irréversibles et le check-in de forme n'est jamais
+      appliqué — cf. `COMPARAISON-FINALE.md`)
 - [x] Phase 4 — Profil, mesures et analyses
 - [~] Phase 5 — iCloud, iPad et Mac (iPad et Mac faits ; iCloud prêt mais non
       activable sans conteneur CloudKit — action externe requise)
@@ -23,7 +26,14 @@ Mettre à jour cette liste uniquement après validation des critères de la phas
       réels, exigée par le jalon, reste à faire)
 - [~] Phase 8 — Coach IA sécurisé (protocole, mock, validation locale et mode
       BYOK faits ; backend géré non implémenté — décisions externes requises)
-- [ ] Phase 9 — Accessibilité, performance, confidentialité et Release
+- [~] Phase 9 — Accessibilité, performance, confidentialité et Release
+      (CI reproductible, localisation fr/en, diagnostic, Dynamic Type et
+      Privacy Manifest faits ; audit VoiceOver réel, archive signée et
+      TestFlight bloqués faute de compte Apple Developer payant)
+
+La comparaison ligne par ligne des documents 01 à 08 exigée en fin de
+roadmap est faite : `docs/roadmap/COMPARAISON-FINALE.md`. Elle recense ce
+qui manque encore, document par document, avec les fichiers concernés.
 
 ## Phase 0 — Référence
 

@@ -48,6 +48,12 @@ struct WorkoutRunnerView: View {
     private var runningBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                // Une seance allegee doit le DIRE. Reduire les series sans le
+                // signaler serait une modification silencieuse du programme,
+                // exactement ce que la roadmap interdit.
+                if !state.weekScaling.isNeutral {
+                    WeekScalingBanner(scaling: state.weekScaling)
+                }
                 if let node = state.currentNode, node.isGroup, let target = state.currentTarget {
                     GroupOverviewBar(node: node, target: target)
                 }
@@ -267,6 +273,34 @@ struct SessionChronoLabel: View {
 // Bandeau affiche au-dessus d'un superset, triset, giant set ou circuit :
 // tour courant, exercice courant et enchainement du groupe. Sans lui, rien
 // a l'ecran ne distingue un superset d'une suite d'exercices independants.
+/// Bandeau d'une semaine allegee : il dit ce qui a change et pourquoi.
+private struct WeekScalingBanner: View {
+    let scaling: WeekScaling
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.down.right.circle")
+            Text(text)
+                .font(.footnote)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(Theme.accent.opacity(0.15))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("workout.weekScaling")
+    }
+
+    private var text: String {
+        let volume = Int((scaling.volumeMultiplier * 100).rounded())
+        let intensity = Int((scaling.intensityMultiplier * 100).rounded())
+        return String(
+            localized: "Semaine allégée : volume \(volume) %, intensité \(intensity) %. Les séries et charges de cette séance ont été réduites."
+        )
+    }
+}
+
 private struct GroupOverviewBar: View {
     let node: WorkoutNode
     let target: WorkoutSetTarget

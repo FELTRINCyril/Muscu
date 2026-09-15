@@ -57,10 +57,12 @@ struct SetLoggerView: View {
     }
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 16) {
             editableValue(
                 label: "Poids",
                 suffix: "kg",
+                decrementLabel: "Diminuer le poids",
+                incrementLabel: "Augmenter le poids",
                 onDecrement: { weight = max(0, weight - 2.5) },
                 onIncrement: { weight += 2.5 }
             ) {
@@ -76,6 +78,8 @@ struct SetLoggerView: View {
             editableValue(
                 label: "Répétitions",
                 suffix: nil,
+                decrementLabel: "Diminuer les répétitions",
+                incrementLabel: "Augmenter les répétitions",
                 onDecrement: { reps = max(0, reps - 1) },
                 onIncrement: { reps += 1 }
             ) {
@@ -205,14 +209,22 @@ struct SetLoggerView: View {
         }
     }
 
+    /// `label` est une `LocalizedStringKey` et non une `String` : `Text(uneString)`
+    /// affiche la chaîne telle quelle et ne serait jamais traduite.
+    ///
+    /// Les deux libellés d'accessibilité sont fournis par l'appelant plutôt
+    /// que fabriqués ici : « Augmenter le poids » se lit, « Augmenter Poids »
+    /// non. Sans eux, VoiceOver annonce le nom du symbole SF.
     private func editableValue(
-        label: String,
-        suffix: String?,
+        label: LocalizedStringKey,
+        suffix: LocalizedStringKey?,
+        decrementLabel: LocalizedStringKey,
+        incrementLabel: LocalizedStringKey,
         onDecrement: @escaping () -> Void,
         onIncrement: @escaping () -> Void,
         @ViewBuilder field: () -> some View
     ) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -221,7 +233,16 @@ struct SetLoggerView: View {
                 Button(action: onDecrement) {
                     Image(systemName: "minus.circle.fill")
                         .scaledSystemFont(size: 36, relativeTo: .title)
+                        // Le glyphe fait 36 pt : la zone touchable doit en
+                        // faire 44, minimum recommandé par Apple. Les
+                        // espacements ci-dessous sont resserrés d'autant,
+                        // sinon la carte grandit et le bouton de validation
+                        // — l'action principale de l'écran — sort de
+                        // l'écran. C'est un test d'exécution qui l'a montré.
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
+                .accessibilityLabel(decrementLabel)
 
                 HStack(spacing: 4) {
                     field()
@@ -240,7 +261,10 @@ struct SetLoggerView: View {
                 Button(action: onIncrement) {
                     Image(systemName: "plus.circle.fill")
                         .scaledSystemFont(size: 36, relativeTo: .title)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
+                .accessibilityLabel(incrementLabel)
             }
             .foregroundStyle(Theme.accent)
         }

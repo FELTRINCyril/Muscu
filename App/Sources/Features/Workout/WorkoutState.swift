@@ -39,20 +39,37 @@ final class WorkoutState: Identifiable {
 
     private(set) var activeWorkout: ActiveWorkout?
 
+    /// Mise a l'echelle de la semaine de plan appliquee au demarrage. Elle
+    /// est conservee pour que l'ecran de preparation et le runner puissent la
+    /// DIRE : alleger une seance sans le signaler serait une modification
+    /// silencieuse.
+    let weekScaling: WeekScaling
+
     init(
         programSession: ProgramSession,
         modelContext: ModelContext,
         catalogStore: CatalogStore,
-        restTimer: RestTimer
+        restTimer: RestTimer,
+        weekScaling: WeekScaling? = nil
     ) {
         self.programSession = programSession
         self.modelContext = modelContext
         self.catalogStore = catalogStore
         self.restTimer = restTimer
-        self.plan = WorkoutPlanBuilder.plan(
+        let scaling = weekScaling ?? WeekScalingResolver.scaling(
             for: programSession,
-            catalogStore: catalogStore,
-            customExercises: (try? modelContext.fetch(FetchDescriptor<CustomExercise>())) ?? []
+            context: modelContext
+        )
+        self.weekScaling = scaling
+        // La mise a l'echelle est appliquee UNE FOIS, ici, puis figee dans le
+        // snapshot persiste : une seance de decharge reprise apres un arret
+        // reste une seance de decharge.
+        self.plan = scaling.applied(
+            to: WorkoutPlanBuilder.plan(
+                for: programSession,
+                catalogStore: catalogStore,
+                customExercises: (try? modelContext.fetch(FetchDescriptor<CustomExercise>())) ?? []
+            )
         )
         self.startedAt = .now
         self.position = .start
@@ -92,11 +109,19 @@ final class WorkoutState: Identifiable {
             // Seance commencee avant le deroule unifie.
             restoredPlan = legacy
         } else {
-            restoredPlan = WorkoutPlanBuilder.plan(
-                for: programSession,
-                catalogStore: catalogStore,
-                customExercises: (try? modelContext.fetch(FetchDescriptor<CustomExercise>())) ?? []
-            )
+            // Dernier recours : le deroule est reconstruit depuis la seance
+            // source. Il faut donc RE-appliquer la mise a l'echelle, sinon
+            // une seance de decharge reprise apres perte du snapshot
+            // reviendrait silencieusement au volume plein.
+            restoredPlan = WeekScalingResolver
+                .scaling(for: programSession, context: modelContext)
+                .applied(
+                    to: WorkoutPlanBuilder.plan(
+                        for: programSession,
+                        catalogStore: catalogStore,
+                        customExercises: (try? modelContext.fetch(FetchDescriptor<CustomExercise>())) ?? []
+                    )
+                )
         }
 
         // La position est reclampee par la machine a etats : elle reste
@@ -121,6 +146,9 @@ final class WorkoutState: Identifiable {
         self.restTimer = restTimer
         self.startedAt = activeWorkout.startedAt
         self.activeWorkout = activeWorkout
+        // Le deroule restaure porte DEJA la mise a l'echelle : on ne la
+        // reapplique pas, on la retient seulement pour pouvoir la dire.
+        self.weekScaling = WeekScalingResolver.scaling(for: programSession, context: modelContext)
         self.plan = restoredPlan
         self.position = WorkoutStateMachine.clamp(restoredPosition, in: restoredPlan)
         self.phase = RunnerPhase(rawValue: activeWorkout.phaseRaw) ?? .running
