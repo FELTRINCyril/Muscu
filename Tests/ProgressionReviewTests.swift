@@ -42,11 +42,17 @@ final class ProgressionReviewTests: XCTestCase {
         return session
     }
 
-    private func logHistory(reps: [Int], weight: Double = 60, daysAgo: Int) throws {
+    private func logHistory(
+        reps: [Int],
+        weight: Double = 60,
+        daysAgo: Int,
+        exerciseId: String = "bench",
+        displayName: String = "Développé couché"
+    ) throws {
         let sets = reps.enumerated().map { index, value in
             CompletedSet(
-                exerciseId: "bench",
-                displayName: "Développé couché",
+                exerciseId: exerciseId,
+                displayName: displayName,
                 orderIndex: 0,
                 setIndex: index,
                 weight: weight,
@@ -215,4 +221,50 @@ final class ProgressionReviewTests: XCTestCase {
         XCTAssertFalse(ProgressionReview.summary(for: .hold).isEmpty)
         XCTAssertFalse(ProgressionReview.summary(for: .notEnoughData).isEmpty)
     }
+
+    /// Le défaut corrigé : un ajustement d'intervalle accepté était
+    /// IRRÉVERSIBLE. `ProgressionReview.accept` écrivait `intervalWork` et
+    /// `intervalRest` sans enregistrer les valeurs précédentes, donc
+    /// `canRevert` restait faux et le bouton « Annuler cette adaptation »
+    /// n'apparaissait jamais.
+    func testATimeAdjustmentIsRevertible() throws {
+        let exercise = PrescribedExercise(
+            exerciseId: "burpees",
+            displayName: "Burpees",
+            orderIndex: 0,
+            sets: 1,
+            restSeconds: 0
+        )
+        exercise.formatRaw = SetFormat.intervals.rawValue
+        exercise.intervalWork = 30
+        exercise.intervalRest = 30
+        exercise.intervalRounds = 8
+        exercise.progressionRule = .timeProgression(workStepSeconds: 5, restStepSeconds: -5)
+
+        let session = ProgramSession(name: "Cardio", orderIndex: 0, exercises: [exercise])
+        let program = Program(name: "Programme", isActive: true, sessions: [session])
+        session.program = program
+        exercise.session = session
+        context.insert(program)
+        try context.save()
+
+        try logHistory(reps: [10, 10, 10], daysAgo: 3, exerciseId: "burpees", displayName: "Burpees")
+
+        let item = try XCTUnwrap(ProgressionReview.proposals(for: session, context: context).first)
+        let entry = ProgressionReview.accept(item, context: context, now: reference)
+        try context.save()
+
+        let applied = try XCTUnwrap(session.orderedExercises.first)
+        XCTAssertEqual(applied.intervalWork, 35, "L'ajustement doit être appliqué")
+        XCTAssertEqual(applied.intervalRest, 25)
+        XCTAssertTrue(entry.canRevert, "Un ajustement d'intervalle doit être annulable")
+
+        XCTAssertTrue(ProgressionReview.revert(entry, context: context, now: reference))
+        try context.save()
+
+        XCTAssertEqual(applied.intervalWork, 30, "L'annulation doit restaurer la valeur exacte")
+        XCTAssertEqual(applied.intervalRest, 30)
+        XCTAssertEqual(entry.decision, .reverted)
+    }
 }
+

@@ -1,16 +1,17 @@
 import Foundation
 import SwiftData
 
-/// Version courante du schema : modele v5 du produit. Ajoute au modele v4
-/// les photos de progression et les reglages de periodisation conserves sur
-/// un plan, necessaires pour recalculer ses semaines a venir.
+/// Version courante du schema : modele v6 du produit. Ajoute au modele v5
+/// les valeurs precedentes manquantes sur `AdaptationEntry`, sans lesquelles
+/// deux adaptations acceptees — l'ajustement d'un intervalle et le changement
+/// de variante apres plateau — ne pouvaient pas etre annulees.
 ///
-/// Contrairement aux versions figees (`MuscuSchemaV1` a `MuscuSchemaV4`),
+/// Contrairement aux versions figees (`MuscuSchemaV1` a `MuscuSchemaV5`),
 /// celle-ci pointe sur les modeles reellement utilises par l'application.
-/// Une evolution future doit d'abord FIGER une copie de ces modeles dans une
-/// nouvelle `VersionedSchema` avant de les modifier ici.
-enum MuscuSchemaV5: VersionedSchema {
-    static let versionIdentifier = Schema.Version(5, 0, 0)
+/// Une evolution future doit d'abord FIGER une copie de ces modeles
+/// (`Scripts/freeze-schema.py`) avant de les modifier ici.
+enum MuscuSchemaV6: VersionedSchema {
+    static let versionIdentifier = Schema.Version(6, 0, 0)
 
     static var models: [any PersistentModel.Type] {
         [
@@ -50,15 +51,18 @@ enum MuscuSchemaV5: VersionedSchema {
 
 /// Schema courant de l'application. Un seul point a changer lors de l'ajout
 /// d'une version ; les tests de migration s'appuient dessus.
-typealias MuscuCurrentSchema = MuscuSchemaV5
+typealias MuscuCurrentSchema = MuscuSchemaV6
 
 enum MuscuMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
-        [MuscuSchemaV1.self, MuscuSchemaV2.self, MuscuSchemaV3.self, MuscuSchemaV4.self, MuscuSchemaV5.self]
+        [
+            MuscuSchemaV1.self, MuscuSchemaV2.self, MuscuSchemaV3.self,
+            MuscuSchemaV4.self, MuscuSchemaV5.self, MuscuSchemaV6.self,
+        ]
     }
 
     static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5]
+        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6]
     }
 
     /// V1 -> V2 : ajout des identifiants uniques, du typage de charge des
@@ -92,5 +96,15 @@ enum MuscuMigrationPlan: SchemaMigrationPlan {
     static let migrateV4toV5 = MigrationStage.lightweight(
         fromVersion: MuscuSchemaV4.self,
         toVersion: MuscuSchemaV5.self
+    )
+
+    /// V5 -> V6 : trois attributs FACULTATIFS sur `AdaptationEntry`, qui
+    /// permettent d'annuler un ajustement d'intervalle et un changement de
+    /// variante. Que des ajouts a valeur par defaut : aucune donnee existante
+    /// n'est relue ni reecrite, et une adaptation deja enregistree reste
+    /// lisible — simplement non annulable, comme elle l'etait deja.
+    static let migrateV5toV6 = MigrationStage.lightweight(
+        fromVersion: MuscuSchemaV5.self,
+        toVersion: MuscuSchemaV6.self
     )
 }

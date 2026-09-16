@@ -52,6 +52,20 @@ final class AdaptationEntry {
     var previousPercentOneRepMax: Double?
     var newPercentOneRepMax: Double?
 
+    // MARK: - Champs v6
+
+    /// Duree d'effort et de repos d'un intervalle avant l'adaptation.
+    ///
+    /// Sans elles, `canRevert` etait toujours faux pour un ajustement
+    /// temporel : le bouton « Annuler cette adaptation » n'apparaissait
+    /// JAMAIS, et `revert` n'aurait de toute facon rien su restaurer.
+    var previousIntervalWork: Int?
+    var previousIntervalRest: Int?
+
+    /// Exercice prescrit avant un changement de variante propose apres un
+    /// plateau. Meme raison : sans lui, la substitution etait definitive.
+    var previousExerciseId: String?
+
     var updatedAt: Date = Date()
     var deletedAt: Date?
 
@@ -73,6 +87,9 @@ final class AdaptationEntry {
         previousSets: Int? = nil,
         newSets: Int? = nil,
         previousPercentOneRepMax: Double? = nil,
+        previousIntervalWork: Int? = nil,
+        previousIntervalRest: Int? = nil,
+        previousExerciseId: String? = nil,
         newPercentOneRepMax: Double? = nil,
         updatedAt: Date = Date(),
         deletedAt: Date? = nil
@@ -94,6 +111,9 @@ final class AdaptationEntry {
         self.previousSets = previousSets
         self.newSets = newSets
         self.previousPercentOneRepMax = previousPercentOneRepMax
+        self.previousIntervalWork = previousIntervalWork
+        self.previousIntervalRest = previousIntervalRest
+        self.previousExerciseId = previousExerciseId
         self.newPercentOneRepMax = newPercentOneRepMax
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
@@ -118,7 +138,10 @@ extension AdaptationEntry {
             && (previousWeightKilograms != nil
                 || previousRepsUpper != nil
                 || previousSets != nil
-                || previousPercentOneRepMax != nil)
+                || previousPercentOneRepMax != nil
+                || previousIntervalWork != nil
+                || previousIntervalRest != nil
+                || previousExerciseId != nil)
     }
 
     var syncMetadata: SyncMetadata {

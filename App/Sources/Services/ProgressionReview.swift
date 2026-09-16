@@ -159,6 +159,11 @@ enum ProgressionReview {
             prescription.percentOneRepMax = to
 
         case .adjustTime(let workDelta, let restDelta):
+            // Les valeurs precedentes sont enregistrees AVANT d'ecrire : sans
+            // elles, `canRevert` restait faux et le bouton « Annuler cette
+            // adaptation » n'apparaissait jamais pour un intervalle.
+            entry.previousIntervalWork = prescription.intervalWork
+            entry.previousIntervalRest = prescription.intervalRest
             // Les bornes sont celles de l'editeur : une adaptation ne doit
             // jamais produire une prescription non editable.
             prescription.intervalWork = max(5, min(600, prescription.intervalWork + workDelta))
@@ -196,6 +201,15 @@ enum ProgressionReview {
         if let previous = entry.previousRepsUpper { prescription.repsUpper = previous }
         if let previous = entry.previousSets { prescription.sets = previous }
         if let previous = entry.previousPercentOneRepMax { prescription.percentOneRepMax = previous }
+        if let previous = entry.previousIntervalWork { prescription.intervalWork = previous }
+        if let previous = entry.previousIntervalRest { prescription.intervalRest = previous }
+        // Un changement de variante remet l'exercice d'origine. Le nom
+        // affiche suit : le laisser pointer vers la variante rendrait la
+        // prescription incomprehensible.
+        if let previous = entry.previousExerciseId {
+            prescription.exerciseId = previous
+            if !entry.displayName.isEmpty { prescription.displayName = entry.displayName }
+        }
 
         entry.decision = .reverted
         entry.decidedAt = now

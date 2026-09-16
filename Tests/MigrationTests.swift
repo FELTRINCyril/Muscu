@@ -353,6 +353,82 @@ final class MigrationTests: XCTestCase {
         XCTAssertEqual(try context.fetch(FetchDescriptor<ProgressPhoto>()).count, 1)
     }
 
+    // MARK: - V5 -> V6
+
+    /// Écrit un store avec le schéma V5 FIGÉ, puis l'ouvre avec le schéma
+    /// courant. C'est l'étape que vivra un utilisateur déjà à jour.
+    func testV5StoreMigratesToV6WithoutLoss() throws {
+        let url = temporaryDirectory.appendingPathComponent("v5-written.store")
+
+        do {
+            let container = try ModelContainer(
+                for: Schema(versionedSchema: MuscuSchemaV5.self),
+                configurations: ModelConfiguration(url: url)
+            )
+            let context = ModelContext(container)
+
+            let program = MuscuSchemaV5.Program(name: "Programme v5", isActive: true)
+            context.insert(program)
+
+            let completed = MuscuSchemaV5.CompletedSession(
+                date: Date(timeIntervalSince1970: 1_700_000_000),
+                programName: "Programme v5",
+                sessionName: "Séance A",
+                durationSeconds: 2_400
+            )
+            context.insert(completed)
+
+            // Une adaptation déjà acceptée AVANT l'ajout des champs
+            // d'annulation : elle doit rester lisible, simplement non
+            // annulable — exactement ce qu'elle était.
+            let adaptation = MuscuSchemaV5.AdaptationEntry(
+                exerciseId: "bench",
+                displayName: "Développé couché",
+                summary: "Intervalle 30 s → 35 s"
+            )
+            adaptation.decisionRaw = "accepted"
+            context.insert(adaptation)
+
+            let photo = MuscuSchemaV5.ProgressPhoto(assetName: "photo-v5.jpg")
+            context.insert(photo)
+
+            try context.save()
+        }
+
+        let container = try ModelContainer(
+            for: Schema(versionedSchema: MuscuCurrentSchema.self),
+            migrationPlan: MuscuMigrationPlan.self,
+            configurations: ModelConfiguration(url: url)
+        )
+        let context = ModelContext(container)
+
+        XCTAssertEqual(try context.fetch(FetchDescriptor<Program>()).first?.name, "Programme v5")
+        XCTAssertEqual(try context.fetch(FetchDescriptor<CompletedSession>()).first?.durationSeconds, 2_400)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<ProgressPhoto>()).first?.assetName, "photo-v5.jpg")
+
+        let adaptation = try XCTUnwrap(try context.fetch(FetchDescriptor<AdaptationEntry>()).first)
+        XCTAssertEqual(adaptation.summary, "Intervalle 30 s → 35 s")
+        // Champs ajoutés en v6 : vides, jamais inventés.
+        XCTAssertNil(adaptation.previousIntervalWork)
+        XCTAssertNil(adaptation.previousIntervalRest)
+        XCTAssertNil(adaptation.previousExerciseId)
+        XCTAssertFalse(
+            adaptation.canRevert,
+            "Une adaptation enregistrée avant v6 reste non annulable : on n'invente pas ses valeurs d'avant"
+        )
+
+        // Et une NOUVELLE adaptation, elle, est annulable.
+        let fresh = AdaptationEntry(
+            decisionRaw: AdaptationDecision.accepted.rawValue,
+            exerciseId: "burpees",
+            displayName: "Burpees",
+            previousIntervalWork: 30
+        )
+        context.insert(fresh)
+        try context.save()
+        XCTAssertTrue(fresh.canRevert)
+    }
+
     /// Un store corrompu ne doit pas faire disparaitre le fichier d'origine :
     /// l'ouverture echoue proprement et les octets restent sur disque.
     func testCorruptedStoreFailsWithoutDestroyingTheFile() throws {

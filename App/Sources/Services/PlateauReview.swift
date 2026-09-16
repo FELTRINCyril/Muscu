@@ -127,6 +127,9 @@ enum PlateauReview {
         now: Date = .now
     ) -> AdaptationEntry? {
         let previousName = item.displayName
+        // Releve AVANT la substitution : apres, la prescription ne porte plus
+        // l'exercice d'origine et l'annulation serait impossible.
+        let previousExerciseId = item.prescription.exerciseId
         guard ProgramEditing.applySubstitution(
             prescriptionId: item.prescription.id,
             exerciseId: replacement.id,
@@ -144,8 +147,12 @@ enum PlateauReview {
             exerciseId: replacement.id,
             displayName: replacement.nameFr,
             summary: "Variante : \(previousName) → \(replacement.nameFr)",
-            factors: item.finding.factors
+            factors: item.finding.factors,
+            previousExerciseId: previousExerciseId
         )
+        // Le nom affiche par le journal doit rester celui de l'exercice
+        // d'ORIGINE : c'est lui qu'une annulation restaure.
+        entry.displayName = previousName
         context.insert(entry)
         _ = PersistenceSupport.save(context, action: "Variante après stagnation")
         return entry
