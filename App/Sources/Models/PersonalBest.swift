@@ -92,6 +92,45 @@ final class PersonalBest {
 }
 
 extension PersonalBest {
+    /// Valeur mise en forme AVEC son unite. Chaque nature a la sienne :
+    /// afficher « 42 » sans dire si ce sont des kilos, des secondes ou des
+    /// tours ne veut rien dire.
+    var formattedValue: String {
+        switch kind {
+        case .maxWeight, .estimatedOneRepMax, .maxSessionVolume:
+            return WeightFormatter.string(kilograms: value)
+        case .maxReps:
+            return String(localized: "\(Int(value)) reps")
+        case .bestTime:
+            return CompletedSetPresentation.formattedDuration(Int(value))
+        case .maxRounds:
+            return String(localized: "\(Int(value)) tours")
+        case .maxDistance:
+            return String(localized: "\(Int(value)) m")
+        }
+    }
+
+    /// Precision lisible de la configuration, quand elle existe : un AMRAP
+    /// de 8 minutes n'est pas comparable a un AMRAP de 12.
+    var configurationLabel: String? {
+        guard !configurationKey.isEmpty else { return nil }
+        let parts = configurationKey.split(separator: ":", maxSplits: 1)
+        guard parts.count == 2 else { return configurationKey }
+        let format = String(parts[0])
+        let detail = String(parts[1])
+        switch format {
+        case "amrap":
+            if let seconds = Int(detail) { return String(localized: "AMRAP \(seconds) s") }
+        case "emom":
+            if let rounds = Int(detail) { return String(localized: "EMOM \(rounds) min") }
+        case "forTime":
+            if let seconds = Int(detail) { return String(localized: "For Time (cap \(seconds) s)") }
+        default:
+            break
+        }
+        return configurationKey
+    }
+
     var kind: PersonalBestKind {
         get { PersonalBestKind(rawValue: kindRaw) ?? .maxWeight }
         set { kindRaw = newValue.rawValue }

@@ -152,9 +152,7 @@ final class WorkoutState: Identifiable {
         self.plan = restoredPlan
         self.position = WorkoutStateMachine.clamp(restoredPosition, in: restoredPlan)
         self.phase = RunnerPhase(rawValue: activeWorkout.phaseRaw) ?? .running
-        self.runtimeState = activeWorkout.runtimeStateData
-            .flatMap { try? JSONDecoder().decode(WorkoutRuntimeState.self, from: $0) }
-            ?? WorkoutRuntimeState()
+        self.runtimeState = Self.decodeRuntimeState(activeWorkout.runtimeStateData)
         configureRestTimer()
         if let endDate = runtimeState.restEndDate, runtimeState.restTotalSeconds > 0 {
             restTimer.restore(endDate: endDate, totalSeconds: runtimeState.restTotalSeconds)
@@ -726,7 +724,8 @@ final class WorkoutState: Identifiable {
     private func persistPlan(action: String) -> Bool {
         guard let workout = activeWorkout else { return false }
         do {
-            workout.planData = try JSONEncoder().encode(plan)
+            let encodedPlan = try JSONEncoder().encode(plan)
+            workout.planData = Self.withinSizeLimit(encodedPlan, code: "workout.plan.tooLarge")
             workout.positionData = try JSONEncoder().encode(position)
             workout.exerciseIndex = position.nodeIndex
             workout.setIndex = position.setIndex
@@ -880,10 +879,57 @@ final class WorkoutState: Identifiable {
         }
     }
 
+    /// Relit l'etat volatil persiste.
+    ///
+    /// Un echec ici n'est PAS anodin : il fait perdre le chrono de repos et
+    /// l'etat AMRAP/intervalle en cours. Il etait auparavant avale par un
+    /// `try?`, donc invisible. Il est desormais journalise, ce qui permet de
+    /// comprendre apres coup pourquoi une seance est repartie a zero.
+    private static func decodeRuntimeState(_ data: Data?) -> WorkoutRuntimeState {
+        guard let data else { return WorkoutRuntimeState() }
+        do {
+            let decoded = try JSONDecoder().decode(WorkoutRuntimeState.self, from: data)
+            guard decoded.isReadable else {
+                DiagnosticsCenter.record(
+                    .store,
+                    .warning,
+                    code: "workout.runtimeState.tooRecent",
+                    detail: "version \(decoded.version)"
+                )
+                return WorkoutRuntimeState()
+            }
+            return decoded
+        } catch {
+            DiagnosticsCenter.record(.store, code: "workout.runtimeState.decodeFailed", error: error)
+            return WorkoutRuntimeState()
+        }
+    }
+
+    /// Taille maximale d'un instantane persiste.
+    ///
+    /// Une seance normale pese quelques kilo-octets ; au-dela, c'est qu'une
+    /// donnee s'emballe. Ecrire sans borne remplirait le store et rendrait la
+    /// reprise de plus en plus lente, sans que rien ne le signale.
+    static let maximumSnapshotBytes = 1_000_000
+
+    private static func withinSizeLimit(_ data: Data, code: String) -> Data? {
+        guard data.count <= maximumSnapshotBytes else {
+            DiagnosticsCenter.record(
+                .store,
+                .warning,
+                code: code,
+                detail: "\(data.count) octets"
+            )
+            return nil
+        }
+        return data
+    }
+
     private func persistRuntimeState(action: String) {
         guard let workout = activeWorkout else { return }
         do {
-            workout.runtimeStateData = try JSONEncoder().encode(runtimeState)
+            let encoded = try JSONEncoder().encode(runtimeState)
+            workout.runtimeStateData = Self.withinSizeLimit(encoded, code: "workout.runtimeState.tooLarge")
             _ = PersistenceSupport.save(modelContext, action: action)
         } catch {
             PersistenceSupport.report(error, action: action)

@@ -294,6 +294,19 @@ enum UITestSupport {
         let pullupsRecord = ExerciseRecord(exerciseId: pullupsId, displayName: pullupsName, maxReps: 10)
         context.insert(pullupsRecord)
 
+        // Un record TYPE, pour que la section « Records par type » ait de
+        // quoi s'afficher : ces records etaient enregistres en fin de seance
+        // depuis des semaines sans qu'aucun ecran ne les montre.
+        context.insert(
+            PersonalBest(
+                exerciseId: benchId,
+                displayName: benchName,
+                kindRaw: PersonalBestKind.maxWeight.rawValue,
+                value: 92.5,
+                reps: 3
+            )
+        )
+
         // Une séance déjà terminée dans l'historique (indépendante du
         // programme actif, pour tester Progression > Historique sans avoir à
         // dérouler une séance au préalable). programName volontairement

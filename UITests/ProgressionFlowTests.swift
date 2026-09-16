@@ -67,6 +67,27 @@ final class ProgressionFlowTests: XCTestCase {
         let picker = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'éveloppé'")).firstMatch
         waitAndAssert(picker, "Le picker d'exercice devrait proposer l'exercice seedé (présent dans l'historique)")
     }
+
+    /// Les records typés (charge réellement portée, meilleur temps, tours,
+    /// distance, tonnage de séance) étaient enregistrés en fin de séance et
+    /// **aucun écran ne les affichait**. Ce test garde la fenêtre ouverte.
+    func testTypedRecordsAreVisible() {
+        let app = XCUIApplication()
+        app.launchSeeded()
+
+        selectTab(app, "Progression", showing: "Progression")
+        tapWhenReady(app.buttons["Records"])
+
+        let section = app.firstDescendant(labelContains: "Records par type")
+        XCTAssertTrue(
+            section.waitForExistence(timeout: 15),
+            "La section des records typés doit exister dès qu'un record typé est enregistré"
+        )
+        XCTAssertTrue(
+            app.firstDescendant(labelContains: "Charge maximale").exists,
+            "La nature du record doit être nommée : « 92,5 » seul ne veut rien dire"
+        )
+    }
 }
 
 private extension XCUIElement {

@@ -24,6 +24,28 @@ struct WarmupRuntimeState: Codable, Equatable {
     var endDate: Date?
     var startedAt: Date?
     var cardioMinutes: Int = Warmup.cardioMinutes
+
+    init(
+        stepRaw: String = "choice",
+        endDate: Date? = nil,
+        startedAt: Date? = nil,
+        cardioMinutes: Int = Warmup.cardioMinutes
+    ) {
+        self.stepRaw = stepRaw
+        self.endDate = endDate
+        self.startedAt = startedAt
+        self.cardioMinutes = cardioMinutes
+    }
+
+    /// Meme raison que `WorkoutRuntimeState` : `cardioMinutes` est arrive
+    /// apres, et une cle absente ne doit pas faire echouer tout l'etat.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        stepRaw = try container.decodeIfPresent(String.self, forKey: .stepRaw) ?? "choice"
+        endDate = try container.decodeIfPresent(Date.self, forKey: .endDate)
+        startedAt = try container.decodeIfPresent(Date.self, forKey: .startedAt)
+        cardioMinutes = try container.decodeIfPresent(Int.self, forKey: .cardioMinutes) ?? Warmup.cardioMinutes
+    }
 }
 
 /// Bloc « For Time » : on mesure le TEMPS mis pour accomplir le travail,
@@ -37,13 +59,51 @@ struct ForTimeRuntimeState: Codable, Equatable {
     var extraReps: Int = 0
 }
 
+/// Etat volatil d'une seance en cours : ce qui n'a de sens que pendant son
+/// deroulement (chrono de repos, intervalle, AMRAP, For Time, echauffement).
+///
+/// Ce type est **persiste en JSON** sur `ActiveWorkout.runtimeStateData`, ce
+/// qui en fait un format de donnees a part entiere : il gagne des champs au
+/// fil des versions et doit rester lisible par l'application qui vient.
+///
+/// Le decodeur synthetise par Swift n'applique PAS les valeurs par defaut
+/// quand une cle manque : `restTotalSeconds` et `warmup`, ajoutes apres coup,
+/// faisaient donc **echouer** le decodage d'un etat ecrit par une version
+/// anterieure. L'echec etait rattrape par un `?? WorkoutRuntimeState()` :
+/// l'utilisateur perdait son chrono de repos et son AMRAP en cours, sans la
+/// moindre trace. D'ou le decodeur explicite ci-dessous, et le numero de
+/// version qui permettra de refuser proprement un format plus recent.
 struct WorkoutRuntimeState: Codable, Equatable {
+    /// Version du FORMAT, pas de l'etat. A incrementer quand un champ change
+    /// de sens — jamais quand on en ajoute un tolerant.
+    static let currentVersion = 1
+
+    var version: Int = WorkoutRuntimeState.currentVersion
     var restEndDate: Date?
     var restTotalSeconds: Int = 0
     var interval: IntervalRuntimeState?
     var amrap: AmrapRuntimeState?
     var forTime: ForTimeRuntimeState?
     var warmup = WarmupRuntimeState()
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // Un etat ecrit avant l'introduction du numero porte la version 1.
+        version = try container.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        restEndDate = try container.decodeIfPresent(Date.self, forKey: .restEndDate)
+        restTotalSeconds = try container.decodeIfPresent(Int.self, forKey: .restTotalSeconds) ?? 0
+        interval = try container.decodeIfPresent(IntervalRuntimeState.self, forKey: .interval)
+        amrap = try container.decodeIfPresent(AmrapRuntimeState.self, forKey: .amrap)
+        forTime = try container.decodeIfPresent(ForTimeRuntimeState.self, forKey: .forTime)
+        warmup = try container.decodeIfPresent(WarmupRuntimeState.self, forKey: .warmup) ?? WarmupRuntimeState()
+    }
+
+    /// Un etat ecrit par une version PLUS RECENTE de l'application ne doit
+    /// pas etre interprete a moitie : mieux vaut repartir d'un etat neuf que
+    /// de deviner ce qu'on ne comprend pas.
+    var isReadable: Bool { version <= WorkoutRuntimeState.currentVersion }
 }
 
 // Une seule instance au plus doit exister : la seance en cours, pour

@@ -493,6 +493,16 @@
         }
       }
     },
+    "%lld m": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld m"
+          }
+        }
+      }
+    },
     "%lld min": {
       "localizations": {
         "en": {
@@ -691,6 +701,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld workouts per week"
+          }
+        }
+      }
+    },
+    "%lld série(s) non mesurables": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld set(s) not measurable"
           }
         }
       }
@@ -2209,6 +2229,16 @@
         }
       }
     },
+    "Ces deux valeurs pilotent les charges en pourcentage. Vous pouvez les corriger à la main.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These two values drive the percentage-based loads. You can correct them by hand."
+          }
+        }
+      }
+    },
     "Ces réglages sont facultatifs. « Automatique » déduit le type de charge du catalogue.": {
       "localizations": {
         "en": {
@@ -3107,6 +3137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Duplicate"
+          }
+        }
+      }
+    },
+    "Durée": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duration"
           }
         }
       }
@@ -6911,6 +6951,16 @@
         }
       }
     },
+    "Recalculés depuis vos séances : charge réellement portée, meilleur temps, tours complets, distance et tonnage de séance.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recomputed from your workouts: load actually lifted, best time, full rounds, distance and workout tonnage."
+          }
+        }
+      }
+    },
     "Rechercher un exercice": {
       "localizations": {
         "en": {
@@ -6937,6 +6987,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Records per exercise, including typed records."
+          }
+        }
+      }
+    },
+    "Records par type": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records by type"
           }
         }
       }
@@ -8216,6 +8276,7 @@
       }
     },
     "Série %lld : %lld reps @ %@ kg": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8489,6 +8550,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your max reps?"
+          }
+        }
+      }
+    },
+    "Tonnage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tonnage"
           }
         }
       }

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MuscuEngine
 
 // Recap de fin de seance : duree, tonnage, nb de series, detail par exercice.
 // Au moment de "Terminer", la seance est basculee dans l'historique puis les
@@ -31,7 +32,16 @@ struct WorkoutSummaryView: View {
 
                     HStack(spacing: 12) {
                         StatCard(title: "Durée", value: formattedDuration)
-                        StatCard(title: "Tonnage", value: "\(WorkoutState.formatWeight(totalTonnage)) kg")
+                        StatCard(
+                            title: "Tonnage",
+                            value: "\(WorkoutState.formatWeight(totalTonnage)) kg",
+                            // Une seance dont le poids de corps est inconnu
+                            // a un tonnage PARTIEL. L'afficher comme un
+                            // total serait mentir sur une valeur ronde.
+                            note: tonnage.unknownSets > 0
+                                ? String(localized: "\(tonnage.unknownSets) série(s) non mesurables")
+                                : nil
+                        )
                         StatCard(title: "Séries", value: "\(workingSets.count)")
                     }
 
@@ -161,9 +171,21 @@ struct WorkoutSummaryView: View {
         (finishedSets ?? state.loggedSets).filter { !$0.isWarmup }
     }
 
-    private var totalTonnage: Double {
-        workingSets.reduce(0) { $0 + $1.weight * Double($1.reps) }
+    /// Tonnage calcule par le MOTEUR, comme l'historique et les graphiques.
+    ///
+    /// Le calcul maison `poids x reps` qui vivait ici etait faux des que la
+    /// serie n'etait pas une charge externe : une traction au poids du corps
+    /// comptait pour zero, une traction assistee comptait son aide comme du
+    /// travail. Deux ecrans affichaient deux tonnages differents pour la
+    /// meme seance.
+    private var tonnage: (total: Double, unknownSets: Int) {
+        let bodyweight = ProfileStore.latestBodyweightKilograms(in: state.modelContext)
+        let inputs = (finishedSets ?? state.loggedSets)
+            .map { $0.metricsInput(bodyweightKilograms: bodyweight) }
+        return SetMetrics.totalTonnage(inputs)
     }
+
+    private var totalTonnage: Double { tonnage.total }
 
     private var formattedDuration: String {
         let seconds = max(0, Int(Date.now.timeIntervalSince(state.startedAt)))
@@ -192,8 +214,11 @@ struct WorkoutSummaryView: View {
 }
 
 private struct StatCard: View {
-    let title: String
+    let title: LocalizedStringKey
     let value: String
+    /// Precision facultative : sert a dire qu'une valeur est PARTIELLE
+    /// plutot qu'a la laisser passer pour un total.
+    var note: String? = nil
 
     var body: some View {
         VStack(spacing: 4) {
@@ -202,6 +227,12 @@ private struct StatCard: View {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if let note {
+                Text(note)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -219,10 +250,19 @@ private struct ExerciseSummaryCard: View {
             Text(displayName)
                 .font(.subheadline.weight(.semibold))
 
+            // Meme mise en forme que l'historique : dans un superset les
+            // tours doivent se lire « Tour 2 », et les trois paliers d'un
+            // dropset ne peuvent pas s'afficher tous « Série 1 ».
             ForEach(sets) { set in
-                Text("Série \(set.setIndex + 1) : \(set.reps) reps @ \(WorkoutState.formatWeight(set.weight)) kg")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(CompletedSetPresentation.label(for: set, inGroup: set.groupId != nil))
+                    Spacer(minLength: 8)
+                    Text(CompletedSetPresentation.performance(for: set))
+                        .multilineTextAlignment(.trailing)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityElement(children: .combine)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
