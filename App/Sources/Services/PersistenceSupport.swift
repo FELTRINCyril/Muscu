@@ -12,8 +12,13 @@ extension Notification.Name {
 enum PersistenceSupport {
     @discardableResult
     static func save(_ context: ModelContext, action: String) -> Bool {
+        // Releve AVANT l'ecriture : apres `save()`, SwiftData a vide ses
+        // listes de changements. N'a aucun effet tant que la synchronisation
+        // est eteinte.
+        let pending = SyncOutboxFeeder.pendingChanges(in: context)
         do {
             try context.save()
+            SyncOutboxFeeder.record(pending, in: context)
             return true
         } catch {
             context.rollback()

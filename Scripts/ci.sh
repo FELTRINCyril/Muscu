@@ -66,6 +66,11 @@ xcodegen generate
 log "Localisation"
 python3 Scripts/check-localization.py
 
+# Une cle collee « juste pour tester » survit a la relecture et reste dans
+# l'historique git meme apres suppression. Seul un controle explicite l'evite.
+log "Secrets"
+Scripts/check-secrets.sh
+
 log "Tests du moteur (MuscuEngine)"
 swift test --package-path Packages/MuscuEngine
 

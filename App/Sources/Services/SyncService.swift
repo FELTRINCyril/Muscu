@@ -51,6 +51,10 @@ final class SyncService {
         let state = SyncService.state(in: modelContext)
         state.isEnabled = enabled
         state.updatedAt = .now
+        // Miroir leger, lu a chaque sauvegarde locale : interroger l'etat
+        // persiste sur ce chemin-la couterait une requete a chaque serie
+        // validee.
+        SyncOutboxFeeder.isEnabled = enabled
         persist(state)
     }
 

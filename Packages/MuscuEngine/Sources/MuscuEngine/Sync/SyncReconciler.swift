@@ -38,6 +38,19 @@ public enum SyncReconciler {
             return .noChange
         }
 
+        // « Maximum des performances comparables, PUIS date la plus
+        // recente » : la valeur passe avant la date. `MergePolicy` ne voit
+        // que les metadonnees et ne peut donc pas appliquer cette regle
+        // lui-meme ; c'est ici, ou le contenu est disponible, que la
+        // comparaison a un sens.
+        if local.kind.mergeStrategy == .maximumThenNewest,
+           local.metadata.deletedAt == nil, remote.metadata.deletedAt == nil,
+           let localValue = local.comparableValue,
+           let remoteValue = remote.comparableValue,
+           localValue != remoteValue {
+            return remoteValue > localValue ? .applyRemote : .keepLocal
+        }
+
         switch MergePolicy.resolve(
             strategy: local.kind.mergeStrategy,
             local: local.metadata,

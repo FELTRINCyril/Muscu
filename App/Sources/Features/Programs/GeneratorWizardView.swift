@@ -346,6 +346,11 @@ struct GeneratorWizardView: View {
             splitPreference: splitPreference,
             priorityMuscles: Array(priorityMuscles),
             avoidAreas: Array(avoidAreas),
+            // Les exercices exclus du profil n'etaient JAMAIS transmis : le
+            // moteur savait les respecter (`ProgramValidator` les refuse en
+            // bloquant), personne ne les lui donnait. Le critere « chaque
+            // seance respecte les exclusions » etait donc inapplicable.
+            excludedExerciseIds: ProfileStore.currentProfile(in: modelContext)?.excludedExerciseIds ?? [],
             inventory: selectedPlaceId.flatMap { id in placesWithInventory.first { $0.id == id }?.inventory }
         )
         draftInput = input

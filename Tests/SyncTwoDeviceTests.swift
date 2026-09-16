@@ -448,4 +448,60 @@ final class BackupAndImportModeTests: XCTestCase {
         }
         XCTAssertEqual(BackupService.existingBackups().count, BackupService.retainedBackups)
     }
+
+    /// Un record ne doit JAMAIS régresser lors d'une synchronisation.
+    ///
+    /// La règle écrite est « maximum des performances comparables, puis date
+    /// la plus récente ». Le code ne comparait que les dates : un record
+    /// distant plus récent mais inférieur écrasait un meilleur record local.
+    func testARecordNeverRegressesWhenSyncing() throws {
+        let strong = ExerciseRecord(exerciseId: "bench", displayName: "Développé", oneRepMax: 120)
+        context.insert(strong)
+        try context.save()
+
+        let records = try SyncSerialization.localRecords(context: context)
+        let local = try XCTUnwrap(records[strong.id])
+        XCTAssertEqual(local.comparableValue, 120, "Le 1RM doit servir de valeur comparable")
+
+        // Le même record, plus récent mais moins bon, vu depuis l'autre appareil.
+        var weaker = local
+        weaker.comparableValue = 100
+        weaker.metadata.updatedAt = local.metadata.updatedAt.addingTimeInterval(3600)
+        weaker.payload = Data("plus faible".utf8)
+
+        XCTAssertEqual(
+            SyncReconciler.decide(local: local, remote: weaker),
+            .keepLocal,
+            "Un 1RM de 100 kg ne doit pas remplacer un 1RM de 120 kg"
+        )
+    }
+
+    /// Un record de temps s'améliore en DIMINUANT : la comparaison doit en
+    /// tenir compte, sinon le pire temps gagnerait.
+    func testABestTimeImprovesByDecreasing() throws {
+        let best = PersonalBest(
+            exerciseId: "burpees",
+            displayName: "Burpees",
+            kindRaw: PersonalBestKind.bestTime.rawValue,
+            value: 180
+        )
+        context.insert(best)
+        try context.save()
+
+        let records = try SyncSerialization.localRecords(context: context)
+        let local = try XCTUnwrap(records[best.id])
+        XCTAssertEqual(local.comparableValue, -180, "Un temps est comparé à l'envers")
+
+        var slower = local
+        slower.comparableValue = -240
+        slower.metadata.updatedAt = local.metadata.updatedAt.addingTimeInterval(3600)
+        slower.payload = Data("plus lent".utf8)
+
+        XCTAssertEqual(
+            SyncReconciler.decide(local: local, remote: slower),
+            .keepLocal,
+            "240 s ne doit pas remplacer un meilleur temps de 180 s"
+        )
+    }
 }
+

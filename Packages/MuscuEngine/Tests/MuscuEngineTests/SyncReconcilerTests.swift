@@ -289,3 +289,69 @@ struct SyncOutboxTests {
         #expect(blocked.summary.contains("hors ligne"))
     }
 }
+
+@Suite("Fusion des records au maximum")
+struct RecordMergeTests {
+    private let identifier = UUID()
+    private let base = Date(timeIntervalSince1970: 1_760_000_000)
+
+    private func record(value: Double, updatedAt: TimeInterval) -> SyncRecord {
+        SyncRecord(
+            kind: .personalBest,
+            metadata: SyncMetadata(
+                identifier: identifier,
+                createdAt: base,
+                updatedAt: base.addingTimeInterval(updatedAt)
+            ),
+            payload: Data("\(value)".utf8),
+            comparableValue: value
+        )
+    }
+
+    /// Le défaut corrigé : un record distant PLUS RÉCENT mais INFÉRIEUR
+    /// écrasait un meilleur record local. Un record ne doit jamais régresser.
+    @Test("Un record inférieur n'écrase pas un meilleur record, même plus récent")
+    func aWeakerRecordNeverWins() {
+        let local = record(value: 120, updatedAt: 0)
+        let remote = record(value: 100, updatedAt: 3600)
+        #expect(SyncReconciler.decide(local: local, remote: remote) == .keepLocal)
+    }
+
+    @Test("Un record supérieur gagne, même plus ancien")
+    func aStrongerRecordAlwaysWins() {
+        let local = record(value: 100, updatedAt: 3600)
+        let remote = record(value: 120, updatedAt: 0)
+        #expect(SyncReconciler.decide(local: local, remote: remote) == .applyRemote)
+    }
+
+    /// À valeur égale, on retombe sur la règle de date : c'est le « puis date
+    /// la plus récente » de la spécification.
+    @Test("À performance égale, la date tranche")
+    func equalValuesFallBackToTheDate() {
+        let local = record(value: 100, updatedAt: 0)
+        let remote = record(value: 100, updatedAt: 3600)
+        #expect(SyncReconciler.decide(local: local, remote: remote) == .applyRemote)
+    }
+
+    /// Une suppression doit rester gouvernée par les dates : comparer des
+    /// performances quand l'une des deux entités est supprimée n'aurait
+    /// aucun sens.
+    @Test("Une suppression n'est pas arbitrée par la performance")
+    func deletionIsNotDecidedByValue() {
+        var remote = record(value: 10, updatedAt: 3600)
+        remote.metadata.deletedAt = base.addingTimeInterval(3600)
+        let local = record(value: 200, updatedAt: 0)
+        #expect(SyncReconciler.decide(local: local, remote: remote) == .applyRemote)
+    }
+
+    /// Une entité sans performance comparable garde exactement l'ancien
+    /// comportement.
+    @Test("Sans valeur comparable, la date décide comme avant")
+    func withoutAComparableValueNothingChanges() {
+        var local = record(value: 120, updatedAt: 0)
+        var remote = record(value: 100, updatedAt: 3600)
+        local.comparableValue = nil
+        remote.comparableValue = nil
+        #expect(SyncReconciler.decide(local: local, remote: remote) == .applyRemote)
+    }
+}

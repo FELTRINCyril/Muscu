@@ -33,18 +33,23 @@ enum SyncSerialization {
         var result: [UUID: SyncRecord] = [:]
         let encoder = encoder()
 
+        /// `comparableValue` n'est renseignee que pour les entites dont la
+        /// fusion se fait au MAXIMUM : sans elle, un record distant plus
+        /// recent mais inferieur ecraserait un meilleur record local.
         func add<Model, DTO: Encodable>(
             _ kind: SyncEntityKind,
             _ models: [Model],
             metadata: (Model) -> SyncMetadata,
-            dto: (Model) -> DTO
+            dto: (Model) -> DTO,
+            comparableValue: ((Model) -> Double?)? = nil
         ) throws {
             for model in models {
                 let meta = metadata(model)
                 result[meta.identifier] = SyncRecord(
                     kind: kind,
                     metadata: meta,
-                    payload: try encoder.encode(dto(model))
+                    payload: try encoder.encode(dto(model)),
+                    comparableValue: comparableValue?(model)
                 )
             }
         }
@@ -52,8 +57,25 @@ enum SyncSerialization {
         try add(.program, context.fetch(FetchDescriptor<Program>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))
         try add(.completedSession, context.fetch(FetchDescriptor<CompletedSession>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))
         try add(.activeWorkout, context.fetch(FetchDescriptor<ActiveWorkout>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))
-        try add(.exerciseRecord, context.fetch(FetchDescriptor<ExerciseRecord>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))
-        try add(.personalBest, context.fetch(FetchDescriptor<PersonalBest>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))
+        // Un `ExerciseRecord` porte deux performances distinctes (1RM et max
+        // de repetitions). On compare la plus structurante, le 1RM, en
+        // retombant sur le max de repetitions quand il n'y a pas de 1RM.
+        try add(
+            .exerciseRecord,
+            context.fetch(FetchDescriptor<ExerciseRecord>()),
+            metadata: \.syncMetadata,
+            dto: ExportImport.dto(from:),
+            comparableValue: { $0.oneRepMax ?? $0.maxReps.map(Double.init) }
+        )
+        // Un record de TEMPS s'ameliore en diminuant : on compare son oppose
+        // pour que « le plus grand gagne » reste vrai.
+        try add(
+            .personalBest,
+            context.fetch(FetchDescriptor<PersonalBest>()),
+            metadata: \.syncMetadata,
+            dto: ExportImport.dto(from:),
+            comparableValue: { $0.kind.lowerIsBetter ? -$0.value : $0.value }
+        )
         try add(.customExercise, context.fetch(FetchDescriptor<CustomExercise>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))
         try add(.athleteProfile, context.fetch(FetchDescriptor<AthleteProfile>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))
         try add(.bodyMeasurement, context.fetch(FetchDescriptor<BodyMeasurement>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))

@@ -64,11 +64,29 @@ public struct SyncRecord: Codable, Equatable, Sendable {
     public var metadata: SyncMetadata
     /// DTO encode (JSON canonique).
     public var payload: Data
+    /// Performance comparable, pour les entites dont la fusion se fait au
+    /// MAXIMUM et non a la date (`maximumThenNewest`) : un record.
+    ///
+    /// Sans elle, la decision de fusion ne voyait que les metadonnees et
+    /// tranchait donc sur la seule date. Un record distant plus recent mais
+    /// INFERIEUR ecrasait un meilleur record local — ce qui contredit la
+    /// regle ecrite (« maximum des performances comparables, puis date la
+    /// plus recente ») et fait regresser un record.
+    ///
+    /// `nil` pour toutes les autres natures : elles n'ont pas de performance
+    /// a comparer, et la date reste le bon depart.
+    public var comparableValue: Double?
 
-    public init(kind: SyncEntityKind, metadata: SyncMetadata, payload: Data) {
+    public init(
+        kind: SyncEntityKind,
+        metadata: SyncMetadata,
+        payload: Data,
+        comparableValue: Double? = nil
+    ) {
         self.kind = kind
         self.metadata = metadata
         self.payload = payload
+        self.comparableValue = comparableValue
     }
 
     public var identifier: UUID { metadata.identifier }

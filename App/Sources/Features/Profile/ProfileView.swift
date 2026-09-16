@@ -54,6 +54,8 @@ struct ProfileView: View {
 /// permet a l'ecran de refleter immediatement chaque modification.
 private struct ProfileFormSections: View {
     @Bindable var profile: AthleteProfile
+    @Environment(CatalogStore.self) private var catalogStore
+    @State private var showingExclusionPicker = false
 
     var body: some View {
         Section("Identité") {
@@ -200,6 +202,58 @@ private struct ProfileFormSections: View {
         } footer: {
             Text("Ces zones filtrent la sélection d'exercices. Ce n'est pas un avis médical : en cas de douleur ou de blessure, consultez un professionnel de santé.")
         }
+
+        exclusionsSection
+    }
+
+    /// Exercices que le générateur ne doit jamais proposer.
+    ///
+    /// Le champ existait sur le profil et le moteur savait le respecter —
+    /// mais aucun écran ne permettait de le remplir, et l'assistant ne le
+    /// transmettait pas. Le réglage était inatteignable de bout en bout.
+    @ViewBuilder
+    private var exclusionsSection: some View {
+        Section {
+            if profile.excludedExerciseIds.isEmpty {
+                Text("Aucun exercice exclu.")
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("profile.noExclusion")
+            } else {
+                ForEach(profile.excludedExerciseIds, id: \.self) { identifier in
+                    Text(exerciseName(for: identifier))
+                        .accessibilityIdentifier("profile.exclusion")
+                }
+                .onDelete { offsets in
+                    profile.excludedExerciseIds.remove(atOffsets: offsets)
+                    profile.touch()
+                }
+            }
+
+            Button {
+                showingExclusionPicker = true
+            } label: {
+                Label("Exclure un exercice", systemImage: "nosign")
+            }
+            .accessibilityIdentifier("profile.addExclusion")
+        } header: {
+            Text("Exercices exclus")
+        } footer: {
+            Text("Le générateur ne proposera jamais ces exercices. Balayez une ligne pour retirer une exclusion.")
+        }
+        .sheet(isPresented: $showingExclusionPicker) {
+            ExercisePickerView { identifier, _ in
+                if !profile.excludedExerciseIds.contains(identifier) {
+                    profile.excludedExerciseIds.append(identifier)
+                    profile.touch()
+                }
+            }
+        }
+    }
+
+    /// Nom lisible d'un exercice exclu. Un identifiant de catalogue affiché
+    /// tel quel ne dirait rien à personne.
+    private func exerciseName(for identifier: String) -> String {
+        catalogStore.exercise(id: identifier)?.nameFr ?? identifier
     }
 
     // MARK: - Options
