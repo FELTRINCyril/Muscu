@@ -295,8 +295,11 @@ private struct WeekScalingBanner: View {
     private var text: String {
         let volume = Int((scaling.volumeMultiplier * 100).rounded())
         let intensity = Int((scaling.intensityMultiplier * 100).rounded())
+        // « Séance » et non « Semaine » : l'allègement vient d'une semaine de
+        // décharge OU d'un check-in de forme accepté. Nommer la semaine
+        // serait faux dans le second cas.
         return String(
-            localized: "Semaine allégée : volume \(volume) %, intensité \(intensity) %. Les séries et charges de cette séance ont été réduites."
+            localized: "Séance allégée : volume \(volume) %, intensité \(intensity) %. Les séries et charges ont été réduites."
         )
     }
 }

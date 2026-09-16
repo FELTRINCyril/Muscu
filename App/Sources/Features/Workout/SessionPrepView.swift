@@ -9,11 +9,16 @@ import MuscuEngine
 // ignorer et commencer directement.
 struct SessionPrepView: View {
     let session: ProgramSession
-    let onStart: () -> Void
+    /// La mise à l'échelle éventuellement acceptée au check-in accompagne le
+    /// démarrage : sinon la suggestion resterait une phrase, ce qu'elle était.
+    let onStart: (WeekScaling?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
+    /// Ajustement du check-in accepté par l'utilisateur, `nil` tant qu'il ne
+    /// l'a pas explicitement accepté.
+    @State private var acceptedAdjustment: WeekScaling?
     @State private var energy: Int?
     @State private var sleepQuality: Int?
     @State private var soreness: Int?
@@ -46,7 +51,8 @@ struct SessionPrepView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Commencer") {
                         saveCheckIn()
-                        onStart()
+                        journalAcceptedAdjustment()
+                        onStart(acceptedAdjustment)
                     }
                     .accessibilityIdentifier("prep.start")
                 }
@@ -126,6 +132,16 @@ struct SessionPrepView: View {
         Section {
             Text(adjustmentLabel(advice.adjustment))
                 .font(.callout.weight(.medium))
+            // Une suggestion chiffrée peut désormais être APPLIQUÉE. Elle ne
+            // l'est jamais d'office : l'accepter reste un geste, et la
+            // séance part inchangée si on ne fait rien.
+            if let scaling = WeekScaling(readiness: advice.adjustment, loadIncrementKilograms: loadIncrement) {
+                Toggle("Appliquer à cette séance", isOn: Binding(
+                    get: { acceptedAdjustment != nil },
+                    set: { acceptedAdjustment = $0 ? scaling : nil }
+                ))
+                .accessibilityIdentifier("prep.applyAdjustment")
+            }
             ForEach(advice.factors, id: \.self) { factor in
                 Label(factor, systemImage: "info.circle")
                     .font(.caption)
@@ -157,6 +173,37 @@ struct SessionPrepView: View {
         case .suggestRest:
             return "Envisager du repos ou une séance très légère aujourd'hui."
         }
+    }
+
+    /// Trace l'allègement accepté dans le journal d'adaptation.
+    ///
+    /// `AdaptationSource.readiness` était déclaré et n'était **jamais
+    /// écrit** : le check-in ne laissait aucune trace. Une séance allégée
+    /// sans trace est inexplicable après coup — « pourquoi seulement deux
+    /// séries ce jour-là ? ».
+    ///
+    /// L'entrée n'est pas annulable : l'allègement vaut pour cette séance
+    /// seulement et ne modifie aucun programme. Il n'y a rien à restaurer.
+    private func journalAcceptedAdjustment() {
+        guard let scaling = acceptedAdjustment, let advice else { return }
+        let volume = Int((scaling.volumeMultiplier * 100).rounded())
+        let intensity = Int((scaling.intensityMultiplier * 100).rounded())
+        let entry = AdaptationEntry(
+            sourceRaw: AdaptationSource.readiness.rawValue,
+            decisionRaw: AdaptationDecision.accepted.rawValue,
+            decidedAt: .now,
+            displayName: session.name,
+            summary: String(localized: "Séance allégée : volume \(volume) %, intensité \(intensity) %"),
+            factors: advice.factors
+        )
+        modelContext.insert(entry)
+        _ = PersistenceSupport.save(modelContext, action: "Allègement accepté au check-in")
+    }
+
+    /// Palier de charge réellement disponible, pour ne pas proposer 47,3 kg.
+    private var loadIncrement: Double {
+        ProfileStore.currentProfile(in: modelContext)?
+            .availableIncrementsKilograms.filter { $0 > 0 }.min() ?? 0
     }
 
     // MARK: - Données

@@ -37,6 +37,45 @@ public struct WeekScaling: Equatable, Sendable {
 
     public static let neutral = WeekScaling(volumeMultiplier: 1, intensityMultiplier: 1)
 
+    /// Mise a l'echelle correspondant a une suggestion du check-in de forme.
+    ///
+    /// `ReadinessAdvisor` proposait « reduire le volume d'environ 30 % » et
+    /// personne ne pouvait l'appliquer : la suggestion etait une phrase. Les
+    /// deux ajustements chiffres se traduisent exactement dans le meme
+    /// mecanisme que la semaine de decharge — il serait absurde d'en ecrire
+    /// un second.
+    ///
+    /// Les ajustements NON chiffres (substitution, repos) renvoient `nil` :
+    /// ils demandent une decision humaine, pas une multiplication.
+    public init?(readiness adjustment: ReadinessAdjustment, loadIncrementKilograms: Double = 0) {
+        switch adjustment {
+        case .reduceVolume(let multiplier):
+            self.init(
+                volumeMultiplier: multiplier,
+                intensityMultiplier: 1,
+                loadIncrementKilograms: loadIncrementKilograms
+            )
+        case .reduceLoad(let multiplier):
+            self.init(
+                volumeMultiplier: 1,
+                intensityMultiplier: multiplier,
+                loadIncrementKilograms: loadIncrementKilograms
+            )
+        case .keepAsPlanned, .suggestSubstitution, .suggestRest:
+            return nil
+        }
+    }
+
+    /// Combine deux mises a l'echelle : une semaine de decharge ET un
+    /// check-in prudent doivent se cumuler, pas s'annuler.
+    public func combined(with other: WeekScaling) -> WeekScaling {
+        WeekScaling(
+            volumeMultiplier: volumeMultiplier * other.volumeMultiplier,
+            intensityMultiplier: intensityMultiplier * other.intensityMultiplier,
+            loadIncrementKilograms: max(loadIncrementKilograms, other.loadIncrementKilograms)
+        )
+    }
+
     /// Une semaine ordinaire ne doit rien changer du tout — et surtout pas
     /// faire subir un arrondi à une charge que l'utilisateur a saisie.
     public var isNeutral: Bool {

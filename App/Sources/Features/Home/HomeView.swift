@@ -60,13 +60,13 @@ struct HomeView: View {
             Button("Annuler", role: .cancel) {}
         }
         .sheet(item: $sessionToPrepare) { session in
-            SessionPrepView(session: session) {
+            SessionPrepView(session: session) { readinessScaling in
                 sessionToPrepare = nil
                 // La preparation a pu modifier la prescription (progression
                 // acceptee) : la seance est construite APRES sa fermeture,
                 // pour partir des valeurs a jour.
                 PresentationSync.afterCurrentPresentationDismissed {
-                    startSession(session)
+                    startSession(session, readinessScaling: readinessScaling)
                 }
             }
         }
@@ -263,12 +263,18 @@ struct HomeView: View {
         sessionToPrepare = session
     }
 
-    private func startSession(_ session: ProgramSession) {
+    private func startSession(_ session: ProgramSession, readinessScaling: WeekScaling? = nil) {
+        // Une semaine de decharge ET un check-in prudent se CUMULENT : ils
+        // repondent a deux raisons differentes d'alleger.
+        let weekScaling = WeekScalingResolver.scaling(for: session, context: modelContext)
+        let combined = readinessScaling.map { weekScaling.combined(with: $0) } ?? weekScaling
+
         workoutState = WorkoutState(
             programSession: session,
             modelContext: modelContext,
             catalogStore: catalogStore,
-            restTimer: restTimer
+            restTimer: restTimer,
+            weekScaling: combined
         )
     }
 

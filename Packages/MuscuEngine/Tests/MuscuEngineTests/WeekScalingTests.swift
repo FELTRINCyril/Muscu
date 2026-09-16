@@ -115,3 +115,49 @@ struct WeekScalingTests {
         #expect(scaled.nodes[1].rounds == 3)
     }
 }
+
+@Suite("Check-in de forme appliqué")
+struct ReadinessScalingTests {
+    /// Le défaut corrigé : `ReadinessAdvisor` proposait « réduire le volume
+    /// d'environ 30 % » et **rien ne pouvait l'appliquer**. La suggestion
+    /// était une phrase.
+    @Test("Une réduction de volume devient une mise à l'échelle applicable")
+    func volumeReductionBecomesScaling() throws {
+        let scaling = try #require(WeekScaling(readiness: .reduceVolume(multiplier: 0.7)))
+        #expect(scaling.volumeMultiplier == 0.7)
+        #expect(scaling.intensityMultiplier == 1, "Réduire le volume ne touche pas aux charges")
+    }
+
+    @Test("Une réduction de charge n'enlève aucune série")
+    func loadReductionOnlyTouchesTheLoad() throws {
+        let scaling = try #require(WeekScaling(readiness: .reduceLoad(multiplier: 0.9)))
+        #expect(scaling.volumeMultiplier == 1)
+        #expect(scaling.intensityMultiplier == 0.9)
+    }
+
+    /// Une substitution ou du repos demandent une décision humaine, pas une
+    /// multiplication : les traduire en chiffres serait inventer.
+    @Test("Les suggestions non chiffrées ne produisent aucune mise à l'échelle")
+    func nonNumericSuggestionsProduceNothing() {
+        #expect(WeekScaling(readiness: .keepAsPlanned) == nil)
+        #expect(WeekScaling(readiness: .suggestRest) == nil)
+        #expect(WeekScaling(readiness: .suggestSubstitution(area: "épaule")) == nil)
+    }
+
+    /// Une semaine de décharge ET un check-in prudent répondent à deux
+    /// raisons différentes d'alléger : ils doivent se cumuler.
+    @Test("Une décharge et un check-in se cumulent")
+    func deloadAndReadinessCombine() throws {
+        let deload = WeekScaling(volumeMultiplier: 0.5, intensityMultiplier: 0.9)
+        let readiness = try #require(WeekScaling(readiness: .reduceVolume(multiplier: 0.8)))
+        let combined = deload.combined(with: readiness)
+        #expect(combined.volumeMultiplier == 0.4)
+        #expect(combined.intensityMultiplier == 0.9)
+    }
+
+    @Test("Se combiner avec le neutre ne change rien")
+    func combiningWithNeutralChangesNothing() {
+        let deload = WeekScaling(volumeMultiplier: 0.5, intensityMultiplier: 0.9)
+        #expect(deload.combined(with: .neutral) == deload)
+    }
+}

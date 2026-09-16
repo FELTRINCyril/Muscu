@@ -1443,6 +1443,16 @@
         }
       }
     },
+    "Appliquer à cette séance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply to this workout"
+          }
+        }
+      }
+    },
     "Appliquer à un programme": {
       "localizations": {
         "en": {
@@ -1519,6 +1529,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No compatible exercise found for this workout."
+          }
+        }
+      }
+    },
+    "Aucun exercice exclu.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No excluded exercise."
           }
         }
       }
@@ -3723,6 +3743,16 @@
         }
       }
     },
+    "Exclure un exercice": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exclude an exercise"
+          }
+        }
+      }
+    },
     "Exercice": {
       "localizations": {
         "en": {
@@ -3749,6 +3779,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Exercises"
+          }
+        }
+      }
+    },
+    "Exercices exclus": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Excluded exercises"
           }
         }
       }
@@ -4735,6 +4775,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The local generator is still available from the Programs tab: it works offline and always gives the same program for the same answers."
+          }
+        }
+      }
+    },
+    "Le générateur ne proposera jamais ces exercices. Balayez une ligne pour retirer une exclusion.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The generator will never suggest these exercises. Swipe a row to remove an exclusion."
           }
         }
       }
@@ -7750,6 +7800,7 @@
       }
     },
     "Semaine allégée : volume %lld %%, intensité %lld %%. Les séries et charges de cette séance ont été réduites.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8131,6 +8182,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Workout"
+          }
+        }
+      }
+    },
+    "Séance allégée : volume %lld %%, intensité %lld %%": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lighter workout: volume %lld %%, intensity %lld %%"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Séance allégée : volume %1$lld %%, intensité %2$lld %%"
+          }
+        }
+      }
+    },
+    "Séance allégée : volume %lld %%, intensité %lld %%. Les séries et charges ont été réduites.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lighter workout: volume %lld %%, intensity %lld %%. The sets and loads have been reduced."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Séance allégée : volume %1$lld %%, intensité %2$lld %%. Les séries et charges ont été réduites."
           }
         }
       }
