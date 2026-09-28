@@ -18,6 +18,7 @@ import { StreakPill } from '../../src/components/StreakPill';
 import { WeekBars } from '../../src/components/WeekBars';
 import { WorkoutCard } from '../../src/components/WorkoutCard';
 import { fmtDuration, fmtHeaderDate, fmtVolumeShort } from '../../src/lib/format';
+import { onWatchFinished } from '../../src/lib/watchFinish';
 import { color, font } from '../../src/theme/tokens';
 
 /** Home / dashboard — reads the local dashboard, laid out from Home.dc.html. */
@@ -53,6 +54,17 @@ export default function Home() {
       void refreshDashboard();
       void refreshActive();
     }, [refreshDashboard, refreshActive]),
+  );
+
+  // Finishing on the Watch moves no navigation, so focus never fires and the
+  // resume bar would keep offering a workout that is already in history.
+  useEffect(
+    () =>
+      onWatchFinished(() => {
+        void refreshDashboard();
+        void refreshActive();
+      }),
+    [refreshDashboard, refreshActive],
   );
 
   const startEmpty = async () => {

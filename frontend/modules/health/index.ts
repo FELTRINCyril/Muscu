@@ -20,6 +20,7 @@ type HealthNativeModule = {
   startWatchWorkout(): void;
   stopWatchWorkout(discard: boolean): void;
   updateWatchState(state: Record<string, unknown>): void;
+  consumeWatchActions?(): Promise<Record<string, unknown>[]>;
   addListener(
     event: 'onHeartRate' | 'onWatchMetrics' | 'onWatchAction',
     listener: (e: any) => void,
@@ -141,6 +142,19 @@ export type WatchState = Record<string, unknown>;
 
 /** Push the latest workout state to the Watch (coalesced natively). */
 export const updateWatchState = (state: WatchState): void => native?.updateWatchState(state);
+
+/**
+ * Drains Watch actions that arrived before any JS listener existed, and marks JS
+ * as listening from here on. Only workout-ending actions are ever buffered — see
+ * `consumeWatchActions` in the native module for why.
+ *
+ * Empty on an older native build that lacks the function, which just restores the
+ * previous behaviour (the pre-subscribe window drops the action).
+ */
+export const consumeWatchActions = async (): Promise<WatchAction[]> =>
+  native?.consumeWatchActions
+    ? ((await native.consumeWatchActions()) as unknown as WatchAction[])
+    : [];
 
 /** Subscribe to Watch control taps. */
 export const addWatchActionListener = (fn: (a: WatchAction) => void): { remove(): void } =>

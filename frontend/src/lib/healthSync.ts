@@ -254,6 +254,15 @@ export function pushWatchState(state: Record<string, unknown>): void {
   if (Health.isAvailable()) Health.updateWatchState(state);
 }
 
+/**
+ * Watch actions that arrived before JS was listening — the cold-launch window,
+ * where WCSession can deliver a queued finish while the bundle is still loading.
+ * Drained once from the root layout. Empty when Health is unavailable.
+ */
+export async function consumeWatchActions(): Promise<Health.WatchAction[]> {
+  return Health.isAvailable() ? Health.consumeWatchActions() : [];
+}
+
 /** Subscribe to control taps from the Watch. */
 export function onWatchAction(fn: (a: Health.WatchAction) => void): () => void {
   const sub = Health.addWatchActionListener(fn);

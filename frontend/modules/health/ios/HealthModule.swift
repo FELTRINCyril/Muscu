@@ -32,6 +32,20 @@ public class HealthModule: Module {
     // user tapped on the Watch (log set, rest, end…), applied by JS.
     Events("onHeartRate", "onWatchMetrics", "onWatchAction")
 
+    /// Drains the Watch actions that arrived before JS was listening.
+    ///
+    /// `sendEvent` reaches whoever is subscribed at that instant and nobody
+    /// afterwards. WCSession activates in `OnCreate` — while the JS bundle is
+    /// still evaluating — so a queued `transferUserInfo`, which iOS delivers the
+    /// moment the app launches, can land before the root layout has subscribed.
+    /// For a "log set" that costs one tap; for a finish it left the workout stuck
+    /// active on the phone after the user ended it on the wrist. So completing
+    /// actions are buffered whenever there is no listener, and the root layout
+    /// drains them on mount.
+    AsyncFunction("consumeWatchActions") { () -> [[String: Any]] in
+      PhoneConnectivity.shared.drainPendingActions()
+    }
+
     Function("isAvailable") { () -> Bool in
       HKHealthStore.isHealthDataAvailable()
     }
@@ -307,6 +321,9 @@ public class HealthModule: Module {
             "cal": payload["cal"] as? Int ?? 0,
           ])
         } else if payload["action"] is String {
+          // Buffered instead of emitted when JS isn't listening yet, so a finish
+          // can't be dropped into the void. Everything else emits as before.
+          if PhoneConnectivity.shared.bufferIfUnheard(payload) { return }
           self?.sendEvent("onWatchAction", payload)
         }
       }
@@ -383,6 +400,41 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate {
 
   /// Set by the module: forwards a Watch message (action or metrics) to JS.
   var onMessage: (([String: Any]) -> Void)?
+
+  /// Actions that end a workout. Losing one of these strands the workout as
+  /// active on the phone after the user finished it on the wrist, and nothing
+  /// re-sends it — so these, and only these, are worth buffering.
+  private static let completingActions: Set<String> = ["end", "discard"]
+
+  private let pendingLock = NSLock()
+  private var pendingActions: [[String: Any]] = []
+  /// False until JS first drains, which is the only proof a listener exists.
+  private var jsListening = false
+
+  /// Hands JS the buffered actions and marks it live, so later ones are emitted
+  /// rather than queued. Called once from the root layout on mount.
+  func drainPendingActions() -> [[String: Any]] {
+    pendingLock.lock()
+    defer { pendingLock.unlock() }
+    jsListening = true
+    let drained = pendingActions
+    pendingActions = []
+    return drained
+  }
+
+  /// Buffers a workout-ending action that arrived before JS could hear it.
+  /// Returns true when it was buffered, meaning the caller must NOT also emit —
+  /// emitting as well would let a listener that subscribed in between apply the
+  /// finish twice.
+  func bufferIfUnheard(_ payload: [String: Any]) -> Bool {
+    guard let action = payload["action"] as? String,
+          Self.completingActions.contains(action) else { return false }
+    pendingLock.lock()
+    defer { pendingLock.unlock() }
+    guard !jsListening else { return false }
+    pendingActions.append(payload)
+    return true
+  }
 
   func activate() {
     guard WCSession.isSupported() else { return }

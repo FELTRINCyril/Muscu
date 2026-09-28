@@ -75,6 +75,7 @@ import {
   syncFinishedWorkout,
 } from '../../src/lib/healthSync';
 import { buildFinishedWatchState, buildWatchState } from '../../src/lib/watchState';
+import { claimWatchFinish } from '../../src/lib/watchFinish';
 import { getBodyweightKg } from '../../src/lib/bodyweight';
 import { getCountWarmups } from '../../src/lib/warmupVolume';
 import type { WatchAction } from '../../modules/health';
@@ -1113,6 +1114,15 @@ export default function ActiveWorkout() {
         break; // startEmpty / startRoutine only apply before a workout exists
     }
   };
+
+  // Claim the Watch's Finish/Discard while this screen is mounted, so the root
+  // layout's fallback stands down and only one of us completes the workout. The
+  // screen is the better handler when it exists: it also ends the Live Activity,
+  // mirrors to Health and navigates to the summary.
+  useEffect(() => {
+    if (!workoutId) return;
+    return claimWatchFinish(workoutId);
+  }, [workoutId]);
 
   useEffect(() => {
     const offAction = onWatchAction((a) => applyWatchAction.current(a));
