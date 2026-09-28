@@ -21,6 +21,19 @@ type SetLike = {
   kind?: 'weighted' | 'bodyweight';
 };
 
+/**
+ * Most reps a set may carry and still be trusted as a 1RM estimate.
+ *
+ * Epley is linear in reps, so it keeps rewarding volume long after it stops
+ * predicting a single. Left uncapped, 80 kg x 12 scores 112 and beats 100 kg x 3
+ * at 110 — the lighter set takes the record, and a set of twenty would take it
+ * by a mile. That distorts the PR itself and anything reading it.
+ *
+ * Ten is the conventional ceiling for the formula. Sets above it are ignored for
+ * this metric only; they still count for best_set, best_volume and max_reps.
+ */
+const EST_1RM_MAX_REPS = 10;
+
 /** Epley 1RM (mirrors domain/stats.ts). */
 function estimated1rm(weight: number | null, reps: number | null): number | null {
   if (weight === null || reps === null || reps <= 0) return null;
@@ -102,27 +115,32 @@ export function computeRecords(
       achievedAt: best.sess.achievedAt,
     };
 
-    // est_1rm — max Epley across weighted sets; first wins on a tie.
-    let top = weighted[0];
-    let topRm = estimated1rm(top.s.weight, top.s.reps) ?? 0;
-    for (const w of weighted) {
-      const rm = estimated1rm(w.s.weight, w.s.reps) ?? 0;
-      if (rm > topRm) {
-        topRm = rm;
-        top = w;
+    // est_1rm — max Epley across weighted sets inside the rep ceiling; first
+    // wins on a tie. A user who only ever trains high reps gets no est_1rm,
+    // which is honest: there is nothing here to estimate a single from.
+    const estimable = weighted.filter((w) => (w.s.reps ?? 0) <= EST_1RM_MAX_REPS);
+    if (estimable.length > 0) {
+      let top = estimable[0];
+      let topRm = estimated1rm(top.s.weight, top.s.reps) ?? 0;
+      for (const w of estimable) {
+        const rm = estimated1rm(w.s.weight, w.s.reps) ?? 0;
+        if (rm > topRm) {
+          topRm = rm;
+          top = w;
+        }
       }
+      const oneRm = estimated1rm(top.s.weight, top.s.reps) as number;
+      records.est_1rm = {
+        metric: 'est_1rm',
+        value: oneRm,
+        display: `${Math.round(oneRm)} kg`,
+        workoutId: top.sess.id,
+        workoutSetId: top.s.id,
+        weight: top.s.weight,
+        reps: top.s.reps,
+        achievedAt: top.sess.achievedAt,
+      };
     }
-    const oneRm = estimated1rm(top.s.weight, top.s.reps) as number;
-    records.est_1rm = {
-      metric: 'est_1rm',
-      value: oneRm,
-      display: `${Math.round(oneRm)} kg`,
-      workoutId: top.sess.id,
-      workoutSetId: top.s.id,
-      weight: top.s.weight,
-      reps: top.s.reps,
-      achievedAt: top.sess.achievedAt,
-    };
   }
 
   // best_volume — highest single-session working volume; first session wins on a tie.

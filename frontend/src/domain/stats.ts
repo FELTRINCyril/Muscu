@@ -42,6 +42,20 @@ export function estimated1rm(weight: number | null, reps: number | null): number
 }
 
 /**
+ * Most reps a set may carry and still be trusted as a 1RM estimate.
+ *
+ * Epley is linear in reps, so it keeps rewarding volume long after it stops
+ * predicting a single: 80 kg x 12 scores 112 and beats 100 kg x 3 at 110. Any
+ * metric that ranks sets against each other has to cap this, or a back-off set
+ * outranks the top single and a set of twenty outranks everything.
+ *
+ * Deliberately NOT applied inside `estimated1rm`. A calculator asked directly
+ * for 15 reps should answer and say the answer is rough; it is ranking that
+ * must not consider the set at all. Kept in step with `domain/records.ts`.
+ */
+export const EST_1RM_MAX_REPS = 10;
+
+/**
  * Kilograms of volume for a single set. `bodyweightKg` is the mover's mass used
  * for bodyweight movements (0 = unknown → they contribute nothing).
  *
@@ -114,8 +128,11 @@ export function sessionMetric(
   if (metric === 'best_set') {
     return round1(Math.max(...weighted.map((s) => s.weight as number)));
   }
-  // est_1rm and any unknown metric
+  // est_1rm and any unknown metric. Sets past the ceiling are dropped rather
+  // than clamped, so a high-rep-only session plots no point instead of a
+  // misleading one — and the chart agrees with the PR the records domain awards.
   const ones = weighted
+    .filter((s) => (s.reps as number) <= EST_1RM_MAX_REPS)
     .map((s) => estimated1rm(s.weight, s.reps))
     .filter((o): o is number => o !== null);
   return ones.length ? round1(Math.max(...ones)) : null;

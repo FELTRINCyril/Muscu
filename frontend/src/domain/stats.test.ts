@@ -174,9 +174,15 @@ test('session_metric best_set is heaviest working weight', () => {
   assert.equal(sessionMetric(session(), 'best_set'), 100.0);
 });
 
-test('session_metric est_1rm is max Epley', () => {
-  // 80 * (1 + 12/30) = 112.0 beats 110 and 76.
-  assert.equal(sessionMetric(session(), 'est_1rm'), 112.0);
+test('session_metric est_1rm is max Epley within the rep ceiling', () => {
+  // Raw Epley would hand this to the 12-rep set (80 * (1 + 12/30) = 112), which
+  // is where the formula stops predicting a single. Capped at 10 reps, the
+  // 100 x 3 set takes it at 110 — matching what computeRecords calls the PR.
+  assert.equal(sessionMetric(session(), 'est_1rm'), 110.0);
+});
+
+test('session_metric est_1rm is null when every working set is above the ceiling', () => {
+  assert.equal(sessionMetric([s('normal', 40.0, 15), s('normal', 45.0, 12)], 'est_1rm'), null);
 });
 
 test('session_metric best_volume sums working sets', () => {
