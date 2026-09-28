@@ -255,6 +255,51 @@ function aliasSlug(name, available, slugTokens) {
 }
 
 /**
+ * Equipment names, ours and theirs, folded onto one vocabulary.
+ *
+ * Ours comes from the catalog's `equipment` field, theirs from the upstream
+ * manifest. Upstream is far more granular about props that don't change what the
+ * drawing looks like (a bench, a doorway, a towel are all "a person and their
+ * body"), so those collapse onto `bodyweight`.
+ */
+function normaliseEquipment(raw) {
+  const s = String(raw ?? '').trim().toLowerCase();
+  if (!s) return 'other';
+  if (['pull-up bar', 'bench', 'wall', 'chair', 'doorway', 'towel', 'box', 'none'].includes(s)) {
+    return 'bodyweight';
+  }
+  if (s === 'resistance band') return 'band';
+  if (s === 'smith machine' || s === 'lever') return 'machine';
+  if (s === 'ez bar' || s === 'ez-bar') return 'barbell';
+  // Plates, stability balls, cardio kit — nothing our catalog distinguishes.
+  if (['plate', 'stability ball', 'cardio'].includes(s)) return 'other';
+  return s;
+}
+
+/**
+ * Whether artwork drawn with `theirs` may stand in for an exercise done with
+ * `ours`.
+ *
+ * This gate exists because the matcher used to ignore equipment completely —
+ * `ALLOWED_EXTRAS` treats "dumbbell", "cable" and "machine" as harmless noise on
+ * the way to a movement match. That is fine for *finding* the right movement and
+ * wrong for *showing* it: it put a two-hand barbell overhead press on Dumbbell
+ * Shoulder Press, a dumbbell extension on Cable Rope Overhead Triceps Extension,
+ * and a free-barbell row on Smith Machine Bent Over Row. The implement is the
+ * most visible thing in a line drawing, so getting it wrong reads as a bug.
+ *
+ * `other` is our catalog's catch-all (sleds, balls, odd implements). It carries
+ * no claim about what is in the athlete's hands, so it can't contradict anything.
+ */
+function equipmentCompatible(ours, theirs) {
+  const a = normaliseEquipment(ours);
+  const b = normaliseEquipment(theirs);
+  if (!b || b === 'other') return true; // upstream didn't say — fall back to tokens
+  if (a === 'other') return true;
+  return a === b;
+}
+
+/**
  * A candidate matches only when the upstream name's tokens are a subset of ours
  * and every leftover token of ours is a harmless equipment/grip word.
  */
@@ -553,13 +598,17 @@ async function main() {
   if (upstreamSlugs.length === 0) throw new Error(`no complete ${FRAME_COUNT}-frame slugs found under ${ASSET_PREFIX}`);
   log(`  upstream slugs fetched: ${upstreamSlugs.length} (${framesBySlug.size} total, complete ${FRAME_COUNT}-frame sets only)`);
 
-  // --- upstream display names (their manifest, falling back to the slug) ----
+  // --- upstream display names + equipment (their manifest) -----------------
   const nameBySlug = new Map();
+  const equipBySlug = new Map();
   try {
     const wgManifest = await httpGet(rawUrl('packages/workout-guide/manifest.json'), { json: true });
     for (const item of Array.isArray(wgManifest) ? wgManifest : []) {
       if (item && typeof item.slug === 'string' && typeof item.name === 'string') {
         nameBySlug.set(item.slug, item.name);
+      }
+      if (item && typeof item.slug === 'string' && typeof item.equipment === 'string') {
+        equipBySlug.set(item.slug, normaliseEquipment(item.equipment));
       }
     }
   } catch {
@@ -600,13 +649,21 @@ async function main() {
     }
 
     const ourTokens = tokenize(ex.name);
-    const candidates = upstreamSlugs.filter((slug) => isSafeMatch(ourTokens, upstreamTokens.get(slug)));
+    // The equipment gate runs alongside token matching rather than after it: a
+    // slug rejected here must not win the tie-break and shut out a correct one.
+    const fitsEquipment = (slug) => equipmentCompatible(ex.equipment, equipBySlug.get(slug));
+    const candidates = upstreamSlugs.filter(
+      (slug) => isSafeMatch(ourTokens, upstreamTokens.get(slug)) && fitsEquipment(slug),
+    );
     if (candidates.length === 0) {
       // Token matching can't bridge a naming difference — our catalog says
       // "Barbell Curl" where the artwork says "bicep-curl". These are the same
       // movement under a different name, so match on the phrase instead.
       const alias = aliasSlug(ex.name, upstreamSet, upstreamTokens);
-      if (alias) {
+      // Aliases clear the same equipment bar as token matches. Without this the
+      // fallback quietly reintroduced every mismatch the gate above rejects —
+      // "Barbell Curl" -> the dumbbell `bicep-curl` art being the original case.
+      if (alias && fitsEquipment(alias)) {
         byExerciseId[ex.id] = alias;
         pairs.push([ex.name, alias, 'alias']);
         aliasAdds++;
