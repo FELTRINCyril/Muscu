@@ -120,6 +120,11 @@ export function SetRow({
           placeholder={phWeight}
           placeholderTextColor={color.text3}
           keyboardType="decimal-pad"
+          // Tapping a set's weight means replacing it, not editing a digit of it:
+          // these are 2-4 character values, and the carried-forward number is
+          // usually wrong in full rather than wrong in one place. Selecting it all
+          // makes the next keypress overwrite instead of forcing a backspace hold.
+          selectTextOnFocus
           inputAccessoryViewID={accessoryId}
           style={[styles.input, styles.weightInput, weightFocused && styles.inputFocused]}
         />
@@ -133,6 +138,7 @@ export function SetRow({
           placeholder={phReps}
           placeholderTextColor={color.text3}
           keyboardType="number-pad"
+          selectTextOnFocus
           inputAccessoryViewID={accessoryId}
           style={[styles.input, styles.repsInput, repsFocused && styles.inputFocused]}
         />
