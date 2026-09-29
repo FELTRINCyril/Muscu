@@ -87,6 +87,7 @@ import type { RampRow } from '../../src/domain/warmupRamp';
 import { getPlateSetup } from '../../src/lib/plateSetup';
 import { DEFAULT_BAR_SETUP, smallestStepKg, type BarSetup } from '../../src/domain/plateMath';
 import { suggestNextSet } from '../../src/domain/progression';
+import { deloadActiveFor, getDeloadState, type DeloadState } from '../../src/lib/deloadState';
 import { groupLabels, restAfterSet, roundOfSet } from '../../src/domain/supersets';
 import { getBodyweightKg } from '../../src/lib/bodyweight';
 import { getCountWarmups } from '../../src/lib/warmupVolume';
@@ -203,6 +204,7 @@ export default function ActiveWorkout() {
   // When each exercise was last trained, for the progression suggestion's
   // staleness rule. One grouped query, not one per exercise.
   const [lastTrained, setLastTrained] = useState<Map<string, number>>(new Map());
+  const [deload, setDeload] = useState<DeloadState | null>(null);
   // Absolute bounds of the current rest, mirroring `restRemaining` for the Live
   // Activity: the widget ticks itself from these while the app is suspended, so
   // they change only when rest starts, is adjusted, or ends — never on the tick.
@@ -1273,6 +1275,9 @@ export default function ActiveWorkout() {
         setLastTrained(new Map([...u].map(([id, v]) => [id, v.lastAt])));
       })
       .catch(() => {});
+    void getDeloadState().then((d) => {
+      if (alive) setDeload(d);
+    });
     return () => {
       alive = false;
     };
@@ -1305,6 +1310,9 @@ export default function ActiveWorkout() {
       targetReps: null,
       stepKg: ex.equipment === 'barbell' ? smallestStepKg(plateSetup) : 2.5,
       now: Date.now(),
+      // The only route to a downward suggestion: a deload the user accepted on
+      // a previous summary. Nothing here decides to back off on its own.
+      deloadActive: !!(deload && catalogId && deloadActiveFor(deload, catalogId)),
     });
   };
 

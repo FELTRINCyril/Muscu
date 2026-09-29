@@ -46,6 +46,7 @@ import {
   UnitsIcon,
   UploadIcon,
 } from '../src/components/icons';
+import { getDeloadState, setDeloadState } from '../src/lib/deloadState';
 import { color, font } from '../src/theme/tokens';
 
 /**
@@ -130,12 +131,14 @@ export default function Settings() {
   // Warmups-in-volume flag: SecureStore-backed (not a DB `patch()` toggle), loaded
   // once on mount. When on, warmup sets contribute to volume and the best_volume PR.
   const [countWarmups, setCountWarmupsState] = useState(false);
+  const [deloadOn, setDeloadOn] = useState(true);
   useEffect(() => {
     void getCountWarmups().then(setCountWarmupsState);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
+    void getDeloadState().then((d) => setDeloadOn(d.enabled));
     getSettings()
       .then((s) => {
         if (!cancelled) setSettings(s);
@@ -293,6 +296,16 @@ export default function Settings() {
             onChange={(v) => {
               setCountWarmupsState(v);
               void setCountWarmups(v);
+            }}
+            isLast={false}
+          />
+          <ToggleRow
+            icon={<WarmupIcon size={20} color={color.text2} />}
+            label="Deload advice"
+            value={deloadOn}
+            onChange={(v) => {
+              setDeloadOn(v);
+              void getDeloadState().then((d) => setDeloadState({ ...d, enabled: v }));
             }}
             isLast={false}
           />

@@ -34,6 +34,14 @@ import { CheckIcon, ReorderArrowsIcon, StarIcon } from '../../src/components/ico
 import { PressableScale } from '../../src/components/PressableScale';
 import { ShareWorkoutSheet } from '../../src/components/ShareWorkoutSheet';
 import { buildRoutineDiff } from '../../src/domain/routineDiff';
+import {
+  DELOAD_DAYS,
+  DELOAD_FACTOR,
+  shouldShowAdvisory,
+  type DeloadAdvice,
+} from '../../src/domain/deload';
+import { deloadHistoryFor } from '../../src/data/deloadRepo';
+import { getDeloadState, setDeloadState } from '../../src/lib/deloadState';
 import { fmtDateOnly, fmtDuration } from '../../src/lib/format';
 import { maybeRequestReviewAfterFinish } from '../../src/lib/reviewPrompt';
 import { getSummary } from '../../src/lib/summaryCache';
@@ -355,6 +363,77 @@ export default function WorkoutSummary() {
   // The prompt is eligible only for a routine-backed workout on the cached path
   // whose structure actually changed and that hasn't been resolved this session.
   const canPrompt = !alreadyResolved.current && !!summary && !!routineId && !!routine && diff.length > 0;
+
+  // --- stall / deload advisory (#70) ---------------------------------------
+  // Deliberately second in line: if the routine prompt also applies it wins,
+  // because that one is about the session just finished and this one is about
+  // the weeks around it. Two cards would be a list, and the design is explicit
+  // that this never becomes one.
+  const [advice, setAdvice] = useState<DeloadAdvice | null>(null);
+  const [adviceState, setAdviceState] = useState<'prompt' | 'accepted'>('prompt');
+
+  useEffect(() => {
+    if (!summary || canPrompt) return;
+    let alive = true;
+    void (async () => {
+      const state = await getDeloadState();
+      if (!alive || !state.enabled) return;
+      // The detectors live in domain/deload; everything this screen does is
+      // decide whether there is room to say it.
+      const { exercises, historyStartedAt } = await deloadHistoryFor(summary.workout.id);
+      const found = shouldShowAdvisory({
+        enabled: state.enabled,
+        now: Date.now(),
+        historyStartedAt,
+        lastShownAt: state.lastShownAt,
+        // A session that set a PR is the worst possible moment to suggest
+        // backing off, whatever the trend says.
+        prThisSession: (summary.prs?.length ?? 0) > 0,
+        exercises: exercises.map((e) => ({
+          ...e,
+          dismissedAt: state.dismissed[e.exerciseId] ?? null,
+        })),
+      });
+      if (alive) setAdvice(found);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [summary, canPrompt]);
+
+  const onAcceptDeload = async () => {
+    if (!advice) return;
+    const state = await getDeloadState();
+    await setDeloadState({
+      ...state,
+      lastShownAt: Date.now(),
+      // A window, never weights. progression.ts reads this and suggests lighter
+      // numbers while it is open; nothing is written to any set.
+      activeUntil: { ...state.activeUntil, [advice.exerciseId]: Date.now() + DELOAD_DAYS * 86400000 },
+    });
+    setAdviceState('accepted');
+  };
+
+  const onDismissDeload = async () => {
+    if (!advice) return;
+    const state = await getDeloadState();
+    await setDeloadState({
+      ...state,
+      lastShownAt: Date.now(),
+      dismissed: { ...state.dismissed, [advice.exerciseId]: Date.now() },
+    });
+    setAdvice(null);
+  };
+
+  const onUndoDeload = async () => {
+    if (!advice) return;
+    const state = await getDeloadState();
+    const next = { ...state.activeUntil };
+    delete next[advice.exerciseId];
+    await setDeloadState({ ...state, activeUntil: next });
+    setAdviceState('prompt');
+  };
+
   const visibleRows = expanded ? diff : diff.slice(0, 3);
   const hiddenCount = diff.length - visibleRows.length;
 
@@ -477,6 +556,52 @@ export default function WorkoutSummary() {
         <View style={styles.actions}>
           {/* Routine-update prompt sits directly above Done — the question
               arrives as the user is leaving, not while reading their PRs. */}
+          {/* Stall / deload advisory. Shown only when the routine prompt is not:
+              two cards would be a list, and the design is explicit that this
+              never becomes one. No accent anywhere — backing off is not the
+              action the app is encouraging, it is one it is offering. */}
+          {!canPrompt && advice && adviceState === 'prompt' && (
+            <View style={styles.deloadCard}>
+              <View style={styles.routineHeader}>
+                <View style={styles.deloadDot} />
+                <Text style={styles.routineTitle}>
+                  {advice.reason === 'stall' ? 'This lift has stalled' : 'Volume jumped fast'}
+                </Text>
+              </View>
+              <Text style={styles.deloadBody}>
+                {advice.reason === 'stall'
+                  ? `No new best in a while. A week at ${Math.round(DELOAD_FACTOR * 100)}% often moves it further than pushing does.`
+                  : `This has climbed quickly. Holding for ${DELOAD_DAYS} days lets it catch up.`}
+              </Text>
+              <View style={styles.routineActions}>
+                <Pressable style={styles.deloadAccept} onPress={() => void onAcceptDeload()}>
+                  <Text style={styles.deloadAcceptText}>
+                    {advice.reason === 'stall'
+                      ? `Ease off for ${DELOAD_DAYS} days`
+                      : `Hold for ${DELOAD_DAYS} days`}
+                  </Text>
+                </Pressable>
+                <Pressable style={styles.keepBtn} onPress={() => void onDismissDeload()}>
+                  <Text style={styles.keepBtnText}>Not now</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          {!canPrompt && advice && adviceState === 'accepted' && (
+            <View style={styles.receiptCard}>
+              <View style={styles.receiptCheck}>
+                <CheckIcon size={14} color={color.success} strokeWidth={3.2} />
+              </View>
+              <Text style={styles.deloadBody}>
+                {`Suggestions will read ${Math.round(DELOAD_FACTOR * 100)}% for ${DELOAD_DAYS} days. Nothing was written to your sets.`}
+              </Text>
+              <Pressable onPress={() => void onUndoDeload()} hitSlop={6}>
+                <Text style={styles.saveNewLink}>Undo</Text>
+              </Pressable>
+            </View>
+          )}
+
           {canPrompt && promptState === 'prompt' && (
             <View style={styles.routineCard}>
               <View style={styles.routineHeader}>
@@ -901,6 +1026,28 @@ const styles = StyleSheet.create({
   },
 
   // ROUTINE-UPDATE PROMPT (Need 2)
+  deloadCard: {
+    backgroundColor: color.surface1,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 16,
+    gap: 10,
+  },
+  // Warning, not error: this is the colour the design system already assigns to
+  // "deload, missed", and the advisory is not a failure.
+  deloadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: color.warning },
+  deloadBody: { fontFamily: font.bodyRegular, fontSize: 13, lineHeight: 19, color: color.text2 },
+  deloadAccept: {
+    flex: 1,
+    height: 42,
+    borderRadius: 11,
+    backgroundColor: color.surface3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deloadAcceptText: { fontFamily: font.titleSemi, fontSize: 14, color: color.text1 },
   routineCard: {
     backgroundColor: color.surface1,
     borderWidth: 1,
