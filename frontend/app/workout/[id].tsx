@@ -178,7 +178,7 @@ export default function ActiveWorkout() {
   );
   const [workoutId, setWorkoutId] = useState<string | null>(isDemo ? null : routeId);
   const [persist, setPersist] = useState(!isDemo);
-  const [name, setName] = useState(isDemo ? 'Temp Upper' : '');
+  const [name, setName] = useState(isDemo ? 'Upper' : '');
   const [status, setStatus] = useState<string>('active');
   const [elapsed, setElapsed] = useState(START_ELAPSED);
   /** Epoch ms the workout began. The elapsed clock is derived from this. */
@@ -271,7 +271,7 @@ export default function ActiveWorkout() {
         if (cancelled) return;
         setExercises(seedWorkout());
         setPersist(false); // load failed → offline, don't write back
-        setName('Temp Upper');
+        setName('Upper');
         setStartedAt(Date.now() - START_ELAPSED * 1000);
         setLoading(false);
         return;
