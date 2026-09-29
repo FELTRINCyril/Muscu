@@ -250,6 +250,14 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="plates"
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              contentStyle: { backgroundColor: color.bg },
+            }}
+          />
+          <Stack.Screen
             name="merge-duplicates"
             options={{
               headerShown: false,

@@ -38,6 +38,7 @@ import {
   ClockRowIcon,
   CodeIcon,
   DownloadIcon,
+  DumbbellIcon,
   HapticIcon,
   HeartFilledIcon,
   InfoIcon,
@@ -293,6 +294,13 @@ export default function Settings() {
               setCountWarmupsState(v);
               void setCountWarmups(v);
             }}
+            isLast={false}
+          />
+          <LinkRow
+            icon={<DumbbellIcon size={19} color={color.text2} />}
+            label="Bar &amp; plates"
+            sub="Used by the plate calculator"
+            onPress={() => router.push('/plates')}
             isLast={false}
           />
           <TargetRow

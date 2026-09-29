@@ -25,6 +25,8 @@ type Props = {
   onWeightChange: (setId: string, text: string) => void;
   onRepsChange: (setId: string, text: string) => void;
   onToggleDone: (setId: string) => void;
+  /** Relays which set's weight/reps field is focused, for the keyboard toolbar. */
+  onFieldFocus?: (setId: string, field: 'weight' | 'reps') => void;
   /** Delete a set. Omitted → swipe-to-delete disabled. */
   onDeleteSet?: (setId: string) => void;
   /** Id of the set whose swipe panel is currently revealed (single per screen). */
@@ -59,6 +61,7 @@ export function ExerciseCard({
   onWeightChange,
   onRepsChange,
   onToggleDone,
+  onFieldFocus,
   onDeleteSet,
   openSetId,
   onSetOpenChange,
@@ -160,6 +163,7 @@ export function ExerciseCard({
               onWeightChange={(t) => onWeightChange(s.id, t)}
               onRepsChange={(t) => onRepsChange(s.id, t)}
               onToggleDone={() => onToggleDone(s.id)}
+              onFieldFocus={(field) => onFieldFocus?.(s.id, field)}
               onDelete={onDeleteSet ? () => onDeleteSet(s.id) : undefined}
               isOpen={openSetId === s.id}
               onOpenChange={(o) => onSetOpenChange?.(s.id, o)}

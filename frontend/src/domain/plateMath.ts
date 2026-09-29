@@ -44,6 +44,41 @@ export const DEFAULT_BAR_SETUP: BarSetup = {
 const g = (kg: number) => Math.round(kg * 1000);
 const kg = (grams: number) => grams / 1000;
 
+const positive = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
+
+/**
+ * Reads a stored bar setup back, falling back to the default for anything it
+ * can't use.
+ *
+ * The inventory is hand-edited and outlives app versions, so this is the one
+ * place that treats it as untrusted. A setup that silently loses a plate is
+ * better than a calculator that throws on a corrupt value mid-set — and a bar of
+ * zero would make every weight loadable, which is worse than being wrong.
+ *
+ * A zero `count` survives: that is a plate the gym is known NOT to have, and the
+ * settings screen needs the row to stay visible so it can be turned back on.
+ */
+export function parseBarSetup(raw: string | null | undefined): BarSetup {
+  if (!raw) return DEFAULT_BAR_SETUP;
+  try {
+    const data = JSON.parse(raw) as Partial<BarSetup>;
+    if (!positive(data.barKg)) return DEFAULT_BAR_SETUP;
+    const pairs = (Array.isArray(data.pairs) ? data.pairs : [])
+      .filter(
+        (p): p is PlatePair =>
+          !!p &&
+          positive((p as PlatePair).kg) &&
+          typeof (p as PlatePair).count === 'number' &&
+          Number.isFinite((p as PlatePair).count) &&
+          (p as PlatePair).count >= 0,
+      )
+      .map((p) => ({ kg: p.kg, count: Math.floor(p.count) }));
+    return { barKg: data.barKg, pairs };
+  } catch {
+    return DEFAULT_BAR_SETUP;
+  }
+}
+
 /**
  * The smallest amount the bar can move: the lightest available plate, doubled
  * because it goes on both ends. This is the number to quote when a target is

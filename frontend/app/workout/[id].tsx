@@ -76,6 +76,9 @@ import {
 } from '../../src/lib/healthSync';
 import { buildFinishedWatchState, buildWatchState } from '../../src/lib/watchState';
 import { claimWatchFinish } from '../../src/lib/watchFinish';
+import { PlateSheet } from '../../src/components/workout/PlateSheet';
+import { getPlateSetup } from '../../src/lib/plateSetup';
+import { DEFAULT_BAR_SETUP, type BarSetup } from '../../src/domain/plateMath';
 import { getBodyweightKg } from '../../src/lib/bodyweight';
 import { getCountWarmups } from '../../src/lib/warmupVolume';
 import type { WatchAction } from '../../modules/health';
@@ -179,6 +182,12 @@ export default function ActiveWorkout() {
   // The numeric keypads have no return key, so this is the only dismiss affordance
   // — and InputAccessoryView does not render under the New Architecture.
   const [kbHeight, setKbHeight] = useState(0);
+  // Which set the keyboard toolbar is acting on. The toolbar is one bar for the
+  // whole screen, so it can only offer Plates once it knows whose weight is
+  // being typed — and whether that exercise is even loaded with plates.
+  const [focusedSet, setFocusedSet] = useState<{ exerciseId: string; setId: string } | null>(null);
+  const [plateSheetOpen, setPlateSheetOpen] = useState(false);
+  const [plateSetup, setPlateSetupState] = useState<BarSetup>(DEFAULT_BAR_SETUP);
   // Absolute bounds of the current rest, mirroring `restRemaining` for the Live
   // Activity: the widget ticks itself from these while the app is suspended, so
   // they change only when rest starts, is adjusted, or ends — never on the tick.
@@ -1137,6 +1146,38 @@ export default function ActiveWorkout() {
     };
   }, []);
 
+  // Re-read the gym's bar and plates whenever the sheet opens. It is edited on
+  // another screen, and the workout outlives that trip, so loading once would
+  // leave the calculator proposing plates the user has just said they don't have.
+  useEffect(() => {
+    if (!plateSheetOpen) return;
+    let alive = true;
+    void getPlateSetup().then((s) => {
+      if (alive) setPlateSetupState(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [plateSheetOpen]);
+
+  // The exercise whose weight is being typed, when plates apply to it at all.
+  const plateExercise = useMemo(() => {
+    if (!focusedSet) return null;
+    const ex = exercises.find((e) => e.id === focusedSet.exerciseId);
+    return ex && ex.equipment === 'barbell' ? ex : null;
+  }, [focusedSet, exercises]);
+
+  // What the user has typed so far, or what the row would log if they ticked it
+  // now — so opening Plates on an untouched set still has something to work from.
+  const plateTargetKg = useMemo(() => {
+    if (!plateExercise || !focusedSet) return NaN;
+    const sets = plateExercise.sets;
+    const i = sets.findIndex((x) => x.id === focusedSet.setId);
+    if (i === -1) return NaN;
+    const resolved = resolveSet(sets[i], carryFor(sets, i));
+    return parseFloat(String(resolved.weight).replace(',', '.'));
+  }, [plateExercise, focusedSet]);
+
   const statusText = status === 'active' ? 'In progress' : status;
   const restSheetExercise = exercises.find((e) => e.id === restSheetExId) ?? null;
 
@@ -1208,6 +1249,7 @@ export default function ActiveWorkout() {
               onWeightChange={(setId, t) => editWeight(ex.id, setId, t)}
               onRepsChange={(setId, t) => editReps(ex.id, setId, t)}
               onToggleDone={(setId) => toggleDone(ex.id, setId)}
+              onFieldFocus={(setId) => setFocusedSet({ exerciseId: ex.id, setId })}
               onOpenDetail={
                 ex.exerciseCatalogId
                   ? () => router.push(`/exercise/${ex.exerciseCatalogId}`)
@@ -1239,6 +1281,21 @@ export default function ActiveWorkout() {
           New Architecture. iOS-only; shown only while the keyboard is up. */}
       {Platform.OS === 'ios' && kbHeight > 0 && (
         <View style={[styles.kbdAccessory, { bottom: kbHeight }]}>
+          {/* Plates only for barbell work. Dumbbells, machines and cables come in
+              whatever increments they come in, so there is nothing to calculate —
+              and a disabled button on every other exercise is worse than none. */}
+          {plateExercise ? (
+            <Pressable
+              onPress={() => setPlateSheetOpen(true)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Plate calculator"
+            >
+              <Text style={styles.kbdAccessoryAction}>Plates</Text>
+            </Pressable>
+          ) : (
+            <View />
+          )}
           <Pressable
             onPress={() => Keyboard.dismiss()}
             hitSlop={8}
@@ -1258,6 +1315,21 @@ export default function ActiveWorkout() {
         onMinus15={() => adjustRest(-15)}
         onPlus15={() => adjustRest(15)}
         onSkip={endRest}
+      />
+
+      <PlateSheet
+        visible={plateSheetOpen}
+        targetKg={plateTargetKg}
+        setup={plateSetup}
+        onUse={(kgValue) => {
+          if (focusedSet) editWeight(focusedSet.exerciseId, focusedSet.setId, String(kgValue));
+          setPlateSheetOpen(false);
+        }}
+        onEditSetup={() => {
+          setPlateSheetOpen(false);
+          router.push('/plates');
+        }}
+        onClose={() => setPlateSheetOpen(false)}
       />
 
       <RestPickerSheet
@@ -1421,12 +1493,20 @@ const styles = StyleSheet.create({
     // above the keyboard.
     height: 44,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    // Plates sits left, Done right. With no Plates an empty View holds the slot
+    // so Done stays where the thumb already expects it.
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     backgroundColor: color.surface2,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.border,
+  },
+  kbdAccessoryAction: {
+    fontFamily: font.bodyMedium,
+    fontSize: 16,
+    color: color.text1,
+    paddingHorizontal: 6,
   },
   kbdAccessoryDone: {
     fontFamily: font.titleSemi,

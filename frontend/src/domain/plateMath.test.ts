@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { DEFAULT_BAR_SETUP, smallestStepKg, solvePlates } from './plateMath.ts';
+import { DEFAULT_BAR_SETUP, parseBarSetup, smallestStepKg, solvePlates } from './plateMath.ts';
 
 /** Plenty of every plate, so counts never bind unless a test says so. */
 const gym = DEFAULT_BAR_SETUP;
@@ -115,4 +115,33 @@ test('a half-kilo target does not drift on floating point', () => {
   const setup = { barKg: 20, pairs: [{ kg: 1.25, count: 8 }] };
   assert.equal(exact(22.5, setup).perSideKg, 1.25);
   assert.equal(exact(25, setup).perSideKg, 2.5);
+});
+
+// --- parseBarSetup (stored inventory is user-editable and can be stale) ---
+
+test('parses a stored setup', () => {
+  const s = parseBarSetup('{"barKg":15,"pairs":[{"kg":20,"count":2}]}');
+  assert.equal(s.barKg, 15);
+  assert.deepEqual(s.pairs, [{ kg: 20, count: 2 }]);
+});
+
+test('falls back to the default setup when nothing is stored', () => {
+  assert.deepEqual(parseBarSetup(null), DEFAULT_BAR_SETUP);
+  assert.deepEqual(parseBarSetup('not json'), DEFAULT_BAR_SETUP);
+  assert.deepEqual(parseBarSetup('{"barKg":"heavy"}'), DEFAULT_BAR_SETUP);
+});
+
+test('drops plate entries that are not usable', () => {
+  const s = parseBarSetup('{"barKg":20,"pairs":[{"kg":20,"count":2},{"kg":0,"count":5},{"kg":10}]}');
+  assert.deepEqual(s.pairs, [{ kg: 20, count: 2 }]);
+});
+
+test('keeps a zero count so the plate still shows in settings', () => {
+  const s = parseBarSetup('{"barKg":20,"pairs":[{"kg":25,"count":0}]}');
+  assert.deepEqual(s.pairs, [{ kg: 25, count: 0 }]);
+});
+
+test('rejects a bar that is not a positive weight', () => {
+  assert.equal(parseBarSetup('{"barKg":0,"pairs":[]}').barKg, DEFAULT_BAR_SETUP.barKg);
+  assert.equal(parseBarSetup('{"barKg":-20,"pairs":[]}').barKg, DEFAULT_BAR_SETUP.barKg);
 });

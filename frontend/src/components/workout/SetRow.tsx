@@ -33,6 +33,9 @@ type Props = {
   onWeightChange: (text: string) => void;
   onRepsChange: (text: string) => void;
   onToggleDone: () => void;
+  /** Fired when the weight or reps field takes focus, so the screen knows which
+   *  set the keyboard toolbar is acting on. */
+  onFieldFocus?: (field: 'weight' | 'reps') => void;
   /** Fired by the swipe-revealed Delete button. Omitted → swipe disabled, no panel. */
   onDelete?: () => void;
   /** This row's swipe panel is revealed. */
@@ -55,6 +58,7 @@ export function SetRow({
   onWeightChange,
   onRepsChange,
   onToggleDone,
+  onFieldFocus,
   onDelete,
   isOpen = false,
   onOpenChange,
@@ -115,7 +119,10 @@ export function SetRow({
         <TextInput
           value={set.weight}
           onChangeText={onWeightChange}
-          onFocus={() => setWeightFocused(true)}
+          onFocus={() => {
+            setWeightFocused(true);
+            onFieldFocus?.('weight');
+          }}
           onBlur={() => setWeightFocused(false)}
           placeholder={phWeight}
           placeholderTextColor={color.text3}
@@ -133,7 +140,10 @@ export function SetRow({
         <TextInput
           value={set.reps}
           onChangeText={onRepsChange}
-          onFocus={() => setRepsFocused(true)}
+          onFocus={() => {
+            setRepsFocused(true);
+            onFieldFocus?.('reps');
+          }}
           onBlur={() => setRepsFocused(false)}
           placeholder={phReps}
           placeholderTextColor={color.text3}
