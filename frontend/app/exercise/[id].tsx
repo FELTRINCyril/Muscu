@@ -30,7 +30,7 @@ import {
 } from '../../src/api/workouts';
 import { DemoSlot } from '../../src/components/DemoSlot';
 import { mediaUrl } from '../../src/lib/media';
-import { StarIcon } from '../../src/components/icons';
+import { CheckIcon, PlusIcon, StarIcon } from '../../src/components/icons';
 import { fmtDateOnly } from '../../src/lib/format';
 import { color, font } from '../../src/theme/tokens';
 import {
@@ -42,6 +42,8 @@ import {
   type ChartRangeId,
 } from '../../src/domain/chartRange';
 import { getChartRange, setChartRange } from '../../src/lib/chartRangePref';
+import { PressableScale } from '../../src/components/PressableScale';
+import { pickerIsActive, pickerIsSelected, pickerToggle } from '../../src/lib/exercisePicker';
 
 type TabKey = 'about' | 'history' | 'charts';
 
@@ -67,7 +69,7 @@ const CHART_UNIT: Record<RecordMetric, string> = {
 export default function ExerciseDetail() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; pick?: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [tab, setTab] = useState<TabKey>('about');
@@ -137,6 +139,28 @@ export default function ExerciseDetail() {
     };
   }, [id]);
 
+  // Opened from the Add Exercise picker: offer to select, rather than only
+  // describe. Browse mode gets no bar, because there is nothing to add to.
+  // `pickerIsActive` is the real gate — the param alone could outlive the
+  // picker if this screen were restored on its own.
+  const picking = params.pick === '1' && pickerIsActive();
+  const [isPicked, setIsPicked] = useState(false);
+  useEffect(() => {
+    if (picking && id) setIsPicked(pickerIsSelected(id));
+  }, [picking, id]);
+
+  const onPickPress = () => {
+    if (!exercise) return;
+    pickerToggle(exercise);
+    // Selecting takes you back to keep adding; removing stays put, since you
+    // are probably reading the screen to decide.
+    if (!isPicked) {
+      router.back();
+      return;
+    }
+    setIsPicked(false);
+  };
+
   const title = exercise?.name ?? (loading ? 'Loading' : 'Exercise');
 
   return (
@@ -147,7 +171,7 @@ export default function ExerciseDetail() {
         contentContainerStyle={{
           paddingTop: 152 + insets.top,
           paddingHorizontal: 16,
-          paddingBottom: 32 + insets.bottom,
+          paddingBottom: (picking ? 116 : 32) + insets.bottom,
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -225,6 +249,28 @@ export default function ExerciseDetail() {
           })}
         </View>
       </View>
+
+      {picking && (
+        <View style={[styles.pickBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <PressableScale
+            style={[styles.pickButton, isPicked ? styles.pickButtonOn : styles.pickButtonOff]}
+            onPress={onPickPress}
+            accessibilityRole="button"
+          >
+            {isPicked ? (
+              <>
+                <CheckIcon size={16} color={color.accent} strokeWidth={3} />
+                <Text style={[styles.pickText, { color: color.text1 }]}>Selected · Remove</Text>
+              </>
+            ) : (
+              <>
+                <PlusIcon size={16} color={color.accentFg} strokeWidth={3} />
+                <Text style={[styles.pickText, { color: color.accentFg }]}>Select exercise</Text>
+              </>
+            )}
+          </PressableScale>
+        </View>
+      )}
     </View>
   );
 }
@@ -930,6 +976,32 @@ const styles = StyleSheet.create({
   // Trends are text2 whichever way they point: a falling lift is information,
   // not an error, and colouring it red would make the chart shout.
   trend: { fontFamily: font.monoRegular, fontSize: 11, color: color.text2 },
+  // Sits above the home indicator; content gets 116pt of bottom padding so
+  // nothing hides under it.
+  pickBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    backgroundColor: color.bg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: color.hair,
+  },
+  pickButton: {
+    height: 52,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  pickButtonOff: { backgroundColor: color.accent },
+  // Already-selected is a quieter surface: removing is not the action this
+  // screen is encouraging.
+  pickButtonOn: { backgroundColor: color.surface2 },
+  pickText: { fontFamily: font.titleSemi, fontSize: 16 },
   chartBlock: {
     marginBottom: 22,
   },

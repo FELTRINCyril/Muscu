@@ -28,12 +28,13 @@ import {
   listExercises,
   listExerciseUsage,
 } from '../src/api/workouts';
-import { CheckIcon, ChevronRightIcon, PlusIcon, SearchIcon } from '../src/components/icons';
+import { CheckIcon, ChevronRightIcon, InfoIcon, PlusIcon, SearchIcon } from '../src/components/icons';
 import { setPendingSelection } from '../src/lib/pendingSelection';
 import { ExerciseAvatar } from '../src/components/ExerciseAvatar';
 import { PressableScale } from '../src/components/PressableScale';
 import { mediaUrl } from '../src/lib/media';
 import { rankByUsage } from '../src/domain/exerciseRanking';
+import { registerPicker } from '../src/lib/exercisePicker';
 import { color, font } from '../src/theme/tokens';
 
 const ALL = 'All';
@@ -206,6 +207,20 @@ export default function ExerciseLibrary() {
       return next;
     });
   }, []);
+
+  // Let the Exercise Detail screen act on THIS selection while it's pushed on
+  // top, rather than keeping a second copy that would disagree the moment
+  // either side changed. Browse mode registers nothing: there's nothing to add
+  // to, so detail shows no bar.
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  useEffect(() => {
+    if (browseMode) return;
+    return registerPicker({
+      isSelected: (id) => selectedRef.current.has(id),
+      toggle,
+    });
+  }, [browseMode, toggle]);
 
   const addingRef = useRef(false);
   const handleAdd = async () => {
@@ -435,67 +450,91 @@ function ExerciseRow({
   const category = exercise.category?.name;
   const meta = category ? `${exercise.equipment} · ${category}` : exercise.equipment;
 
+  const openDetail = () =>
+    router.push(
+      // Detail needs to know it was opened from the picker, so it can offer to
+      // select rather than just describe.
+      selectable ? `/exercise/${exercise.id}?pick=1` : `/exercise/${exercise.id}`,
+    );
+
   return (
-    <View
+    // The whole row selects. It used to open details, with only the 44pt
+    // checkbox selecting — and people tapped the name expecting it to select,
+    // which is the more common intent on a screen called Add Exercise.
+    <Pressable
+      onPress={selectable ? onToggle : openDetail}
       style={[
         styles.row,
         { backgroundColor: selected ? 'rgba(255,74,28,0.07)' : 'transparent' },
       ]}
+      accessibilityRole="button"
+      accessibilityState={selectable ? { selected } : undefined}
+      accessibilityLabel={exercise.name}
+      accessibilityHint={selectable ? 'Selects this exercise' : 'Opens exercise details'}
     >
-      <Pressable
-        style={styles.rowLeft}
-        onPress={() => {
-          router.push(`/exercise/${exercise.id}`);
-        }}
-      >
-        <ExerciseAvatar
-          imageUrl={mediaUrl(exercise.image_url)}
-          initials={exercise.initials}
-          exerciseId={exercise.id}
-          style={
-            selected
-              ? {
-                  backgroundColor: 'rgba(255,74,28,0.14)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,74,28,0.4)',
-                }
-              : undefined
-          }
-        />
-        <View style={styles.rowText}>
-          <Text style={styles.rowName} numberOfLines={1}>
-            {exercise.name}
-          </Text>
-          <Text style={styles.rowMeta} numberOfLines={1}>
-            {meta}
-          </Text>
-        </View>
-      </Pressable>
-
+      {/* A selection circle up front, so a row reads as selectable before it is
+          tapped. Without it, whole-row tapping isn't discoverable. */}
       {selectable ? (
-        <Pressable style={styles.checkboxHit} onPress={onToggle} hitSlop={4}>
-          <View
-            style={[
-              styles.checkbox,
-              {
-                borderColor: selected ? color.accent : color.border,
-                backgroundColor: selected ? color.accent : 'transparent',
-              },
-            ]}
-          >
-            {selected ? <CheckIcon size={13} color={color.accentFg} strokeWidth={3.4} /> : null}
-          </View>
+        <View
+          style={[
+            styles.pickCircle,
+            selected
+              ? { borderColor: color.accent, backgroundColor: color.accent }
+              : { borderColor: color.text3 },
+          ]}
+        >
+          {selected ? <CheckIcon size={13} color={color.accentFg} strokeWidth={3.4} /> : null}
+        </View>
+      ) : null}
+
+      <ExerciseAvatar
+        imageUrl={mediaUrl(exercise.image_url)}
+        initials={exercise.initials}
+        exerciseId={exercise.id}
+        style={
+          selected
+            ? {
+                backgroundColor: 'rgba(255,74,28,0.14)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,74,28,0.4)',
+              }
+            : undefined
+        }
+      />
+      <View style={styles.rowText}>
+        <Text style={styles.rowName} numberOfLines={1}>
+          {exercise.name}
+        </Text>
+        <Text style={styles.rowMeta} numberOfLines={1}>
+          {meta}
+        </Text>
+      </View>
+
+      {/* Details move to their own button, which swallows the press so opening
+          them never also toggles the row underneath. Only while selecting: when
+          browsing, the row itself already opens details and a second control
+          doing the same thing would say nothing, so the chevron stays. */}
+      {selectable ? (
+        <Pressable
+          style={styles.infoHit}
+          onPress={(e) => {
+            e.stopPropagation();
+            openDetail();
+          }}
+          hitSlop={4}
+          accessibilityRole="button"
+          accessibilityLabel={`About ${exercise.name}`}
+        >
+          {({ pressed }) => (
+            <InfoIcon size={20} color={pressed ? color.text1 : color.text3} strokeWidth={2} />
+          )}
         </Pressable>
       ) : (
-        <Pressable
-          style={styles.checkboxHit}
-          onPress={() => router.push(`/exercise/${exercise.id}`)}
-          hitSlop={4}
-        >
+        <View style={styles.infoHit}>
           <ChevronRightIcon size={14} color={color.text3} strokeWidth={2.4} />
-        </Pressable>
+        </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -629,21 +668,32 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    // The row lays out circle / avatar / text / info directly now that the
+    // inner container (which carried its own gap) is gone.
+    gap: 10,
     paddingTop: 4,
     paddingRight: 4,
     paddingBottom: 4,
     paddingLeft: 8,
     borderRadius: 12,
   },
-  rowLeft: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
+  // 24pt ring, 1.5px border — present whether or not the row is selected, so
+  // the row advertises that tapping it does something.
+  pickCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
     alignItems: 'center',
-    gap: 13,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    justifyContent: 'center',
+  },
+  // Full thumb target for the details affordance, matching the checkbox it
+  // replaces in the same slot.
+  infoHit: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatar: {
     width: 44,
@@ -671,20 +721,6 @@ const styles = StyleSheet.create({
   },
 
   // Checkbox ----------------------------------------------------------
-  checkboxHit: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 
   // Empty state -------------------------------------------------------
   empty: {
