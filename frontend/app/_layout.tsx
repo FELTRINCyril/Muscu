@@ -26,6 +26,7 @@ import * as LiveActivity from '../modules/live-activity';
 import {
   discardWorkout,
   finishWorkout,
+  getDashboard,
   getSettings,
   listWorkouts,
   startWorkout,
@@ -33,7 +34,12 @@ import {
 import { setHapticsEnabled } from '../src/lib/haptics';
 import { useLocalDbBootstrap } from '../src/db/bootstrap';
 import { applyPendingCardActions } from '../src/lib/liveActivityBridge';
-import { consumeWatchActions, onWatchAction, syncFinishedWorkout } from '../src/lib/healthSync';
+import {
+  consumeWatchActions,
+  onWatchAction,
+  pushWatchState,
+  syncFinishedWorkout,
+} from '../src/lib/healthSync';
 import { forgetActiveWorkout } from '../src/lib/activeWorkout';
 import { clearRest } from '../src/lib/restSession';
 import { saveSummary } from '../src/lib/summaryCache';
@@ -71,6 +77,35 @@ function useWatchStart() {
   useEffect(
     () =>
       onWatchAction((a) => {
+        // The Watch's Start screen asking for the routine list. Answered here
+        // and not on Home, because the Watch app can be opened with the phone
+        // app closed: iOS relaunches it at the root route, where Home never
+        // mounts and so never pushes. That is why opening the Watch app on its
+        // own showed "No routines yet" until a workout had been run.
+        if (a.action === 'requestState') {
+          void (async () => {
+            try {
+              // A mounted workout screen owns the Watch state and answers this
+              // itself. Pushing a Start screen over a running session would
+              // throw the wrist back to the routine list mid-workout.
+              const [active] = await listWorkouts({ status: 'active', limit: 1 });
+              if (active) return;
+              const dash = await getDashboard();
+              pushWatchState({
+                screen: 'start',
+                routines: dash.routines.map((r) => ({
+                  id: r.id,
+                  name: r.name,
+                  initials: r.initials,
+                  exerciseCount: r.exercise_count,
+                })),
+              });
+            } catch {
+              // No data to answer with; the Watch keeps what it had.
+            }
+          })();
+          return;
+        }
         if (a.action !== 'startEmpty' && a.action !== 'startRoutine') return;
         void (async () => {
           try {

@@ -8,7 +8,10 @@ import WatchConnectivity
 /// throws and blanks the screen.
 struct PhoneState {
   var screen: WatchScreen = .start
-  var routines: [RoutineItem] = []
+  /// nil when the push didn't carry routines at all, which is different from
+  /// carrying none. A session push has no `routines` key, and treating that as
+  /// "the user has no routines" wiped the Start screen's list.
+  var routines: [RoutineItem]?
   /// When the *workout* began, not when this Watch's session did. nil when the
   /// phone hasn't said (it pushes 0), so the Watch keeps its own origin.
   var startedAt: Date?

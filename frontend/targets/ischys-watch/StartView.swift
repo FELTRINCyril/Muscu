@@ -52,6 +52,11 @@ struct StartView: View {
     .onAppear {
       // A fresh appearance is never mid-handoff — clear any stale pending row.
       model.pendingRoutineId = nil
+      // Ask the phone for the routine list. Opening the Watch app on its own
+      // used to show "No routines yet" until a workout had been run from the
+      // phone, because nothing ever asked: routines only arrived as a
+      // side-effect of the phone's Home screen being on screen and pushing them.
+      PhoneLink.shared.requestState()
     }
   }
 
