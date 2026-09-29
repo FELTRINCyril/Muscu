@@ -285,6 +285,50 @@ export async function addSetApi(
   return toWorkoutSetOut(row as WorkoutSetRow);
 }
 
+/**
+ * Inserts warm-up sets at the TOP of an exercise, shifting the existing sets
+ * down — the only insert that isn't an append.
+ *
+ * A warm-up below a working set isn't a warm-up, and `addSetApi` always appends,
+ * so this renumbers rather than reusing it. One transaction: a half-applied
+ * shift would leave two sets sharing a position, and the set list is ordered by
+ * position alone.
+ */
+export async function insertWarmupSets(
+  weId: string,
+  rows: { id?: string; weight: number | null; reps: number | null }[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  await db.transaction(async (tx) => {
+    const existing = await tx
+      .select()
+      .from(schema.workoutSets)
+      .where(eq(schema.workoutSets.workoutExerciseId, weId));
+    // Shift from the bottom up so no intermediate state collides with a row
+    // that hasn't moved yet.
+    const shifted = existing.slice().sort((a, b) => b.position - a.position);
+    for (const row of shifted) {
+      await tx
+        .update(schema.workoutSets)
+        .set({ position: row.position + rows.length, updatedAt: nowMs() })
+        .where(eq(schema.workoutSets.id, row.id));
+    }
+    for (const [i, r] of rows.entries()) {
+      await tx.insert(schema.workoutSets).values({
+        id: r.id ?? newId(),
+        workoutExerciseId: weId,
+        position: i,
+        type: 'warmup',
+        weight: r.weight,
+        reps: r.reps,
+        done: 0,
+        completedAt: null,
+        updatedAt: nowMs(),
+      });
+    }
+  });
+}
+
 export async function deleteSet(setId: string): Promise<void> {
   const set = (await db.select().from(schema.workoutSets).where(eq(schema.workoutSets.id, setId)))[0];
   if (!set) return;

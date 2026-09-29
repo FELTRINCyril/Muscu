@@ -37,6 +37,7 @@ import {
   getSettings,
   discardWorkout,
   finishWorkout,
+  insertWarmupSets,
   getPrevious,
   getPreviousNote,
   setWorkoutExerciseNote as setNoteApi,
@@ -77,6 +78,8 @@ import {
 import { buildFinishedWatchState, buildWatchState } from '../../src/lib/watchState';
 import { claimWatchFinish } from '../../src/lib/watchFinish';
 import { PlateSheet } from '../../src/components/workout/PlateSheet';
+import { WarmupSheet } from '../../src/components/workout/WarmupSheet';
+import type { RampRow } from '../../src/domain/warmupRamp';
 import { getPlateSetup } from '../../src/lib/plateSetup';
 import { DEFAULT_BAR_SETUP, type BarSetup } from '../../src/domain/plateMath';
 import { getBodyweightKg } from '../../src/lib/bodyweight';
@@ -187,6 +190,7 @@ export default function ActiveWorkout() {
   // being typed — and whether that exercise is even loaded with plates.
   const [focusedSet, setFocusedSet] = useState<{ exerciseId: string; setId: string } | null>(null);
   const [plateSheetOpen, setPlateSheetOpen] = useState(false);
+  const [warmupExId, setWarmupExId] = useState<string | null>(null);
   const [plateSetup, setPlateSetupState] = useState<BarSetup>(DEFAULT_BAR_SETUP);
   // Absolute bounds of the current rest, mirroring `restRemaining` for the Live
   // Activity: the widget ticks itself from these while the app is suspended, so
@@ -1178,6 +1182,57 @@ export default function ActiveWorkout() {
     return parseFloat(String(resolved.weight).replace(',', '.'));
   }, [plateExercise, focusedSet]);
 
+  /**
+   * The first working set of an exercise, when it has a weight to ramp toward.
+   * Warm-ups are only worth offering for weighted work that already knows where
+   * it's going — a set with no weight yet has no ladder.
+   */
+  const warmupBaseFor = (ex: (typeof exercises)[number]) => {
+    if (ex.kind === 'bodyweight') return null;
+    if (ex.sets.some((x) => x.type === 'warmup')) return null;
+    const i = ex.sets.findIndex((x) => x.type !== 'warmup');
+    if (i === -1) return null;
+    const resolved = resolveSet(ex.sets[i], carryFor(ex.sets, i));
+    const kgValue = parseFloat(String(resolved.weight).replace(',', '.'));
+    const repsValue = parseInt(String(resolved.reps), 10);
+    if (!Number.isFinite(kgValue) || kgValue <= 0) return null;
+    return { kg: kgValue, reps: Number.isFinite(repsValue) ? repsValue : 0 };
+  };
+
+  const warmupExercise = exercises.find((e) => e.id === warmupExId) ?? null;
+  const warmupBase = warmupExercise ? warmupBaseFor(warmupExercise) : null;
+
+  const insertWarmups = (exId: string, rows: RampRow[]) => {
+    const fresh = rows.map((r) => ({
+      ...makeSet(),
+      type: 'warmup' as const,
+      weight: String(r.kg),
+      reps: String(r.reps),
+    }));
+    setExercises((prev) =>
+      prev.map((e) => (e.id === exId ? { ...e, sets: [...fresh, ...e.sets] } : e)),
+    );
+    if (persist && workoutId) {
+      write(
+        insertWarmupSets(
+          exId,
+          fresh.map((f) => ({ id: f.id, weight: Number(f.weight), reps: Number(f.reps) })),
+        ).catch(() => {
+          // Insert failed — take the optimistic rows back out rather than show
+          // sets the store doesn't hold.
+          setExercises((prev) =>
+            prev.map((e) =>
+              e.id === exId
+                ? { ...e, sets: e.sets.filter((x) => !fresh.some((f) => f.id === x.id)) }
+                : e,
+            ),
+          );
+        }),
+      );
+    }
+    setWarmupExId(null);
+  };
+
   const statusText = status === 'active' ? 'In progress' : status;
   const restSheetExercise = exercises.find((e) => e.id === restSheetExId) ?? null;
 
@@ -1250,6 +1305,7 @@ export default function ActiveWorkout() {
               onRepsChange={(setId, t) => editReps(ex.id, setId, t)}
               onToggleDone={(setId) => toggleDone(ex.id, setId)}
               onFieldFocus={(setId) => setFocusedSet({ exerciseId: ex.id, setId })}
+              onWarmup={warmupBaseFor(ex) ? () => setWarmupExId(ex.id) : undefined}
               onOpenDetail={
                 ex.exerciseCatalogId
                   ? () => router.push(`/exercise/${ex.exerciseCatalogId}`)
@@ -1316,6 +1372,19 @@ export default function ActiveWorkout() {
         onPlus15={() => adjustRest(15)}
         onSkip={endRest}
       />
+
+      {warmupExercise && warmupBase && (
+        <WarmupSheet
+          visible
+          exerciseName={warmupExercise.name}
+          workingKg={warmupBase.kg}
+          workingReps={warmupBase.reps}
+          equipment={warmupExercise.equipment}
+          setup={plateSetup}
+          onInsert={(rows) => insertWarmups(warmupExercise.id, rows)}
+          onClose={() => setWarmupExId(null)}
+        />
+      )}
 
       <PlateSheet
         visible={plateSheetOpen}

@@ -22,6 +22,7 @@ export {
   getActivityMap,
   patchSet,
   addSetApi,
+  insertWarmupSets,
   deleteSet,
   removeWorkoutExercise,
   reorderExercises,

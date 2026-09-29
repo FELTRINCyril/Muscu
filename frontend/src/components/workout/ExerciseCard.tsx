@@ -27,6 +27,8 @@ type Props = {
   onToggleDone: (setId: string) => void;
   /** Relays which set's weight/reps field is focused, for the keyboard toolbar. */
   onFieldFocus?: (setId: string, field: 'weight' | 'reps') => void;
+  /** Offers the warm-up ramp. Absent → the button isn't shown (see below). */
+  onWarmup?: () => void;
   /** Delete a set. Omitted → swipe-to-delete disabled. */
   onDeleteSet?: (setId: string) => void;
   /** Id of the set whose swipe panel is currently revealed (single per screen). */
@@ -62,6 +64,7 @@ export function ExerciseCard({
   onRepsChange,
   onToggleDone,
   onFieldFocus,
+  onWarmup,
   onDeleteSet,
   openSetId,
   onSetOpenChange,
@@ -175,10 +178,27 @@ export function ExerciseCard({
         })}
       </View>
 
-      {/* + Add Set */}
-      <PressableScale onPress={onAddSet} style={styles.addSet}>
-        <Text style={styles.addSetText}>+ Add Set</Text>
-      </PressableScale>
+      {/* + Add Set, sharing its row with Warm-up when a ramp is on offer. The
+          caller withholds `onWarmup` once the exercise already has a warm-up, or
+          when there's no working weight to ramp toward — if it isn't needed, it
+          isn't there, rather than sitting disabled. */}
+      <View style={styles.footerRow}>
+        <PressableScale onPress={onAddSet} style={[styles.addSet, styles.footerHalf]}>
+          <Text style={styles.addSetText}>+ Add Set</Text>
+        </PressableScale>
+        {onWarmup && (
+          <PressableScale
+            onPress={onWarmup}
+            style={[styles.addSet, styles.footerHalf]}
+            accessibilityRole="button"
+            accessibilityLabel="Add warm-up sets"
+          >
+            {/* Warning is the warm-up set-type colour, so the button matches the
+                W badges it creates. */}
+            <Text style={[styles.addSetText, styles.warmupText]}>Warm-up</Text>
+          </PressableScale>
+        )}
+      </View>
     </View>
   );
 }
@@ -284,6 +304,9 @@ const styles = StyleSheet.create({
 
   sets: { flexDirection: 'column', gap: 2 },
 
+  footerRow: { flexDirection: 'row', gap: 8 },
+  footerHalf: { flex: 1 },
+  warmupText: { color: color.warning },
   addSet: {
     marginTop: 8,
     width: '100%',
