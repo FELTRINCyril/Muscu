@@ -25,8 +25,10 @@ import type { CategoryOut, ExerciseOut } from '../src/api/types';
 import {
   addWorkoutExercise,
   listCategories,
-  listExercises,
   listExerciseUsage,
+  listExercises,
+  nextSupersetGroup,
+  setSupersetGroup,
 } from '../src/api/workouts';
 import { CheckIcon, ChevronRightIcon, InfoIcon, PlusIcon, SearchIcon } from '../src/components/icons';
 import { setPendingSelection } from '../src/lib/pendingSelection';
@@ -223,7 +225,7 @@ export default function ExerciseLibrary() {
   }, [browseMode, toggle]);
 
   const addingRef = useRef(false);
-  const handleAdd = async () => {
+  const handleAdd = async (asSuperset = false) => {
     if (addingRef.current) return;
     if (selCount === 0) {
       router.back();
@@ -242,12 +244,20 @@ export default function ExerciseLibrary() {
     addingRef.current = true;
     setAdding(true);
     try {
-      // Sequential POSTs — server assigns position in order.
+      // Sequential writes — position is assigned in order.
+      const added: string[] = [];
       for (const id of selected.keys()) {
-        await addWorkoutExercise(workoutId, {
+        const we = await addWorkoutExercise(workoutId, {
           exercise_id: id,
           rest_seconds: DEFAULT_REST_SECONDS,
         });
+        if (we?.id) added.push(we.id);
+      }
+      // Pair them immediately, so "Add as superset" lands as one action rather
+      // than making the user group them again on the next screen.
+      if (asSuperset && added.length >= 2) {
+        const group = await nextSupersetGroup(workoutId);
+        await setSupersetGroup(added, group);
       }
       router.back();
     } catch (e) {
@@ -409,8 +419,19 @@ export default function ExerciseLibrary() {
               <Text style={styles.mergeCtaText}>{`Merge ${selCount}`}</Text>
             </PressableScale>
           ) : null}
+          {/* Only with a partner to pair with, and only when adding to a
+              workout — a routine picker has nothing to group into yet. */}
+          {selCount >= 2 && workoutId && !pickMode ? (
+            <PressableScale
+              onPress={() => void handleAdd(true)}
+              disabled={adding}
+              style={styles.mergeCta}
+            >
+              <Text style={styles.mergeCtaText}>Add as superset</Text>
+            </PressableScale>
+          ) : null}
           <PressableScale
-            onPress={handleAdd}
+            onPress={() => void handleAdd(false)}
             disabled={adding}
             style={[styles.cta, adding && { opacity: 0.7 }]}
           >

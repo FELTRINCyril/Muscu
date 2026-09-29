@@ -51,6 +51,8 @@ final class WorkoutModel: ObservableObject {
 
   // S1 — Start
   @Published var routines: [RoutineItem] = []
+  /// Set while the current exercise is part of a superset (#53).
+  @Published var supersetLabel = ""
 
   /// Whether the paired iPhone is reachable over WatchConnectivity. Drives the
   /// S-B start state: the "Synced with iPhone" chip flips to a warning and the
@@ -193,6 +195,7 @@ final class WorkoutModel: ObservableObject {
     if let pushed = s.routines { routines = pushed }
     routineName = s.routineName
     equipment = s.equipment
+    supersetLabel = s.supersetLabel
     setCount = s.setCount
     prevWeight = s.prevWeight
     prevReps = s.prevReps

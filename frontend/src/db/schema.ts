@@ -149,6 +149,28 @@ export const personalRecords = sqliteTable('personal_records', {
   ...sync,
 });
 
+/**
+ * Body measurements over time (#65).
+ *
+ * `value` is always canonical — cm for lengths, kg for masses, a plain number
+ * for percentages — so a unit change is a display concern and never rewrites
+ * history.
+ *
+ * `source` separates what the user typed from what arrived via Apple Health.
+ * Health rows are read-only here and carry `healthUuid`, so a re-read updates
+ * the same row instead of appending a duplicate every sync.
+ */
+export const bodyMeasurements = sqliteTable('body_measurements', {
+  id: text('id').primaryKey(),
+  userId: text('user_id'),
+  metric: text('metric').notNull(),
+  value: real('value').notNull(),
+  measuredAt: integer('measured_at').notNull(),
+  source: text('source').notNull().default('manual'),
+  healthUuid: text('health_uuid'),
+  ...sync,
+});
+
 export const settings = sqliteTable('settings', {
   id: text('id').primaryKey(),
   unit: text('unit').notNull().default('kg'),

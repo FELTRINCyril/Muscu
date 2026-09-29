@@ -11,6 +11,10 @@
  * reflects that once it is already active.
  */
 
+// DELOAD_FACTOR is imported, not redeclared: the advisory decides what a
+// deload IS, and two copies of 0.9 would drift the moment one was tuned.
+import { DELOAD_FACTOR } from './deload.ts';
+
 export type ProgressionKind = 'up' | 'hold' | 'down';
 
 export type Suggestion = {
@@ -50,9 +54,6 @@ const STALE_AFTER_DAYS = 56;
 
 /** Dumbbells move to the next common size; the user's rack is unknown. */
 const DUMBBELL_STEP_KG = 2;
-
-/** Fraction of working weight a deload runs at. */
-const DELOAD_FACTOR = 0.9;
 
 /** Equipment whose weight increments we cannot know, so we add a rep instead. */
 const UNREADABLE_STACK = new Set(['machine', 'cable']);

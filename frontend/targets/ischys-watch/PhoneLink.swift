@@ -18,6 +18,8 @@ struct PhoneState {
   var routineName = ""
   var exerciseName = ""
   var equipment = ""
+  /// "SUPERSET A · 1 OF 2", or empty when the exercise stands alone.
+  var supersetLabel = ""
   var setNum = 1
   var setCount = 1
   var weight = ""
@@ -40,6 +42,7 @@ struct PhoneState {
     case "summary": screen = .summary
     default: screen = .start
     }
+    supersetLabel = d["supersetLabel"] as? String ?? ""
     if let rs = d["routines"] as? [[String: Any]] {
       routines = rs.map {
         RoutineItem(

@@ -28,6 +28,8 @@ type ExerciseLike = {
   rest: number;
   /** For a bodyweight movement, `weight` is added load and the mover's mass is added on top. */
   kind?: 'weighted' | 'bodyweight';
+  /** Shared by paired exercises; null when the exercise stands alone. */
+  supersetGroup?: number | null;
   sets: readonly SetLike[];
 };
 
@@ -63,6 +65,12 @@ export type WatchState = {
   volumeKg: number;
   setsDone: number;
   setsTotal: number;
+  /**
+   * "SUPERSET A · 1 OF 2" when the current exercise is paired, else ''. The
+   * wrist needs to know it is mid-round, or resting looks broken when no timer
+   * starts after a set.
+   */
+  supersetLabel: string;
   /** The workout-exercise id and set id the Watch's Log Set acts on. */
   currentExerciseId: string;
   currentSetId: string;
@@ -126,6 +134,30 @@ function totals(
  * The set fields describe the last set logged; the Watch's end state reads only
  * the totals, but they must stay well-formed for the shared decoder.
  */
+
+/**
+ * "SUPERSET A · 1 OF 2" for a paired exercise, or '' when it stands alone.
+ *
+ * The letter is by order of first appearance, matching the phone. The wrist
+ * needs this: inside a superset no rest timer starts between partners, and
+ * without a label that reads as the timer being broken rather than as the
+ * round still being in progress.
+ */
+function supersetLabelFor(
+  exercises: readonly (ExerciseLike & { id: string })[],
+  current: (ExerciseLike & { id: string }) | undefined,
+): string {
+  if (!current || current.supersetGroup == null) return '';
+  const groups: number[] = [];
+  for (const e of exercises) {
+    if (e.supersetGroup != null && !groups.includes(e.supersetGroup)) groups.push(e.supersetGroup);
+  }
+  const letter = String.fromCharCode(65 + groups.indexOf(current.supersetGroup));
+  const partners = exercises.filter((e) => e.supersetGroup === current.supersetGroup);
+  const idx = partners.findIndex((e) => e.id === current.id) + 1;
+  return `SUPERSET ${letter} · ${idx} OF ${partners.length}`;
+}
+
 export function buildFinishedWatchState(
   exercises: readonly (ExerciseLike & { id: string })[],
   routineName: string,
@@ -145,6 +177,7 @@ export function buildFinishedWatchState(
     routineName,
     exerciseName: last.name,
     equipment: last.equipment,
+    supersetLabel: supersetLabelFor(exercises, last),
     setNum: last.sets.length,
     setCount: last.sets.length,
     weight: lastSet.weight,
@@ -199,6 +232,7 @@ export function buildWatchState(
     routineName,
     exerciseName: ex.name,
     equipment: ex.equipment,
+    supersetLabel: supersetLabelFor(exercises, ex as ExerciseLike & { id: string }),
     setNum: index + 1,
     setCount: ex.sets.length,
     weight: filled.weight,
