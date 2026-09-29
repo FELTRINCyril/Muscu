@@ -11,7 +11,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { color, font } from '../theme/tokens';
+import { accentA, color, font } from '../theme/tokens';
 import { fmtClock } from './workout/types';
 
 /**
@@ -98,9 +98,9 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,74,28,0.4)',
+    borderColor: accentA(0.4),
   },
-  tint: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255,74,28,0.12)' },
+  tint: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: accentA(0.12) },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     width: 17,
     height: 17,
     borderRadius: 8.5,
-    backgroundColor: 'rgba(255,74,28,0.18)',
+    backgroundColor: accentA(0.18),
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,

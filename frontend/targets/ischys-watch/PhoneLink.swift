@@ -43,6 +43,9 @@ struct PhoneState {
     default: screen = .start
     }
     supersetLabel = d["supersetLabel"] as? String ?? ""
+    // Cached in Theme so the Watch opens in the right accent even before the
+    // phone has pushed anything this launch.
+    if let t = d["themeId"] as? String { Ischys.themeId = t }
     if let rs = d["routines"] as? [[String: Any]] {
       routines = rs.map {
         RoutineItem(

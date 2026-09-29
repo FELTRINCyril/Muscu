@@ -71,6 +71,8 @@ export type WatchState = {
    * starts after a set.
    */
   supersetLabel: string;
+  /** Accent palette id, so the wrist matches the phone (#72). */
+  themeId?: string;
   /** The workout-exercise id and set id the Watch's Log Set acts on. */
   currentExerciseId: string;
   currentSetId: string;

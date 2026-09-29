@@ -249,9 +249,22 @@ export function stopWatchSession(opts?: { discard?: boolean }): void {
   if (Health.isAvailable()) Health.stopWatchWorkout(opts?.discard ?? false);
 }
 
-/** Push the latest workout state to the Watch companion (no-op if unavailable). */
+/**
+ * Push the latest workout state to the Watch companion (no-op if unavailable).
+ *
+ * The accent rides along on every push rather than through a channel of its
+ * own: the Watch caches it, so one field here keeps the wrist in step without
+ * any extra plumbing.
+ */
 export function pushWatchState(state: Record<string, unknown>): void {
-  if (Health.isAvailable()) Health.updateWatchState(state);
+  if (!Health.isAvailable()) return;
+  Health.updateWatchState({ themeId: currentThemeId, ...state });
+}
+
+/** Mirrors the phone's accent onto pushes; set once at startup. */
+let currentThemeId = 'ember';
+export function setWatchThemeId(id: string): void {
+  currentThemeId = id;
 }
 
 /**

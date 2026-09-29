@@ -37,7 +37,7 @@ import { PressableScale } from '../src/components/PressableScale';
 import { mediaUrl } from '../src/lib/media';
 import { rankByUsage } from '../src/domain/exerciseRanking';
 import { registerPicker } from '../src/lib/exercisePicker';
-import { color, font } from '../src/theme/tokens';
+import { accentA, color, font } from '../src/theme/tokens';
 
 const ALL = 'All';
 const DEFAULT_REST_SECONDS = 120;
@@ -486,7 +486,7 @@ function ExerciseRow({
       onPress={selectable ? onToggle : openDetail}
       style={[
         styles.row,
-        { backgroundColor: selected ? 'rgba(255,74,28,0.07)' : 'transparent' },
+        { backgroundColor: selected ? accentA(0.07) : 'transparent' },
       ]}
       accessibilityRole="button"
       accessibilityState={selectable ? { selected } : undefined}
@@ -515,9 +515,9 @@ function ExerciseRow({
         style={
           selected
             ? {
-                backgroundColor: 'rgba(255,74,28,0.14)',
+                backgroundColor: accentA(0.14),
                 borderWidth: 1,
-                borderColor: 'rgba(255,74,28,0.4)',
+                borderColor: accentA(0.4),
               }
             : undefined
         }
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: 'rgba(255,74,28,0.12)',
+    backgroundColor: accentA(0.12),
     borderColor: color.accent,
   },
   chipInactive: {

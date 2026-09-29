@@ -47,7 +47,9 @@ import {
   UploadIcon,
 } from '../src/components/icons';
 import { getDeloadState, setDeloadState } from '../src/lib/deloadState';
-import { color, font } from '../src/theme/tokens';
+import { PALETTES, type ThemeId } from '../src/theme/palettes';
+import { getThemeId, setThemeId } from '../src/lib/themePref';
+import { accentA, color, font } from '../src/theme/tokens';
 
 /**
  * The shipped version, read from the build rather than retyped — these strings
@@ -132,6 +134,7 @@ export default function Settings() {
   // once on mount. When on, warmup sets contribute to volume and the best_volume PR.
   const [countWarmups, setCountWarmupsState] = useState(false);
   const [deloadOn, setDeloadOn] = useState(true);
+  const [theme, setThemeState] = useState<ThemeId>('ember');
   useEffect(() => {
     void getCountWarmups().then(setCountWarmupsState);
   }, []);
@@ -139,6 +142,7 @@ export default function Settings() {
   useEffect(() => {
     let cancelled = false;
     void getDeloadState().then((d) => setDeloadOn(d.enabled));
+    void getThemeId().then(setThemeState);
     getSettings()
       .then((s) => {
         if (!cancelled) setSettings(s);
@@ -258,6 +262,37 @@ export default function Settings() {
           { paddingTop: 116 + insets.top },
         ]}
       >
+        {/* APPEARANCE — accent only. Surfaces, text and the status colours
+            never move with a theme: the app's rule is that accent marks one
+            action per screen, and a theme that restyled the greys would be
+            recolouring the app rather than that mark. */}
+        <Section title="APPEARANCE">
+          <View style={styles.themeRow}>
+            {PALETTES.map((p) => {
+              const on = p.id === theme;
+              return (
+                <Pressable
+                  key={p.id}
+                  onPress={() => {
+                    setThemeState(p.id);
+                    void setThemeId(p.id);
+                  }}
+                  style={[styles.themeSwatchWrap, on && styles.themeSwatchOn]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={p.name}
+                >
+                  <View style={[styles.themeSwatch, { backgroundColor: p.accent }]} />
+                  <Text style={[styles.themeName, on && styles.themeNameOn]}>{p.name}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={styles.themeNote}>
+            Applies when you next open Ischys.
+          </Text>
+        </Section>
+
         {/* TRAINING */}
         <Section title="TRAINING">
           <SegmentRow
@@ -935,6 +970,29 @@ const styles = StyleSheet.create({
   },
 
   // Link right
+  themeRow: { flexDirection: 'row', gap: 8, padding: 12 },
+  themeSwatchWrap: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  // Selection is a surface and an edge, not the accent — the swatch already
+  // carries the colour, and outlining it in itself would say nothing.
+  themeSwatchOn: { backgroundColor: color.surface2, borderColor: color.border },
+  themeSwatch: { width: 26, height: 26, borderRadius: 13 },
+  themeName: { fontFamily: font.monoMedium, fontSize: 11, color: color.text3 },
+  themeNameOn: { color: color.text1 },
+  themeNote: {
+    fontFamily: font.bodyRegular,
+    fontSize: 12,
+    color: color.text3,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+  },
   linkRight: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1039,9 +1097,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,74,28,0.12)',
+    backgroundColor: accentA(0.12),
     borderWidth: 1,
-    borderColor: 'rgba(255,74,28,0.3)',
+    borderColor: accentA(0.3),
   },
   countPillText: {
     fontFamily: font.monoSemi,

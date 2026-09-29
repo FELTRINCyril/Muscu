@@ -38,7 +38,7 @@ import { DraggableSheet } from '../src/components/DraggableSheet';
 import { PressableScale } from '../src/components/PressableScale';
 import { reconcilePrs, prMetricLabel, type MergeReason } from '../src/lib/mergeDuplicates';
 import { haptics } from '../src/lib/haptics';
-import { color, font } from '../src/theme/tokens';
+import { accentA, color, font } from '../src/theme/tokens';
 
 // --- Local glyphs (icons.tsx is owned by another stream) ------------------
 
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
 
   // --- M3 keep rows ---
   keepRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, paddingVertical: 13, paddingHorizontal: 14, borderWidth: 1 },
-  keepRowSel: { backgroundColor: 'rgba(255,74,28,0.07)', borderColor: color.accent },
+  keepRowSel: { backgroundColor: accentA(0.07), borderColor: color.accent },
   keepRowUnsel: { backgroundColor: color.surface1, borderColor: color.border },
   radio: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   radioSel: { backgroundColor: color.accent },

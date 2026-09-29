@@ -25,7 +25,7 @@ import type { ImportResult } from '../src/api/types';
 import { importFile } from '../src/api/workouts';
 import { CheckIcon, UploadIcon } from '../src/components/icons';
 import { PressableScale } from '../src/components/PressableScale';
-import { color, font } from '../src/theme/tokens';
+import { accentA, color, font } from '../src/theme/tokens';
 
 type Step = 'file_pick' | 'preview' | 'progress' | 'success' | 'error';
 
@@ -552,7 +552,7 @@ function ProgressState() {
             cx={60}
             cy={60}
             r={54}
-            stroke="rgba(255,74,28,0.15)"
+            stroke={accentA(0.15)}
             strokeWidth={4}
             fill="none"
           />

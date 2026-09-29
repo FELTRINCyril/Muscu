@@ -25,7 +25,12 @@ enum Ischys {
   static let text2 = hex(0x97979E)
   static let text3 = hex(0x5B5B63)
 
-  static let accent = hex(0xFF4A1C)
+  /// Set from the phone's pushed state; cached so the Watch starts in the
+  /// right colour when the phone is out of reach.
+  static var themeId: String? = UserDefaults.standard.string(forKey: "ischys.themeId") {
+    didSet { UserDefaults.standard.set(themeId, forKey: "ischys.themeId") }
+  }
+  static var accent: Color { hex(IschysPalette.accent(themeId)) }
   static let accentFg = hex(0x0B0B0C)
   static let success = hex(0x2DD881)
   static let warning = hex(0xFFC24B)
@@ -51,4 +56,22 @@ enum Ischys {
   static func clock(_ seconds: Int) -> String {
     String(format: "%d:%02d", max(0, seconds) / 60, max(0, seconds) % 60)
   }
+}
+
+/// Accent palettes, keyed by the same ids the app stores (#72).
+///
+/// Duplicated from `src/theme/palettes.ts` rather than shared, because these
+/// are separate processes with no JS runtime. The ids are the contract; if a
+/// palette is added there and not here, an unknown id falls back to Ember
+/// rather than rendering no colour at all.
+enum IschysPalette {
+  static func accent(_ id: String?) -> UInt32 {
+    switch id {
+    case "volt": return 0xC6F135
+    case "ion": return 0xC58BFF
+    case "chalk": return 0xF4F4F5
+    default: return 0xFF4A1C
+    }
+  }
+  static let accentFg: UInt32 = 0x0B0B0C
 }

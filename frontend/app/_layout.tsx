@@ -32,12 +32,14 @@ import {
   startWorkout,
 } from '../src/api/workouts';
 import { setHapticsEnabled } from '../src/lib/haptics';
+import { getThemeId } from '../src/lib/themePref';
 import { useLocalDbBootstrap } from '../src/db/bootstrap';
 import { applyPendingCardActions } from '../src/lib/liveActivityBridge';
 import {
   consumeWatchActions,
   onWatchAction,
   pushWatchState,
+  setWatchThemeId,
   syncFinishedWorkout,
 } from '../src/lib/healthSync';
 import { forgetActiveWorkout } from '../src/lib/activeWorkout';
@@ -188,6 +190,11 @@ export default function RootLayout() {
 
   // Cache the haptic preference at startup; screens fire haptics before the
   // workout or settings screen would sync it.
+  // Mirror the accent onto Watch pushes for the rest of the session.
+  useEffect(() => {
+    void getThemeId().then(setWatchThemeId);
+  }, []);
+
   useEffect(() => {
     getSettings()
       .then((s) => setHapticsEnabled(s.haptic_feedback))

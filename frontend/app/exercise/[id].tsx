@@ -32,7 +32,7 @@ import { DemoSlot } from '../../src/components/DemoSlot';
 import { mediaUrl } from '../../src/lib/media';
 import { CheckIcon, PlusIcon, StarIcon } from '../../src/components/icons';
 import { fmtDateOnly } from '../../src/lib/format';
-import { color, font } from '../../src/theme/tokens';
+import { accentA, color, font } from '../../src/theme/tokens';
 import {
   axisTicks,
   CHART_RANGES,
@@ -909,7 +909,7 @@ const styles = StyleSheet.create({
   },
   bestPill: {
     borderWidth: 1,
-    borderColor: 'rgba(255,74,28,0.3)',
+    borderColor: accentA(0.3),
     borderRadius: 5,
     paddingVertical: 1,
     paddingHorizontal: 5,

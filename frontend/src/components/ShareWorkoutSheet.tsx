@@ -27,7 +27,7 @@ import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import type { WorkoutSummaryOut } from '../api/types';
 import { fmtDuration } from '../lib/format';
 import { parseServerDate } from '../lib/serverTime';
-import { color, font } from '../theme/tokens';
+import { accentA, color, font } from '../theme/tokens';
 import { DraggableSheet } from './DraggableSheet';
 import { PressableScale } from './PressableScale';
 import { StarIcon } from './icons';
@@ -485,7 +485,7 @@ const styles = StyleSheet.create({
   },
   chipActive: {
     borderColor: color.accent,
-    backgroundColor: 'rgba(255,74,28,0.12)',
+    backgroundColor: accentA(0.12),
   },
   chipText: {
     fontFamily: font.titleSemi,
@@ -558,7 +558,7 @@ const cardStyles = StyleSheet.create({
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: 'rgba(255,74,28,0.12)',
+    backgroundColor: accentA(0.12),
   },
   topRow: {
     flexDirection: 'row',
