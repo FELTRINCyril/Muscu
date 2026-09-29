@@ -172,6 +172,10 @@ export type RecordOut = {
   achieved_at?: string | null;
   /** Set on recent-record entries so the Profile list can name the lift. */
   exercise_name?: string | null;
+  /** The set this record came from. Present when that set still exists, so a
+   *  record card can hand its numbers to the 1RM calculator. */
+  weight?: number | null;
+  reps?: number | null;
 };
 
 /** Chart series for a single exercise's progress over time. */

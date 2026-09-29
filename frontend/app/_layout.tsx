@@ -250,6 +250,14 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="one-rep-max"
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              contentStyle: { backgroundColor: color.bg },
+            }}
+          />
+          <Stack.Screen
             name="plates"
             options={{
               headerShown: false,

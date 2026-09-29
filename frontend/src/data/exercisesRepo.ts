@@ -138,12 +138,26 @@ export async function getExerciseRecords(id: string): Promise<RecordOut[]> {
     .select()
     .from(schema.personalRecords)
     .where(eq(schema.personalRecords.exerciseId, id));
-  return rows.map((r) => ({
-    metric: r.metric as RecordMetric,
-    value: r.value,
-    display: r.display,
-    achieved_at: r.achievedAt === null ? null : new Date(r.achievedAt).toISOString(),
-  }));
+  // Carry the originating set's numbers alongside the record. `display` is prose
+  // ("121 kg"), and the 1RM calculator needs the weight and reps behind it. A
+  // left join rather than a second round trip per card; a set deleted since the
+  // record was written simply leaves them null.
+  const setIds = rows.map((r) => r.workoutSetId).filter((x): x is string => !!x);
+  const sets = setIds.length
+    ? await db.select().from(schema.workoutSets).where(inArray(schema.workoutSets.id, setIds))
+    : [];
+  const bySetId = new Map(sets.map((s) => [s.id, s]));
+  return rows.map((r) => {
+    const src = r.workoutSetId ? bySetId.get(r.workoutSetId) : undefined;
+    return {
+      metric: r.metric as RecordMetric,
+      value: r.value,
+      display: r.display,
+      achieved_at: r.achievedAt === null ? null : new Date(r.achievedAt).toISOString(),
+      weight: src?.weight ?? null,
+      reps: src?.reps ?? null,
+    };
+  });
 }
 
 export async function getExerciseChart(

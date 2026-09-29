@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ProfileOut, RecordOut, WorkoutListItem } from '../../src/api/types';
 import { getProfile, listRecentRecords, listWorkouts } from '../../src/api/workouts';
-import { DeviceIcon, HeartFilledIcon, SettingsIcon, StarIcon } from '../../src/components/icons';
+import { ChevronRightIcon, DeviceIcon, HeartFilledIcon, SettingsIcon, StarIcon } from '../../src/components/icons';
 import { fmtMonthYear, fmtVolumeLarge, metricLabel } from '../../src/lib/format';
 import { buildWeeklyBars, WEEK_BARS, type WeeklyBars } from '../../src/lib/weeklyBars';
 import { DEFAULT_NAME, setProfileName } from '../../src/lib/profileName';
@@ -220,6 +220,28 @@ export default function Profile() {
                   </Text>
                   <Text style={styles.recordValue}>{r.display}</Text>
                 </View>
+              ))}
+            </View>
+
+            {/* Tools — calculators that don't belong to any one workout. */}
+            <Text style={styles.recordsLabel}>TOOLS</Text>
+            <View style={styles.toolsList}>
+              {[
+                { label: '1RM calculator', sub: 'Estimate from a set', to: '/one-rep-max' as const },
+                { label: 'Plate calculator', sub: 'Bar and plates', to: '/plates' as const },
+              ].map((t, i) => (
+                <Pressable
+                  key={t.to}
+                  onPress={() => router.push(t.to)}
+                  style={[styles.toolRow, i === 0 && styles.toolRowFirst]}
+                  accessibilityRole="button"
+                >
+                  <View style={styles.toolText}>
+                    <Text style={styles.toolLabel}>{t.label}</Text>
+                    <Text style={styles.toolSub}>{t.sub}</Text>
+                  </View>
+                  <ChevronRightIcon size={15} color={color.text3} strokeWidth={2.2} />
+                </Pressable>
               ))}
             </View>
 
@@ -528,6 +550,27 @@ const styles = StyleSheet.create({
   },
 
   // On-device status (neutral)
+  toolsList: {
+    backgroundColor: color.surface1,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  toolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    height: 56,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: color.hair,
+  },
+  toolRowFirst: { borderTopWidth: 0 },
+  toolText: { gap: 1 },
+  toolLabel: { fontFamily: font.bodyMedium, fontSize: 15, color: color.text1 },
+  toolSub: { fontFamily: font.bodyRegular, fontSize: 12, color: color.text3 },
   statusCard: {
     flexDirection: 'row',
     alignItems: 'center',

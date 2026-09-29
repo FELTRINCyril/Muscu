@@ -128,7 +128,7 @@ export default function ExerciseDetail() {
         ) : tab === 'history' ? (
           <HistoryTab history={history} />
         ) : (
-          <ChartsTab records={records} charts={charts} />
+          <ChartsTab records={records} charts={charts} exerciseName={exercise?.name ?? ""} />
         )}
       </ScrollView>
 
@@ -308,7 +308,16 @@ function HistoryTab({ history }: { history: HistorySessionOut[] }) {
 // Charts
 // ---------------------------------------------------------------------------
 
-function ChartsTab({ records, charts }: { records: RecordOut[]; charts: ChartOut[] }) {
+function ChartsTab({
+  records,
+  charts,
+  exerciseName,
+}: {
+  records: RecordOut[];
+  charts: ChartOut[];
+  exerciseName: string;
+}) {
+  const router = useRouter();
   const byMetric = useMemo(() => {
     const m: Partial<Record<RecordMetric, RecordOut>> = {};
     for (const r of records) m[r.metric] = r;
@@ -331,7 +340,27 @@ function ChartsTab({ records, charts }: { records: RecordOut[]; charts: ChartOut
         {rows.map((row, ri) => (
           <View key={ri} style={styles.recordsRow}>
             {row.map((metric) => (
-              <RecordCard key={metric} metric={metric} record={byMetric[metric]} />
+              <RecordCard
+                key={metric}
+                metric={metric}
+                record={byMetric[metric]}
+                // Only EST. 1RM leads anywhere: it's the one record that is an
+                // estimate rather than a thing that happened, so it's the one
+                // worth opening a calculator on.
+                onPress={
+                  metric === 'est_1rm' && byMetric.est_1rm?.weight != null
+                    ? () =>
+                        router.push({
+                          pathname: '/one-rep-max',
+                          params: {
+                            weight: String(byMetric.est_1rm?.weight ?? ''),
+                            reps: String(byMetric.est_1rm?.reps ?? ''),
+                            from: exerciseName,
+                          },
+                        })
+                    : undefined
+                }
+              />
             ))}
           </View>
         ))}
@@ -365,12 +394,31 @@ function ChartsTab({ records, charts }: { records: RecordOut[]; charts: ChartOut
   );
 }
 
-function RecordCard({ metric, record }: { metric: RecordMetric; record?: RecordOut }) {
-  return (
-    <View style={styles.recordCard}>
+function RecordCard({
+  metric,
+  record,
+  onPress,
+}: {
+  metric: RecordMetric;
+  record?: RecordOut;
+  onPress?: () => void;
+}) {
+  const body = (
+    <>
       <Text style={styles.recordLabel}>{RECORD_LABELS[metric]}</Text>
       <Text style={styles.recordValue}>{record?.display ?? '—'}</Text>
-    </View>
+    </>
+  );
+  if (!onPress) return <View style={styles.recordCard}>{body}</View>;
+  return (
+    <Pressable
+      style={styles.recordCard}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityHint="Open the 1RM calculator with this set"
+    >
+      {body}
+    </Pressable>
   );
 }
 
