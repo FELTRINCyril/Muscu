@@ -27,6 +27,9 @@ type Props = {
   onToggleDone: (setId: string) => void;
   /** Relays which set's weight/reps field is focused, for the keyboard toolbar. */
   onFieldFocus?: (setId: string, field: 'weight' | 'reps') => void;
+  /** Per-set progression proposal, keyed by set id (#69). */
+  suggestionFor?: (setId: string) => { kind: 'up' | 'hold' | 'down'; weight: number; reps: number } | null;
+  onUseSuggestion?: (setId: string) => void;
   /** Offers the warm-up ramp. Absent → the button isn't shown (see below). */
   onWarmup?: () => void;
   /** Delete a set. Omitted → swipe-to-delete disabled. */
@@ -64,6 +67,8 @@ export function ExerciseCard({
   onRepsChange,
   onToggleDone,
   onFieldFocus,
+  suggestionFor,
+  onUseSuggestion,
   onWarmup,
   onDeleteSet,
   openSetId,
@@ -167,6 +172,8 @@ export function ExerciseCard({
               onRepsChange={(t) => onRepsChange(s.id, t)}
               onToggleDone={() => onToggleDone(s.id)}
               onFieldFocus={(field) => onFieldFocus?.(s.id, field)}
+              suggestion={suggestionFor?.(s.id) ?? null}
+              onUseSuggestion={() => onUseSuggestion?.(s.id)}
               onDelete={onDeleteSet ? () => onDeleteSet(s.id) : undefined}
               isOpen={openSetId === s.id}
               onOpenChange={(o) => onSetOpenChange?.(s.id, o)}

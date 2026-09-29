@@ -36,6 +36,10 @@ type Props = {
   /** Fired when the weight or reps field takes focus, so the screen knows which
    *  set the keyboard toolbar is acting on. */
   onFieldFocus?: (field: 'weight' | 'reps') => void;
+  /** Next-session proposal for this set (#69). Absent → the row shows none. */
+  suggestion?: { kind: 'up' | 'hold' | 'down'; weight: number; reps: number } | null;
+  /** Fills both inputs from the suggestion. Must NOT tick the set. */
+  onUseSuggestion?: () => void;
   /** Fired by the swipe-revealed Delete button. Omitted → swipe disabled, no panel. */
   onDelete?: () => void;
   /** This row's swipe panel is revealed. */
@@ -49,6 +53,12 @@ type Props = {
   carryReps?: string;
 };
 
+/** Arrow up / equals / arrow down. Meaning lives here, not in colour. */
+const GLYPH = { up: '\u2191', hold: '=', down: '\u2193' } as const;
+
+/** 102.5 stays, 100.0 becomes 100. */
+const fmtNum = (n: number): string => String(Math.round(n * 100) / 100);
+
 export function SetRow({
   exercise,
   set,
@@ -59,6 +69,8 @@ export function SetRow({
   onRepsChange,
   onToggleDone,
   onFieldFocus,
+  suggestion,
+  onUseSuggestion,
   onDelete,
   isOpen = false,
   onOpenChange,
@@ -68,6 +80,14 @@ export function SetRow({
 }: Props) {
   const [weightFocused, setWeightFocused] = useState(false);
   const [repsFocused, setRepsFocused] = useState(false);
+
+  // "Edited" means the row no longer matches what was proposed — typing any
+  // value overrides it, and the line dims rather than disappearing so you can
+  // still see what you changed from.
+  const edited =
+    !!suggestion &&
+    (set.weight.trim() !== '' || set.reps.trim() !== '') &&
+    !(Number(set.weight) === suggestion.weight && Number(set.reps) === suggestion.reps);
 
   const meta = typeMeta[set.type];
   const prev = prevLabel(exercise, set);
@@ -109,11 +129,42 @@ export function SetRow({
         </View>
 
         {/* Previous set reference */}
-        <Pressable onPress={onUsePrev} style={styles.prevCell} hitSlop={{ top: 8, bottom: 8 }}>
-          <Text style={styles.prevText} numberOfLines={1}>
-            {prev}
-          </Text>
-        </Pressable>
+        {/* PREV, and under it the suggestion. This is the only flexible column
+            in the row's [34 | 1fr | 74 | 56 | 40] grid, and two 11-12px lines
+            fit the 50pt height — so nothing reflows when one appears. */}
+        <View style={styles.prevCell}>
+          <Pressable onPress={onUsePrev} hitSlop={{ top: 6, bottom: 2 }}>
+            <Text style={styles.prevText} numberOfLines={1}>
+              {prev}
+            </Text>
+          </Pressable>
+          {/* Gone once the set is logged: it has served its purpose, and the
+              row is about what happened from then on. */}
+          {suggestion && !set.done ? (
+            <Pressable
+              onPress={onUseSuggestion}
+              hitSlop={{ top: 2, bottom: 6 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Suggested ${suggestion.weight} by ${suggestion.reps}`}
+              accessibilityHint="Fills this set with the suggestion"
+            >
+              <Text
+                style={[
+                  styles.suggestText,
+                  // Dimmed once the user has typed something: it stays visible
+                  // so they can see what they changed from, without competing.
+                  edited && styles.suggestTextEdited,
+                  // Glyphs carry the meaning, not colour. Down is the one
+                  // exception, and only while a deload is running.
+                  suggestion.kind === 'down' && styles.suggestTextDown,
+                ]}
+                numberOfLines={1}
+              >
+                {`${GLYPH[suggestion.kind]} ${fmtNum(suggestion.weight)} × ${suggestion.reps}`}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
 
         {/* Weight */}
         <TextInput
@@ -207,13 +258,23 @@ const styles = StyleSheet.create({
     fontFamily: font.monoSemi,
     fontSize: 12.5,
   },
-  prevCell: { flex: 1, justifyContent: 'center', paddingHorizontal: 2 },
+  prevCell: { flex: 1, justifyContent: 'center', paddingHorizontal: 2, gap: 1 },
   prevText: {
     fontFamily: font.monoRegular,
     fontSize: 12,
     color: color.text3,
     fontVariant: ['tabular-nums'],
   },
+  // One step brighter than PREV (text3) and never accent or success — a
+  // proposal should not look like something that already happened.
+  suggestText: {
+    fontFamily: font.monoMedium,
+    fontSize: 11,
+    color: color.text2,
+    fontVariant: ['tabular-nums'],
+  },
+  suggestTextEdited: { color: color.text3 },
+  suggestTextDown: { color: color.warning },
   input: {
     height: 38,
     textAlign: 'center',

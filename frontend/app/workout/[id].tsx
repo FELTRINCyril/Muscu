@@ -38,6 +38,7 @@ import {
   discardWorkout,
   finishWorkout,
   insertWarmupSets,
+  listExerciseUsage,
   getPrevious,
   getPreviousNote,
   setWorkoutExerciseNote as setNoteApi,
@@ -81,7 +82,8 @@ import { PlateSheet } from '../../src/components/workout/PlateSheet';
 import { WarmupSheet } from '../../src/components/workout/WarmupSheet';
 import type { RampRow } from '../../src/domain/warmupRamp';
 import { getPlateSetup } from '../../src/lib/plateSetup';
-import { DEFAULT_BAR_SETUP, type BarSetup } from '../../src/domain/plateMath';
+import { DEFAULT_BAR_SETUP, smallestStepKg, type BarSetup } from '../../src/domain/plateMath';
+import { suggestNextSet } from '../../src/domain/progression';
 import { getBodyweightKg } from '../../src/lib/bodyweight';
 import { getCountWarmups } from '../../src/lib/warmupVolume';
 import type { WatchAction } from '../../modules/health';
@@ -192,6 +194,9 @@ export default function ActiveWorkout() {
   const [plateSheetOpen, setPlateSheetOpen] = useState(false);
   const [warmupExId, setWarmupExId] = useState<string | null>(null);
   const [plateSetup, setPlateSetupState] = useState<BarSetup>(DEFAULT_BAR_SETUP);
+  // When each exercise was last trained, for the progression suggestion's
+  // staleness rule. One grouped query, not one per exercise.
+  const [lastTrained, setLastTrained] = useState<Map<string, number>>(new Map());
   // Absolute bounds of the current rest, mirroring `restRemaining` for the Live
   // Activity: the widget ticks itself from these while the app is suspended, so
   // they change only when rest starts, is adjusted, or ends — never on the tick.
@@ -1233,6 +1238,49 @@ export default function ActiveWorkout() {
     setWarmupExId(null);
   };
 
+  useEffect(() => {
+    let alive = true;
+    void listExerciseUsage()
+      .then((u) => {
+        if (!alive) return;
+        setLastTrained(new Map([...u].map(([id, v]) => [id, v.lastAt])));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /**
+   * The proposal for a set, or null when there is nothing worth saying.
+   *
+   * Computed at render and never stored: ✓ logs what is in the inputs, so the
+   * suggestion can never become a value the user didn't choose.
+   *
+   * NOTE (decision #4, routine targets): schema has no rep-range field, and the
+   * screen doesn't load the routine, so "reached the target" falls back to the
+   * spec's documented alternative — matching what you did last time.
+   */
+  const suggestionFor = (exId: string, setId: string) => {
+    const ex = exercises.find((e) => e.id === exId);
+    const set = ex?.sets.find((x) => x.id === setId);
+    if (!ex || !set) return null;
+    const catalogId = ex.exerciseCatalogId;
+    return suggestNextSet({
+      equipment: ex.equipment,
+      kind: ex.kind,
+      setType: set.type,
+      last:
+        set.prevWeight != null || set.prevReps != null
+          ? { weight: Number(set.prevWeight ?? 0), reps: Number(set.prevReps ?? 0) }
+          : null,
+      lastSessionAt: catalogId ? (lastTrained.get(catalogId) ?? null) : null,
+      targetReps: null,
+      stepKg: ex.equipment === 'barbell' ? smallestStepKg(plateSetup) : 2.5,
+      now: Date.now(),
+    });
+  };
+
   const statusText = status === 'active' ? 'In progress' : status;
   const restSheetExercise = exercises.find((e) => e.id === restSheetExId) ?? null;
 
@@ -1306,6 +1354,13 @@ export default function ActiveWorkout() {
               onToggleDone={(setId) => toggleDone(ex.id, setId)}
               onFieldFocus={(setId) => setFocusedSet({ exerciseId: ex.id, setId })}
               onWarmup={warmupBaseFor(ex) ? () => setWarmupExId(ex.id) : undefined}
+              suggestionFor={(setId) => suggestionFor(ex.id, setId)}
+              onUseSuggestion={(setId) => {
+                const sug = suggestionFor(ex.id, setId);
+                if (!sug) return;
+                editWeight(ex.id, setId, String(sug.weight));
+                editReps(ex.id, setId, String(sug.reps));
+              }}
               onOpenDetail={
                 ex.exerciseCatalogId
                   ? () => router.push(`/exercise/${ex.exerciseCatalogId}`)
