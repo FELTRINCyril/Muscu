@@ -10,6 +10,9 @@ import { ChevronRightIcon, DeviceIcon, HeartFilledIcon, SettingsIcon, StarIcon }
 import { fmtMonthYear, fmtVolumeLarge, metricLabel } from '../../src/lib/format';
 import { buildWeeklyBars, WEEK_BARS, type WeeklyBars } from '../../src/lib/weeklyBars';
 import { DEFAULT_NAME, setProfileName } from '../../src/lib/profileName';
+import { BodyMap } from '../../src/components/BodyMap';
+import { aggregateMuscleWork, isNeglected } from '../../src/domain/muscleMap';
+import { muscleWorkEntries } from '../../src/data/muscleMapRepo';
 import { color, font } from '../../src/theme/tokens';
 
 const BAR_MAX_HEIGHT = 56;
@@ -29,6 +32,25 @@ export default function Profile() {
   const [workouts, setWorkouts] = useState<WorkoutListItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [healthConnected, setHealthConnected] = useState(false);
+  const [muscle, setMuscle] = useState<{ work: Map<string, number>; historyDays: number } | null>(null);
+
+  // Loaded once: the window is a rolling week, so it doesn't change while the
+  // tab is open.
+  useEffect(() => {
+    let alive = true;
+    void muscleWorkEntries(7)
+      .then((r) => {
+        if (!alive) return;
+        setMuscle({
+          work: aggregateMuscleWork({ entries: r.entries, windowDays: 7, today: new Date() }),
+          historyDays: r.historyDays,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Inline name editing. `draft` is null when not editing.
   const [draft, setDraft] = useState<string | null>(null);
@@ -203,6 +225,31 @@ export default function Profile() {
                 })}
               </View>
             </View>
+
+            {/* Muscle map — a shortcut into the full screen. Front only here:
+                the card exists to show whether anything is being missed, and
+                two figures at this size read as decoration. */}
+            {muscle && (
+              <>
+                <Text style={styles.recordsLabel}>MUSCLE MAP</Text>
+                <Pressable style={styles.muscleCard} onPress={() => router.push('/muscle-map')}>
+                  <BodyMap side="front" work={muscle.work} historyDays={muscle.historyDays} width={92} />
+                  <View style={styles.muscleText}>
+                    <Text style={styles.muscleTitle}>Last 7 days</Text>
+                    <Text style={styles.muscleSub}>
+                      {(() => {
+                        const missed = [...muscle.work.entries()].filter(([, n]) =>
+                          isNeglected(n, muscle.historyDays, false),
+                        );
+                        if (missed.length === 0) return 'Everything has had work';
+                        return `${missed.length} not trained · ${missed.slice(0, 3).map(([r]) => r).join(', ')}`;
+                      })()}
+                    </Text>
+                  </View>
+                  <ChevronRightIcon size={15} color={color.text3} strokeWidth={2.2} />
+                </Pressable>
+              </>
+            )}
 
             {/* Records */}
             <Text style={styles.recordsLabel}>RECENT RECORDS</Text>
@@ -550,6 +597,20 @@ const styles = StyleSheet.create({
   },
 
   // On-device status (neutral)
+  muscleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: color.surface1,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  muscleText: { flex: 1, gap: 2 },
+  muscleTitle: { fontFamily: font.titleSemi, fontSize: 15, color: color.text1 },
+  muscleSub: { fontFamily: font.bodyRegular, fontSize: 12, lineHeight: 17, color: color.text3 },
   toolsList: {
     backgroundColor: color.surface1,
     borderWidth: 1,
