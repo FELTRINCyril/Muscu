@@ -21,6 +21,7 @@ type HealthNativeModule = {
   stopWatchWorkout(discard: boolean): void;
   updateWatchState(state: Record<string, unknown>): void;
   consumeWatchActions?(): Promise<Record<string, unknown>[]>;
+  readBodyMeasurements?(): Promise<Record<string, { value: number; measuredAt: number; uuid: string }>>;
   addListener(
     event: 'onHeartRate' | 'onWatchMetrics' | 'onWatchAction',
     listener: (e: any) => void,
@@ -155,6 +156,17 @@ export const consumeWatchActions = async (): Promise<WatchAction[]> =>
   native?.consumeWatchActions
     ? ((await native.consumeWatchActions()) as unknown as WatchAction[])
     : [];
+
+/**
+ * Latest waist and body-fat readings from Health, each with the sample's uuid
+ * so a re-read updates the same row instead of appending a duplicate.
+ *
+ * Empty on an older native build, which simply means no Health-sourced
+ * measurements — the manually logged ones are unaffected.
+ */
+export const readBodyMeasurements = async (): Promise<
+  Record<string, { value: number; measuredAt: number; uuid: string }>
+> => (native?.readBodyMeasurements ? native.readBodyMeasurements() : {});
 
 /** Subscribe to Watch control taps. */
 export const addWatchActionListener = (fn: (a: WatchAction) => void): { remove(): void } =>

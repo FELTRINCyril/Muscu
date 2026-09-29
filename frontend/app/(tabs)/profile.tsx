@@ -13,6 +13,8 @@ import { DEFAULT_NAME, setProfileName } from '../../src/lib/profileName';
 import { BodyMap } from '../../src/components/BodyMap';
 import { aggregateMuscleWork, isNeglected } from '../../src/domain/muscleMap';
 import { muscleWorkEntries } from '../../src/data/muscleMapRepo';
+import { latestMeasurements, type MeasurementRow } from '../../src/data/measurementsRepo';
+import { formatMeasurement, type MetricId } from '../../src/domain/measurements';
 import { color, font } from '../../src/theme/tokens';
 
 const BAR_MAX_HEIGHT = 56;
@@ -33,11 +35,17 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [healthConnected, setHealthConnected] = useState(false);
   const [muscle, setMuscle] = useState<{ work: Map<string, number>; historyDays: number } | null>(null);
+  const [measurements, setMeasurements] = useState<Map<MetricId, MeasurementRow>>(new Map());
 
   // Loaded once: the window is a rolling week, so it doesn't change while the
   // tab is open.
   useEffect(() => {
     let alive = true;
+    void latestMeasurements()
+      .then((m) => {
+        if (alive) setMeasurements(m);
+      })
+      .catch(() => {});
     void muscleWorkEntries(7)
       .then((r) => {
         if (!alive) return;
@@ -225,6 +233,26 @@ export default function Profile() {
                 })}
               </View>
             </View>
+
+            {/* Measurements — the three most recent, as a way in. The full
+                list lives on its own screen; this is a status line. */}
+            <Text style={styles.recordsLabel}>MEASUREMENTS</Text>
+            <Pressable style={styles.muscleCard} onPress={() => router.push('/measurements')}>
+              <View style={styles.muscleText}>
+                <Text style={styles.muscleTitle}>
+                  {measurements.size === 0 ? 'Nothing logged yet' : 'Latest'}
+                </Text>
+                <Text style={styles.muscleSub}>
+                  {measurements.size === 0
+                    ? 'Waist, arms, body fat and more'
+                    : [...measurements.entries()]
+                        .slice(0, 3)
+                        .map(([m, r]) => formatMeasurement(r.value, m, { weightUnit: 'kg' }))
+                        .join('  ·  ')}
+                </Text>
+              </View>
+              <ChevronRightIcon size={15} color={color.text3} strokeWidth={2.2} />
+            </Pressable>
 
             {/* Muscle map — a shortcut into the full screen. Front only here:
                 the card exists to show whether anything is being missed, and

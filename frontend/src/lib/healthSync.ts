@@ -263,6 +263,37 @@ export async function consumeWatchActions(): Promise<Health.WatchAction[]> {
   return Health.isAvailable() ? Health.consumeWatchActions() : [];
 }
 
+/**
+ * Pulls waist and body fat from Health into the measurement history.
+ *
+ * Only when the user connected Health and left body reading on — the same
+ * intent/receipt rule the rest of this module follows. Upserts by the sample's
+ * uuid, so running it repeatedly converges rather than accumulating.
+ */
+export async function syncBodyMeasurementsFromHealth(): Promise<number> {
+  try {
+    if (!Health.isAvailable()) return 0;
+    const connected = await SecureStore.getItemAsync(HEALTH_KEYS.connected);
+    if (connected !== '1') return 0;
+
+    const found = await Health.readBodyMeasurements();
+    const entries = Object.entries(found);
+    if (entries.length === 0) return 0;
+
+    const { upsertHealthMeasurement } = await import('../data/measurementsRepo');
+    for (const [metric, r] of entries) {
+      if (metric !== 'waist' && metric !== 'bodyFat') continue;
+      await upsertHealthMeasurement(metric, r.value, Math.round(r.measuredAt), r.uuid);
+    }
+    // A value arriving IS the receipt — the Health screen shows when data last
+    // actually came back rather than a permission the system will not disclose.
+    await recordReadReceipt('readBody', `${entries.length} reading${entries.length === 1 ? '' : 's'}`);
+    return entries.length;
+  } catch {
+    return 0;
+  }
+}
+
 /** Subscribe to control taps from the Watch. */
 export function onWatchAction(fn: (a: Health.WatchAction) => void): () => void {
   const sub = Health.addWatchActionListener(fn);
