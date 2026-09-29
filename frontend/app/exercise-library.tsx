@@ -12,6 +12,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -25,12 +26,14 @@ import {
   addWorkoutExercise,
   listCategories,
   listExercises,
+  listExerciseUsage,
 } from '../src/api/workouts';
 import { CheckIcon, ChevronRightIcon, PlusIcon, SearchIcon } from '../src/components/icons';
 import { setPendingSelection } from '../src/lib/pendingSelection';
 import { ExerciseAvatar } from '../src/components/ExerciseAvatar';
 import { PressableScale } from '../src/components/PressableScale';
 import { mediaUrl } from '../src/lib/media';
+import { rankByUsage } from '../src/domain/exerciseRanking';
 import { color, font } from '../src/theme/tokens';
 
 const ALL = 'All';
@@ -47,6 +50,9 @@ function MergeGlyph({ size = 16, color: stroke }: { size?: number; color: string
 }
 
 type Group = { letter: string; items: ExerciseOut[] };
+
+/** How many trained lifts the shortcut section shows before it stops being one. */
+const TOP_LIFTS = 12;
 
 /** Group exercises alphabetically by first-letter of `name`. */
 function groupByLetter(items: ExerciseOut[]): Group[] {
@@ -79,6 +85,7 @@ export default function ExerciseLibrary() {
   const [filter, setFilter] = useState<string>(ALL);
   const [categories, setCategories] = useState<CategoryOut[]>([]);
   const [exercises, setExercises] = useState<ExerciseOut[]>([]);
+  const [usage, setUsage] = useState<Map<string, { sessions: number; lastAt: number }>>(new Map());
   // Keyed by exercise id, holding the whole `ExerciseOut`. Storing the objects
   // (not just ids) is what lets a pick made under an earlier search survive:
   // `exercises` is the *filtered* result set, so a later query drops the row a
@@ -158,12 +165,38 @@ export default function ExerciseLibrary() {
     return () => sub.remove();
   }, [fetchExercises]);
 
-  const groups = useMemo(() => groupByLetter(exercises), [exercises]);
+  // Sections: the lifts this user actually trains, then the whole catalog A-Z.
+  // The alphabet keeps every exercise, including the ranked ones — "I know it
+  // starts with B" is still how you find something you've never done.
+  const sections = useMemo(() => {
+    const letters = groupByLetter(exercises).map((g) => ({ title: g.letter, data: g.items }));
+    // Only when browsing everything. Under a search or a category filter the
+    // user has already said what they want, and a shortcut would just repeat it.
+    if (debouncedQuery || filter !== ALL) return letters;
+    const top = rankByUsage(exercises, usage, { now: Date.now(), limit: TOP_LIFTS });
+    return top.length > 0 ? [{ title: 'YOUR LIFTS', data: top }, ...letters] : letters;
+  }, [exercises, usage, debouncedQuery, filter]);
   const selCount = selected.size;
   const isEmpty = !loading && exercises.length === 0;
   // `loading` alone only covers the in-flight fetch; the 300ms debounce before it
   // left the field looking inert while typing.
   const searching = loading || query.trim() !== debouncedQuery;
+
+  // Usage is a property of the user's history, not of the current query, so it
+  // is loaded once rather than refetched on every keystroke.
+  useEffect(() => {
+    let alive = true;
+    void listExerciseUsage()
+      .then((u) => {
+        if (alive) setUsage(u);
+      })
+      .catch(() => {
+        // No history is a fine answer: the section just doesn't appear.
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const toggle = useCallback((ex: ExerciseOut) => {
     setSelected((prev) => {
@@ -227,9 +260,16 @@ export default function ExerciseLibrary() {
         }}
       />
 
-      {/* Scrollable list — sits under the absolutely-positioned header. */}
-      <ScrollView
+      {/* Virtualized list — sits under the absolutely-positioned header.
+
+          A SectionList, not a ScrollView: the catalog is ~700 exercises and a
+          ScrollView mounted every one of them up front, each with an avatar that
+          for the illustrated ones is a full inline SVG. That was the slow first
+          paint. Only the visible rows mount now; the rest arrive as you scroll. */}
+      <SectionList
         style={styles.scroll}
+        sections={sections}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={{
           paddingTop: headerBottom + insets.top,
           paddingHorizontal: 12,
@@ -237,41 +277,37 @@ export default function ExerciseLibrary() {
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-      >
-        {loading && exercises.length === 0 ? (
-          <View style={styles.loading}>
-            <ActivityIndicator color={color.text3} />
-          </View>
-        ) : null}
-
-        {groups.map((g) => (
-          <View key={g.letter} style={styles.group}>
-            <Text style={styles.groupLabel}>{g.letter}</Text>
-            <View style={styles.groupItems}>
-              {g.items.map((ex) => {
-                const sel = selected.has(ex.id);
-                return (
-                  <ExerciseRow
-                    key={ex.id}
-                    exercise={ex}
-                    selected={sel}
-                    selectable={!browseMode}
-                    onToggle={() => toggle(ex)}
-                  />
-                );
-              })}
+        // The catalog is static while a query stands, so a row only re-renders
+        // when its own selection changes.
+        renderItem={({ item }) => (
+          <ExerciseRow
+            exercise={item}
+            selected={selected.has(item.id)}
+            selectable={!browseMode}
+            onToggle={() => toggle(item)}
+          />
+        )}
+        ItemSeparatorComponent={() => <View style={styles.rowGap} />}
+        renderSectionHeader={({ section }) => (
+          <Text style={styles.groupLabel}>{section.title}</Text>
+        )}
+        ListHeaderComponent={
+          loading && exercises.length === 0 ? (
+            <View style={styles.loading}>
+              <ActivityIndicator color={color.text3} />
             </View>
-          </View>
-        ))}
-
-        {isEmpty ? (
-          <Text style={styles.empty}>
-            {debouncedQuery
-              ? `No exercises match "${debouncedQuery}"`
-              : 'No exercises found'}
-          </Text>
-        ) : null}
-      </ScrollView>
+          ) : null
+        }
+        ListEmptyComponent={
+          isEmpty ? (
+            <Text style={styles.empty}>
+              {debouncedQuery
+                ? `No exercises match "${debouncedQuery}"`
+                : 'No exercises found'}
+            </Text>
+          ) : null
+        }
+      />
 
       {/* HEADER (absolute, blurred). */}
       <View style={[styles.header, { paddingTop: 54 + insets.top }]}>
@@ -577,7 +613,6 @@ const styles = StyleSheet.create({
   chipTextInactive: { color: color.text2 },
 
   // Groups ------------------------------------------------------------
-  group: { marginBottom: 8 },
   groupLabel: {
     fontFamily: font.monoRegular,
     fontSize: 11,
@@ -588,7 +623,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     textTransform: 'uppercase',
   },
-  groupItems: { gap: 2 },
+  rowGap: { height: 2 },
 
   // Row ---------------------------------------------------------------
   row: {

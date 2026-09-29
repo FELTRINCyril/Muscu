@@ -40,6 +40,7 @@ export {
 
 export {
   listExercises,
+  listExerciseUsage,
   listCategories,
   listMuscles,
   createExercise,

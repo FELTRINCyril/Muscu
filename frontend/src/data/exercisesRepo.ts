@@ -2,7 +2,7 @@
  * Exercise catalog + custom exercises + Exercise-Detail compute, on-device.
  * Ported from the original server implementation. Touches the DB — not node-tested.
  */
-import { and, eq, inArray, like } from 'drizzle-orm';
+import { and, eq, inArray, like, sql } from 'drizzle-orm';
 
 import { db } from '../db/client';
 import * as schema from '../db/schema';
@@ -131,6 +131,34 @@ export async function getExerciseHistory(id: string): Promise<HistorySessionOut[
       [...s.sets].sort((a, b) => a.position - b.position),
     ),
   );
+}
+
+/**
+ * How much each exercise has actually been trained: completed sessions it
+ * appeared in, and when the most recent of those was.
+ *
+ * One grouped query rather than a scan per exercise — the library calls this on
+ * mount, and it is the only thing standing between a 700-row catalog and the
+ * dozen lifts the user came to find. Exercises never trained are simply absent.
+ */
+export async function listExerciseUsage(): Promise<Map<string, { sessions: number; lastAt: number }>> {
+  const rows = await db
+    .select({
+      exerciseId: schema.workoutExercises.exerciseId,
+      sessions: sql<number>`count(distinct ${schema.workoutExercises.workoutId})`,
+      lastAt: sql<number>`max(${schema.workouts.startedAt})`,
+    })
+    .from(schema.workoutExercises)
+    .innerJoin(schema.workouts, eq(schema.workoutExercises.workoutId, schema.workouts.id))
+    .where(eq(schema.workouts.status, 'completed'))
+    .groupBy(schema.workoutExercises.exerciseId);
+
+  const out = new Map<string, { sessions: number; lastAt: number }>();
+  for (const r of rows) {
+    if (!r.exerciseId) continue;
+    out.set(r.exerciseId, { sessions: Number(r.sessions) || 0, lastAt: Number(r.lastAt) || 0 });
+  }
+  return out;
 }
 
 export async function getExerciseRecords(id: string): Promise<RecordOut[]> {
