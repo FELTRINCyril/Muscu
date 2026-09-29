@@ -160,10 +160,18 @@ export async function getExerciseRecords(id: string): Promise<RecordOut[]> {
   });
 }
 
+/**
+ * A metric's series for one exercise.
+ *
+ * `since` reads everything from a timestamp forward; `sessions` keeps the old
+ * "last N" behaviour for callers that want a thumbnail. Points carry their real
+ * timestamp so the chart can space them by time — spacing sessions evenly made
+ * a three-month layoff look like a week off.
+ */
 export async function getExerciseChart(
   id: string,
   metric: RecordMetric = 'est_1rm',
-  sessions = 6,
+  opts: { since?: number | null; sessions?: number } = {},
 ): Promise<ChartOut> {
   const done = (await completedSessionsFor(id)).slice().reverse(); // oldest first
   // A bodyweight movement's volume counts the mover's mass; resolve it per day
@@ -175,6 +183,9 @@ export async function getExerciseChart(
   // Group by local day; sets that are done only (session_metric excludes undone).
   const byDay = new Map<string, SetLike[]>();
   const bwByDay = new Map<string, number>();
+  // Earliest start seen for a day, so a point sits on the real date rather than
+  // on whichever session of that day happened to be read last.
+  const dayStart = new Map<string, number>();
   for (const s of done) {
     const key = localDay(s.startedAt);
     const list = byDay.get(key) ?? [];
@@ -183,14 +194,23 @@ export async function getExerciseChart(
     }
     byDay.set(key, list);
     bwByDay.set(key, resolveWorkoutBodyweight(s.bodyweightKg, currentBw));
+    const seen = dayStart.get(key);
+    if (seen == null || s.startedAt < seen) dayStart.set(key, s.startedAt);
   }
-  const points: { label: string; value: number }[] = [];
+  const points: { label: string; value: number; t: number }[] = [];
   for (const [label, sets] of byDay) {
     const v = sessionMetric(sets, metric, bwByDay.get(label) ?? 0, countWarmups);
-    if (v !== null) points.push({ label, value: v });
+    if (v !== null) points.push({ label, value: v, t: dayStart.get(label) ?? 0 });
   }
-  const last = points.slice(-sessions);
-  return { metric, labels: last.map((p) => p.label), values: last.map((p) => p.value) };
+  const inRange =
+    opts.since != null ? points.filter((p) => p.t >= (opts.since as number)) : points;
+  const last = opts.sessions != null ? inRange.slice(-opts.sessions) : inRange;
+  return {
+    metric,
+    labels: last.map((p) => p.label),
+    values: last.map((p) => p.value),
+    times: last.map((p) => p.t),
+  };
 }
 
 // --- Merge duplicate exercises -------------------------------------------

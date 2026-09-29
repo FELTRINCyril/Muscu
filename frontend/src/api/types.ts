@@ -183,6 +183,9 @@ export type ChartOut = {
   metric: RecordMetric;
   labels: string[];
   values: number[];
+  /** Epoch ms of each point, so the chart can place it on a real time axis
+   *  rather than spacing sessions evenly and hiding the gaps between them. */
+  times: number[];
 };
 
 // --- Profile ---
