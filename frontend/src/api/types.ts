@@ -227,6 +227,8 @@ export type RoutineExerciseOut = {
   id: string;
   position: number;
   rest_seconds: number;
+  /** Shared by exercises paired as a superset. Null for an ordinary one. */
+  superset_group?: number | null;
   note?: string | null;
   exercise: ExerciseOut;
   sets: RoutineSetOut[];
@@ -252,6 +254,7 @@ export type RoutineSetIn = {
 export type RoutineExerciseIn = {
   exercise_id: string;
   rest_seconds: number;
+  superset_group?: number | null;
   note?: string | null;
   sets: RoutineSetIn[];
 };

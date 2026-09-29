@@ -70,6 +70,7 @@ async function insertExercises(
       exerciseId: ex.exercise_id,
       position: i,
       restSeconds: ex.rest_seconds,
+      supersetGroup: ex.superset_group ?? null,
       note: ex.note ?? null,
       updatedAt: nowMs(),
     });

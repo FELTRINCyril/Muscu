@@ -32,6 +32,10 @@ type Props = {
   onUseSuggestion?: (setId: string) => void;
   /** Offers the warm-up ramp. Absent → the button isn't shown (see below). */
   onWarmup?: () => void;
+  /** e.g. "A1" — this exercise's place in its superset. Absent when solo. */
+  supersetTag?: string | null;
+  /** Rest is owned by whoever closes the round; earlier partners say so. */
+  restOverrideLabel?: string | null;
   /** Delete a set. Omitted → swipe-to-delete disabled. */
   onDeleteSet?: (setId: string) => void;
   /** Id of the set whose swipe panel is currently revealed (single per screen). */
@@ -70,6 +74,8 @@ export function ExerciseCard({
   suggestionFor,
   onUseSuggestion,
   onWarmup,
+  supersetTag,
+  restOverrideLabel,
   onDeleteSet,
   openSetId,
   onSetOpenChange,
@@ -107,7 +113,18 @@ export function ExerciseCard({
           <Text style={styles.name} numberOfLines={1}>
             {exercise.name}
           </Text>
-          <Text style={styles.meta}>{exerciseMeta(exercise)}</Text>
+          <View style={styles.metaRow}>
+            {/* Position within the group, at the start of the meta line. No new
+                colour — surface3 on the existing grey. */}
+            {supersetTag ? (
+              <View style={styles.ssTag}>
+                <Text style={styles.ssTagText}>{supersetTag}</Text>
+              </View>
+            ) : null}
+            <Text style={styles.meta} numberOfLines={1}>
+              {exerciseMeta(exercise)}
+            </Text>
+          </View>
         </Pressable>
         <View style={styles.menuAnchor}>
           <Pressable onPress={onToggleMenu} style={styles.menuButton} hitSlop={6}>
@@ -138,7 +155,9 @@ export function ExerciseCard({
         <ClockRowIcon size={15} color={color.accent} strokeWidth={2.4} />
         <Text style={styles.restLabel}>Rest Timer</Text>
         <View style={styles.restRight}>
-          <Text style={styles.restValue}>{restLabel(exercise.rest)}</Text>
+          <Text style={styles.restValue}>
+            {restOverrideLabel ?? restLabel(exercise.rest)}
+          </Text>
           <ChevronRightIcon size={14} color={color.text3} strokeWidth={2.4} />
         </View>
       </Pressable>
@@ -311,6 +330,19 @@ const styles = StyleSheet.create({
 
   sets: { flexDirection: 'column', gap: 2 },
 
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ssTag: {
+    backgroundColor: color.surface3,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  ssTagText: {
+    fontFamily: font.monoMedium,
+    fontSize: 10,
+    letterSpacing: 0.5,
+    color: color.text2,
+  },
   footerRow: { flexDirection: 'row', gap: 8 },
   footerHalf: { flex: 1 },
   warmupText: { color: color.warning },

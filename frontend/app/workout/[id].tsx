@@ -84,6 +84,7 @@ import type { RampRow } from '../../src/domain/warmupRamp';
 import { getPlateSetup } from '../../src/lib/plateSetup';
 import { DEFAULT_BAR_SETUP, smallestStepKg, type BarSetup } from '../../src/domain/plateMath';
 import { suggestNextSet } from '../../src/domain/progression';
+import { groupLabels, restAfterSet, roundOfSet } from '../../src/domain/supersets';
 import { getBodyweightKg } from '../../src/lib/bodyweight';
 import { getCountWarmups } from '../../src/lib/warmupVolume';
 import type { WatchAction } from '../../modules/health';
@@ -143,6 +144,7 @@ function mapExercise(
     equipment: we.exercise.equipment,
     kind: we.exercise.kind,
     rest: we.rest_seconds,
+    supersetGroup: we.superset_group ?? null,
     note: we.note ?? '',
     notePlaceholder: prevNote ?? undefined,
     sets: we.sets.map((s) => {
@@ -801,7 +803,28 @@ export default function ActiveWorkout() {
     // what is *coming* — which, after an exercise's last set, is the next
     // exercise. `exercises` has not re-rendered yet, so the set being completed
     // is passed as `treatAsDone`.
-    if (willBeDone) startRest(ex.rest, upcomingExerciseName(setId), ex.id);
+    if (willBeDone) {
+      // Inside a superset the rest waits for the round to finish: completing the
+      // first partner sends you to the second rather than starting a timer,
+      // which is the entire point of pairing them. A solo exercise is unchanged.
+      const decision = restAfterSet(
+        exercises.map((e) => ({
+          id: e.id,
+          supersetGroup: e.supersetGroup ?? null,
+          rest: e.rest,
+          sets: e.sets.map((x) => ({ id: x.id, type: x.type, done: x.done })),
+        })),
+        exId,
+        setId,
+      );
+      if (decision.startRest) {
+        startRest(decision.seconds, upcomingExerciseName(setId), ex.id);
+      } else {
+        // No timer — but the active row must move to the partner, or the screen
+        // would still be pointing at the exercise you just finished.
+        endRest();
+      }
+    }
     if (persist) write(patchSetApi(setId, { done: willBeDone }));
   };
 
@@ -1281,6 +1304,62 @@ export default function ActiveWorkout() {
     });
   };
 
+  // --- supersets (#53) -------------------------------------------------
+  const ssLabels = useMemo(
+    () =>
+      groupLabels(
+        exercises.map((e) => ({
+          id: e.id,
+          supersetGroup: e.supersetGroup ?? null,
+          rest: e.rest,
+          sets: [],
+        })),
+      ),
+    [exercises],
+  );
+
+  /** "A1" / "A2" — letter of the group, index within it. */
+  const supersetTagFor = (exId: string): string | null => {
+    const me = exercises.find((e) => e.id === exId);
+    if (!me || me.supersetGroup == null) return null;
+    const letter = ssLabels.get(me.supersetGroup);
+    if (!letter) return null;
+    const partners = exercises.filter((e) => e.supersetGroup === me.supersetGroup);
+    return `${letter}${partners.findIndex((e) => e.id === exId) + 1}`;
+  };
+
+  /**
+   * Earlier partners don't own the round's rest, so their row says where it
+   * actually lives rather than a duration that will never run. Their stored
+   * value is untouched, for when the group is broken up again.
+   */
+  const restLabelFor = (exId: string): string | null => {
+    const me = exercises.find((e) => e.id === exId);
+    if (!me || me.supersetGroup == null) return null;
+    const partners = exercises.filter((e) => e.supersetGroup === me.supersetGroup);
+    if (partners.length < 2) return null;
+    const i = partners.findIndex((e) => e.id === exId);
+    if (i === partners.length - 1) return null;
+    const letter = ssLabels.get(me.supersetGroup);
+    return `None · then ${letter}${i + 2}`;
+  };
+
+  /** Round label for the group header, from the first partner's progress. */
+  const supersetHeaderFor = (exId: string): string | null => {
+    const me = exercises.find((e) => e.id === exId);
+    if (!me || me.supersetGroup == null) return null;
+    const partners = exercises.filter((e) => e.supersetGroup === me.supersetGroup);
+    if (partners.length < 2 || partners[0].id !== exId) return null; // header once per group
+    const letter = ssLabels.get(me.supersetGroup);
+    const rounds = Math.max(
+      ...partners.map((p) => p.sets.filter((x) => x.type === 'normal').length),
+    );
+    const lead = partners[0];
+    const doneRounds = lead.sets.filter((x) => x.type === 'normal' && x.done).length;
+    const current = Math.min(rounds, doneRounds + 1);
+    return `SUPERSET ${letter} · ROUND ${current} OF ${rounds}`;
+  };
+
   const statusText = status === 'active' ? 'In progress' : status;
   const restSheetExercise = exercises.find((e) => e.id === restSheetExId) ?? null;
 
@@ -1327,8 +1406,17 @@ export default function ActiveWorkout() {
           {!loading && exercises.length === 0 && <EmptyWorkout />}
 
           {exercises.map((ex) => (
-            <ExerciseCard
+            <View
               key={ex.id}
+              style={ex.supersetGroup != null ? styles.ssMember : undefined}
+            >
+              {/* One header per group, then a rail down the screen margin tying
+                  the partners together. No new colour: a 2pt text3 line. */}
+              {supersetHeaderFor(ex.id) ? (
+                <Text style={styles.ssHeader}>{supersetHeaderFor(ex.id)}</Text>
+              ) : null}
+              {ex.supersetGroup != null ? <View style={styles.ssRail} /> : null}
+            <ExerciseCard
               exercise={ex}
               onDeleteSet={(setId) => deleteSet(ex.id, setId)}
               openSetId={openSetId}
@@ -1366,7 +1454,10 @@ export default function ActiveWorkout() {
                   ? () => router.push(`/exercise/${ex.exerciseCatalogId}`)
                   : undefined
               }
+              supersetTag={supersetTagFor(ex.id)}
+              restOverrideLabel={restLabelFor(ex.id)}
             />
+            </View>
           ))}
 
           <PressableScale
@@ -1625,6 +1716,26 @@ const styles = StyleSheet.create({
     backgroundColor: color.surface2,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.border,
+  },
+  // Partners sit 4pt apart and share a rail in the screen margin.
+  ssMember: { position: 'relative', marginBottom: 4 },
+  ssHeader: {
+    fontFamily: font.monoMedium,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: color.text3,
+    paddingTop: 10,
+    paddingBottom: 6,
+    paddingLeft: 7,
+  },
+  ssRail: {
+    position: 'absolute',
+    left: 7,
+    top: 0,
+    bottom: 0,
+    width: 2,
+    borderRadius: 1,
+    backgroundColor: color.text3,
   },
   kbdAccessoryAction: {
     fontFamily: font.bodyMedium,

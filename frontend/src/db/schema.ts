@@ -74,6 +74,9 @@ export const routineExercises = sqliteTable('routine_exercises', {
   position: integer('position').notNull().default(0),
   restSeconds: integer('rest_seconds').notNull().default(120),
   note: text('note'),
+  // Mirrors workout_exercises: partners share a value. Without it a superset
+  // survived the workout but not the routine it came from.
+  supersetGroup: integer('superset_group'),
   ...sync,
 });
 

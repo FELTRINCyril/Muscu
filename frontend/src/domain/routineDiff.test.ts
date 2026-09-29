@@ -131,3 +131,36 @@ test('set types are compared per exercise, not across them', () => {
   assert.equal(diff.length, 1);
   assert.equal(diff[0].name, 'fly');
 });
+
+// --- supersets (#53) ---
+
+test('pairing two exercises into a superset is a routine change', () => {
+  const r = routine(rEx('bench', ['normal']), rEx('row', ['normal']));
+  const w = workout(wEx('bench', ['normal']), wEx('row', ['normal']));
+  // Same sets, same order — only the grouping moved.
+  (w as never as { exercises: { superset_group?: number | null }[] }).exercises[0].superset_group = 1;
+  (w as never as { exercises: { superset_group?: number | null }[] }).exercises[1].superset_group = 1;
+  const diff = buildRoutineDiff(r, w);
+  assert.equal(diff.length, 2);
+  assert.ok(diff.every((d) => /superset/i.test(d.detail)), diff.map((d) => d.detail).join(' | '));
+});
+
+test('breaking a superset apart is a routine change too', () => {
+  const r = routine(rEx('bench', ['normal']), rEx('row', ['normal']));
+  (r as never as { exercises: { superset_group?: number | null }[] }).exercises[0].superset_group = 1;
+  (r as never as { exercises: { superset_group?: number | null }[] }).exercises[1].superset_group = 1;
+  const diff = buildRoutineDiff(r, workout(wEx('bench', ['normal']), wEx('row', ['normal'])));
+  assert.equal(diff.length, 2);
+  assert.ok(diff.every((d) => /no longer|superset/i.test(d.detail)));
+});
+
+test('an unchanged superset is not reported', () => {
+  const r = routine(rEx('bench', ['normal']), rEx('row', ['normal']));
+  const w = workout(wEx('bench', ['normal']), wEx('row', ['normal']));
+  for (const side of [r, w]) {
+    const exs = (side as never as { exercises: { superset_group?: number | null }[] }).exercises;
+    exs[0].superset_group = 4;
+    exs[1].superset_group = 4;
+  }
+  assert.deepEqual(buildRoutineDiff(r, w), []);
+});

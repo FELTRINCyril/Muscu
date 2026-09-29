@@ -92,6 +92,20 @@ function firstTypeChange(
   return routineSets.length === workoutSets.length ? -1 : shared;
 }
 
+/**
+ * Whether this exercise's superset membership moved.
+ *
+ * Compared as "grouped or not, and with whom" rather than by raw id: the stored
+ * group number is opaque and a workout started fresh can carry different
+ * numbers for the same pairing.
+ */
+function groupingChanged(
+  re: { superset_group?: number | null },
+  we: { superset_group?: number | null },
+): boolean {
+  return ((re.superset_group ?? null) === null) !== ((we.superset_group ?? null) === null);
+}
+
 export function buildRoutineDiff(routine: RoutineOut, workout: WorkoutOut): DiffRow[] {
   const rExs = routine.exercises;
   const wExs = workout.exercises;
@@ -144,6 +158,17 @@ export function buildRoutineDiff(routine: RoutineOut, workout: WorkoutOut): Diff
         detail: to
           ? `set ${typeAt + 1} ${from ? `${typeLabel(from.type)} → ` : ''}${typeLabel(to.type)}`
           : `set ${typeAt + 1} removed`,
+      });
+    } else if (groupingChanged(re, we)) {
+      // Pairing exercises into a superset, or breaking one apart, changes how
+      // the session is run even when every set is identical — so it is
+      // structure, and worth offering to save.
+      const nowGrouped = we.superset_group != null;
+      changed.push({
+        key: `ss-${we.id}`,
+        marker: 'changed',
+        name: we.exercise.name,
+        detail: nowGrouped ? 'now a superset' : 'no longer a superset',
       });
     } else if (we.rest_seconds !== re.rest_seconds) {
       changed.push({

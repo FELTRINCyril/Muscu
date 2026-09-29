@@ -1,0 +1,1 @@
+ALTER TABLE `routine_exercises` ADD `superset_group` integer;

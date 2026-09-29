@@ -202,6 +202,9 @@ export async function startWorkout(body: { routine_id?: string; name?: string })
         exerciseId: re.exerciseId,
         position: re.position,
         restSeconds: re.restSeconds,
+        // Carry the grouping, or starting a routine would silently break its
+        // supersets apart.
+        supersetGroup: re.supersetGroup ?? null,
         // The routine's note is a template hint, surfaced via getPreviousNote as a
         // placeholder — not frozen onto the session as a value. Freezing it meant a
         // routine's note (e.g. inherited from an imported sample) reappeared every
@@ -574,6 +577,7 @@ export async function saveAsRoutine(wid: string): Promise<{ id: string; name: st
       exerciseId: we.exerciseId,
       position: we.position,
       restSeconds: we.restSeconds,
+      supersetGroup: we.supersetGroup ?? null,
       note: we.note,
       updatedAt: nowMs(),
     });
