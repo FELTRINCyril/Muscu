@@ -38,6 +38,8 @@ import {
   discardWorkout,
   finishWorkout,
   insertWarmupSets,
+  nextSupersetGroup,
+  setSupersetGroup,
   listExerciseUsage,
   getPrevious,
   getPreviousNote,
@@ -80,6 +82,7 @@ import { buildFinishedWatchState, buildWatchState } from '../../src/lib/watchSta
 import { claimWatchFinish } from '../../src/lib/watchFinish';
 import { PlateSheet } from '../../src/components/workout/PlateSheet';
 import { WarmupSheet } from '../../src/components/workout/WarmupSheet';
+import { SupersetSheet } from '../../src/components/workout/SupersetSheet';
 import type { RampRow } from '../../src/domain/warmupRamp';
 import { getPlateSetup } from '../../src/lib/plateSetup';
 import { DEFAULT_BAR_SETUP, smallestStepKg, type BarSetup } from '../../src/domain/plateMath';
@@ -195,6 +198,7 @@ export default function ActiveWorkout() {
   const [focusedSet, setFocusedSet] = useState<{ exerciseId: string; setId: string } | null>(null);
   const [plateSheetOpen, setPlateSheetOpen] = useState(false);
   const [warmupExId, setWarmupExId] = useState<string | null>(null);
+  const [supersetExId, setSupersetExId] = useState<string | null>(null);
   const [plateSetup, setPlateSetupState] = useState<BarSetup>(DEFAULT_BAR_SETUP);
   // When each exercise was last trained, for the progression suggestion's
   // staleness rule. One grouped query, not one per exercise.
@@ -1304,6 +1308,42 @@ export default function ActiveWorkout() {
     });
   };
 
+  /** Groups `exId` with the chosen partners, or dissolves its group. */
+  const applySuperset = async (exId: string, partnerIds: string[]) => {
+    if (!workoutId) return;
+    const ids = [exId, ...partnerIds];
+    try {
+      const group = await nextSupersetGroup(workoutId);
+      await setSupersetGroup(ids, group);
+      setExercises((prev) =>
+        prev.map((e) => (ids.includes(e.id) ? { ...e, supersetGroup: group } : e)),
+      );
+    } catch {
+      // Grouping failed; the list is unchanged, so nothing is half-applied.
+    }
+    setSupersetExId(null);
+  };
+
+  const leaveSuperset = async (exId: string) => {
+    const me = exercises.find((e) => e.id === exId);
+    if (!me || me.supersetGroup == null) return;
+    const remaining = exercises.filter(
+      (e) => e.supersetGroup === me.supersetGroup && e.id !== exId,
+    );
+    // A group of one is not a superset, so it dissolves with the leaver rather
+    // than lingering as a rail drawn around a single card.
+    const toClear = remaining.length <= 1 ? [exId, ...remaining.map((e) => e.id)] : [exId];
+    try {
+      await setSupersetGroup(toClear, null);
+      setExercises((prev) =>
+        prev.map((e) => (toClear.includes(e.id) ? { ...e, supersetGroup: null } : e)),
+      );
+    } catch {
+      // as above
+    }
+    setOpenMenuId(null);
+  };
+
   // --- supersets (#53) -------------------------------------------------
   const ssLabels = useMemo(
     () =>
@@ -1428,6 +1468,16 @@ export default function ActiveWorkout() {
               menuOpen={openMenuId === ex.id}
               onToggleMenu={() => setOpenMenuId((id) => (id === ex.id ? null : ex.id))}
               onReplace={() => openReplace(ex.id)}
+              onSuperset={
+                exercises.length < 2
+                  ? undefined
+                  : () => {
+                      setOpenMenuId(null);
+                      if (ex.supersetGroup != null) void leaveSuperset(ex.id);
+                      else setSupersetExId(ex.id);
+                    }
+              }
+              inSuperset={ex.supersetGroup != null}
               onRemove={() => removeExercise(ex.id)}
               onNoteChange={(t) => setNote(ex.id, t)}
               onOpenRest={() => {
@@ -1531,6 +1581,16 @@ export default function ActiveWorkout() {
           onClose={() => setWarmupExId(null)}
         />
       )}
+
+      <SupersetSheet
+        visible={supersetExId != null}
+        anchorExercise={exercises.find((e) => e.id === supersetExId) ?? null}
+        candidates={exercises.filter((e) => e.id !== supersetExId)}
+        onConfirm={(ids) => {
+          if (supersetExId) void applySuperset(supersetExId, ids);
+        }}
+        onClose={() => setSupersetExId(null)}
+      />
 
       <PlateSheet
         visible={plateSheetOpen}

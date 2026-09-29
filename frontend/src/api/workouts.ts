@@ -23,6 +23,8 @@ export {
   patchSet,
   addSetApi,
   insertWarmupSets,
+  setSupersetGroup,
+  nextSupersetGroup,
   deleteSet,
   removeWorkoutExercise,
   reorderExercises,

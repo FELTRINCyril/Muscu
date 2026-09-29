@@ -34,6 +34,9 @@ type Props = {
   onWarmup?: () => void;
   /** e.g. "A1" — this exercise's place in its superset. Absent when solo. */
   supersetTag?: string | null;
+  /** Opens the partner picker, or leaves the group. Absent → not offered. */
+  onSuperset?: () => void;
+  inSuperset?: boolean;
   /** Rest is owned by whoever closes the round; earlier partners say so. */
   restOverrideLabel?: string | null;
   /** Delete a set. Omitted → swipe-to-delete disabled. */
@@ -75,6 +78,8 @@ export function ExerciseCard({
   onUseSuggestion,
   onWarmup,
   supersetTag,
+  onSuperset,
+  inSuperset,
   restOverrideLabel,
   onDeleteSet,
   openSetId,
@@ -134,6 +139,8 @@ export function ExerciseCard({
             <ExerciseMenu
               onReorderStart={onReorderStart}
               onReplace={onReplace}
+              onSuperset={onSuperset}
+              inSuperset={inSuperset}
               onRemove={onRemove}
             />
           )}

@@ -10,9 +10,19 @@ type Props = {
   /** Swap this exercise for another, keeping its place in the list. */
   onReplace: () => void;
   onRemove: () => void;
+  /** Opens the partner picker. Absent when there is nobody to pair with. */
+  onSuperset?: () => void;
+  /** Already in a group — the action becomes leaving it. */
+  inSuperset?: boolean;
 };
 
-export function ExerciseMenu({ onReorderStart, onReplace, onRemove }: Props) {
+export function ExerciseMenu({
+  onReorderStart,
+  onReplace,
+  onRemove,
+  onSuperset,
+  inSuperset = false,
+}: Props) {
   return (
     <View style={styles.menu}>
       <Pressable
@@ -34,6 +44,20 @@ export function ExerciseMenu({ onReorderStart, onReplace, onRemove }: Props) {
         <SyncIcon size={15} color={color.text1} strokeWidth={2.2} />
         <Text style={styles.itemText}>Replace exercise</Text>
       </Pressable>
+
+      {onSuperset ? (
+        <Pressable
+          onPress={onSuperset}
+          style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+          accessibilityRole="button"
+          accessibilityLabel={inSuperset ? 'Leave superset' : 'Superset with another exercise'}
+        >
+          <ReorderIcon size={15} color={color.text1} strokeWidth={2.2} />
+          <Text style={styles.itemText}>
+            {inSuperset ? 'Leave superset' : 'Superset with…'}
+          </Text>
+        </Pressable>
+      ) : null}
 
       <View style={styles.divider} />
 

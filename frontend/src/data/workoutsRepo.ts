@@ -332,6 +332,38 @@ export async function insertWarmupSets(
   });
 }
 
+/**
+ * Puts a set of workout-exercises into one superset group, or breaks a group up.
+ *
+ * The group id is just a shared number — it carries no meaning beyond "these
+ * belong together", so a fresh one per group is enough and the display letters
+ * are derived from reading order instead.
+ *
+ * A group left holding one exercise is not a superset, so it dissolves rather
+ * than lingering as a one-member group that renders a rail around nothing.
+ */
+export async function setSupersetGroup(weIds: string[], group: number | null): Promise<void> {
+  if (weIds.length === 0) return;
+  await db.transaction(async (tx) => {
+    for (const id of weIds) {
+      await tx
+        .update(schema.workoutExercises)
+        .set({ supersetGroup: group, updatedAt: nowMs() })
+        .where(eq(schema.workoutExercises.id, id));
+    }
+  });
+}
+
+/** A group number not currently in use by this workout. */
+export async function nextSupersetGroup(workoutId: string): Promise<number> {
+  const rows = await db
+    .select({ g: schema.workoutExercises.supersetGroup })
+    .from(schema.workoutExercises)
+    .where(eq(schema.workoutExercises.workoutId, workoutId));
+  const used = rows.map((r) => r.g ?? 0);
+  return (used.length ? Math.max(...used) : 0) + 1;
+}
+
 export async function deleteSet(setId: string): Promise<void> {
   const set = (await db.select().from(schema.workoutSets).where(eq(schema.workoutSets.id, setId)))[0];
   if (!set) return;
