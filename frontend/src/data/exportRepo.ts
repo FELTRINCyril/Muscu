@@ -12,6 +12,7 @@ import { countWorkingSets, workoutVolume, type SetLike } from '../domain/stats';
 import { LOCAL_USER_ID, newId, nowMs } from './ids';
 import { toWorkoutCsv, parseWorkoutCsv, type ExportWorkout } from './workoutCsv';
 import type { Unit } from '../domain/units';
+import { equipmentFromNameSuffix } from '../domain/exerciseNaming';
 import { parseServerDate } from '../lib/serverTime';
 import { initialsOf } from './exercisesRepo';
 import { recomputeForExercise } from './recordStore';
@@ -96,9 +97,12 @@ async function findOrCreateExercise(
     return { id: existing[0].id, created: false };
   }
   const id = newId();
+  // Read equipment off a "Deadlift (Barbell)" style name rather than stamping every
+  // import 'other': that one value also gates the duplicate-merge flow, which won't
+  // offer a name-based merge unless equipment matches.
   await exec.insert(schema.exercises).values({
     id, userId: LOCAL_USER_ID, name: name.trim(), initials: initialsOf(name.trim()),
-    kind: 'weighted', equipment: 'other', isCustom: 1, updatedAt: nowMs(),
+    kind: 'weighted', equipment: equipmentFromNameSuffix(name) ?? 'other', isCustom: 1, updatedAt: nowMs(),
   });
   cache.set(key, id);
   return { id, created: true };
