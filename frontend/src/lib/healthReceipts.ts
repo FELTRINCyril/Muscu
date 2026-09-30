@@ -19,12 +19,15 @@
  */
 import * as SecureStore from 'expo-secure-store';
 
-export type ReadPref = 'readHR' | 'readEnergy';
+// readBody covers waist + body fat, the only body measurements HealthKit has
+// types for. It returns here with #65, which gives the values somewhere to go.
+export type ReadPref = 'readHR' | 'readEnergy' | 'readBody';
 
 /** SecureStore keys for the companion "last received" record, one per read. */
 const RECV_KEY: Record<ReadPref, string> = {
   readHR: 'ischys.healthRecv.readHR',
   readEnergy: 'ischys.healthRecv.readEnergy',
+  readBody: 'ischys.healthRecv.readBody',
 };
 
 /**

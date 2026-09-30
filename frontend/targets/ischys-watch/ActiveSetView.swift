@@ -111,6 +111,16 @@ struct ActiveSetView: View {
 
   private var exerciseHeader: some View {
     VStack(alignment: .leading, spacing: 1) {
+      // Above the name, because inside a superset no rest timer starts between
+      // partners — without saying so, that reads as the timer being broken
+      // rather than the round still being in progress.
+      if !model.supersetLabel.isEmpty {
+        Text(model.supersetLabel)
+          .font(Ischys.mono(10))
+          .foregroundStyle(Ischys.text3)
+          .lineLimit(1)
+          .minimumScaleFactor(0.8)
+      }
       Text(model.exerciseName)
         .font(Ischys.ui(18, .semibold)).foregroundStyle(Ischys.accent)
         .lineLimit(1).minimumScaleFactor(0.8)

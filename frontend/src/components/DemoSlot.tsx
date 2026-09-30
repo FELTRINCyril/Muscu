@@ -35,7 +35,7 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { patchExercise } from '../api/workouts';
 import { getDemoUrl, setDemoUrl } from '../lib/exerciseDemoStore';
 import { exerciseArt } from '../lib/exerciseArt';
-import { color, font } from '../theme/tokens';
+import { accentA, color, font } from '../theme/tokens';
 import { ExerciseArt } from './ExerciseArt';
 
 /** A demo URL the video player can load. Http(s) only. */
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(255,74,28,0.92)',
+    backgroundColor: accentA(0.92),
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: color.accent,

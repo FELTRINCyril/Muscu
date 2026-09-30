@@ -4,6 +4,34 @@
  * ischys-design-handoff skill for the source-of-truth mapping.
  */
 import type { TextStyle } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+
+import { accentAlpha, paletteById } from './palettes';
+
+/**
+ * The chosen accent, resolved SYNCHRONOUSLY at module load (#72).
+ *
+ * It has to be synchronous. Every screen builds its styles with
+ * `StyleSheet.create` at import time, which captures colour values once — so an
+ * accent that arrived later would reach none of them, and the 164 existing
+ * `color.accent` sites would each need rewriting to read a context instead.
+ * Reading the preference before the first stylesheet exists themes all of them
+ * without touching one.
+ *
+ * The cost is that switching theme applies from the next launch rather than
+ * instantly. The design already accepts that shape for the Live Activity, whose
+ * accent is fixed for the life of an activity.
+ */
+function storedPalette() {
+  try {
+    return paletteById(SecureStore.getItem('ischys.themeId'));
+  } catch {
+    // Storage unavailable this early — the default accent is a fine answer.
+    return paletteById(null);
+  }
+}
+
+const palette = storedPalette();
 
 export const color = {
   bg: '#0A0A0B', // base
@@ -18,8 +46,8 @@ export const color = {
   text1: '#F4F4F5', // primary
   text2: '#97979E', // secondary
   text3: '#5B5B63', // tertiary
-  accent: '#FF4A1C', // THE action color (complete a set) — reserve it
-  accentFg: '#0B0B0C', // text/icon on accent
+  accent: palette.accent, // THE action color (complete a set) — reserve it
+  accentFg: palette.accentFg, // text/icon on accent
   success: '#2DD881', // PR, target hit
   warning: '#FFC24B', // deload, missed
   error: '#FF4D4D', // failed lift, delete
@@ -77,3 +105,12 @@ export const type = {
 
 /** Minimum thumb-safe tap target (Design System principle). */
 export const TAP_TARGET = 44;
+
+/**
+ * The current accent at an opacity — the replacement for the hardcoded
+ * `rgba(255,74,28,…)` tints, which theming could not see. Without this the tab
+ * pill would stay orange under any other palette.
+ */
+export function accentA(alpha: number): string {
+  return accentAlpha(palette.accent, alpha);
+}

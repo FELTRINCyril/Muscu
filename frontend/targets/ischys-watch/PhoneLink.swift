@@ -8,13 +8,18 @@ import WatchConnectivity
 /// throws and blanks the screen.
 struct PhoneState {
   var screen: WatchScreen = .start
-  var routines: [RoutineItem] = []
+  /// nil when the push didn't carry routines at all, which is different from
+  /// carrying none. A session push has no `routines` key, and treating that as
+  /// "the user has no routines" wiped the Start screen's list.
+  var routines: [RoutineItem]?
   /// When the *workout* began, not when this Watch's session did. nil when the
   /// phone hasn't said (it pushes 0), so the Watch keeps its own origin.
   var startedAt: Date?
   var routineName = ""
   var exerciseName = ""
   var equipment = ""
+  /// "SUPERSET A · 1 OF 2", or empty when the exercise stands alone.
+  var supersetLabel = ""
   var setNum = 1
   var setCount = 1
   var weight = ""
@@ -37,6 +42,10 @@ struct PhoneState {
     case "summary": screen = .summary
     default: screen = .start
     }
+    supersetLabel = d["supersetLabel"] as? String ?? ""
+    // Cached in Theme so the Watch opens in the right accent even before the
+    // phone has pushed anything this launch.
+    if let t = d["themeId"] as? String { Ischys.themeId = t }
     if let rs = d["routines"] as? [[String: Any]] {
       routines = rs.map {
         RoutineItem(

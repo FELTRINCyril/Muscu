@@ -32,6 +32,20 @@ public class HealthModule: Module {
     // user tapped on the Watch (log set, rest, end…), applied by JS.
     Events("onHeartRate", "onWatchMetrics", "onWatchAction")
 
+    /// Drains the Watch actions that arrived before JS was listening.
+    ///
+    /// `sendEvent` reaches whoever is subscribed at that instant and nobody
+    /// afterwards. WCSession activates in `OnCreate` — while the JS bundle is
+    /// still evaluating — so a queued `transferUserInfo`, which iOS delivers the
+    /// moment the app launches, can land before the root layout has subscribed.
+    /// For a "log set" that costs one tap; for a finish it left the workout stuck
+    /// active on the phone after the user ended it on the wrist. So completing
+    /// actions are buffered whenever there is no listener, and the root layout
+    /// drains them on mount.
+    AsyncFunction("consumeWatchActions") { () -> [[String: Any]] in
+      PhoneConnectivity.shared.drainPendingActions()
+    }
+
     Function("isAvailable") { () -> Bool in
       HKHealthStore.isHealthDataAvailable()
     }
@@ -52,6 +66,15 @@ public class HealthModule: Module {
       }
       if let bodyMassType {
         read.insert(bodyMassType)
+      }
+      // Waist and body fat are the only body measurements HealthKit has types
+      // for; the rest of the measurement list is ours alone. Read-only —
+      // neither is ever written back.
+      if let waist = HKObjectType.quantityType(forIdentifier: .waistCircumference) {
+        read.insert(waist)
+      }
+      if let fat = HKObjectType.quantityType(forIdentifier: .bodyFatPercentage) {
+        read.insert(fat)
       }
       self.store.requestAuthorization(toShare: share, read: read) { granted, error in
         if let error {
@@ -254,6 +277,48 @@ public class HealthModule: Module {
     /// bodyweight from Health so bodyweight movements can count toward volume.
     /// Resolves null when Health is unavailable, the type is missing, read access
     /// was denied (HealthKit reports that as no data), or nothing was ever logged.
+    /// Latest waist circumference and body-fat percentage, with the sample's
+    /// uuid and date so the caller can upsert rather than append a duplicate on
+    /// every sync. Read-only: Ischys never writes these back to Health.
+    ///
+    /// Only these two — they are the only body measurements HealthKit has a
+    /// type for. Arms, thighs and the rest are ours alone, which is why the
+    /// Health screen says "waist and body fat" rather than "measurements".
+    AsyncFunction("readBodyMeasurements") { (promise: Promise) in
+      guard HKHealthStore.isHealthDataAvailable() else {
+        promise.resolve([:] as [String: Any])
+        return
+      }
+      let waistType = HKObjectType.quantityType(forIdentifier: .waistCircumference)
+      let fatType = HKObjectType.quantityType(forIdentifier: .bodyFatPercentage)
+      var out: [String: Any] = [:]
+      let group = DispatchGroup()
+
+      func latest(_ type: HKQuantityType?, key: String, unit: HKUnit, scale: Double) {
+        guard let type else { return }
+        group.enter()
+        let sort = [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+        let query = HKSampleQuery(sampleType: type, predicate: nil, limit: 1, sortDescriptors: sort) {
+          _, samples, _ in
+          if let s = samples?.first as? HKQuantitySample {
+            out[key] = [
+              "value": s.quantity.doubleValue(for: unit) * scale,
+              "measuredAt": s.endDate.timeIntervalSince1970 * 1000,
+              "uuid": s.uuid.uuidString,
+            ]
+          }
+          group.leave()
+        }
+        self.store.execute(query)
+      }
+
+      // Canonical units: centimetres, and percent as 0-100 rather than 0-1.
+      latest(waistType, key: "waist", unit: .meterUnit(with: .centi), scale: 1)
+      latest(fatType, key: "bodyFat", unit: .percent(), scale: 100)
+
+      group.notify(queue: .main) { promise.resolve(out) }
+    }
+
     AsyncFunction("readBodyMass") { (promise: Promise) in
       guard HKHealthStore.isHealthDataAvailable(), let bodyMassType = self.bodyMassType else {
         promise.resolve(nil)
@@ -307,6 +372,9 @@ public class HealthModule: Module {
             "cal": payload["cal"] as? Int ?? 0,
           ])
         } else if payload["action"] is String {
+          // Buffered instead of emitted when JS isn't listening yet, so a finish
+          // can't be dropped into the void. Everything else emits as before.
+          if PhoneConnectivity.shared.bufferIfUnheard(payload) { return }
           self?.sendEvent("onWatchAction", payload)
         }
       }
@@ -383,6 +451,41 @@ final class PhoneConnectivity: NSObject, WCSessionDelegate {
 
   /// Set by the module: forwards a Watch message (action or metrics) to JS.
   var onMessage: (([String: Any]) -> Void)?
+
+  /// Actions that end a workout. Losing one of these strands the workout as
+  /// active on the phone after the user finished it on the wrist, and nothing
+  /// re-sends it — so these, and only these, are worth buffering.
+  private static let completingActions: Set<String> = ["end", "discard"]
+
+  private let pendingLock = NSLock()
+  private var pendingActions: [[String: Any]] = []
+  /// False until JS first drains, which is the only proof a listener exists.
+  private var jsListening = false
+
+  /// Hands JS the buffered actions and marks it live, so later ones are emitted
+  /// rather than queued. Called once from the root layout on mount.
+  func drainPendingActions() -> [[String: Any]] {
+    pendingLock.lock()
+    defer { pendingLock.unlock() }
+    jsListening = true
+    let drained = pendingActions
+    pendingActions = []
+    return drained
+  }
+
+  /// Buffers a workout-ending action that arrived before JS could hear it.
+  /// Returns true when it was buffered, meaning the caller must NOT also emit —
+  /// emitting as well would let a listener that subscribed in between apply the
+  /// finish twice.
+  func bufferIfUnheard(_ payload: [String: Any]) -> Bool {
+    guard let action = payload["action"] as? String,
+          Self.completingActions.contains(action) else { return false }
+    pendingLock.lock()
+    defer { pendingLock.unlock() }
+    guard !jsListening else { return false }
+    pendingActions.append(payload)
+    return true
+  }
 
   func activate() {
     guard WCSession.isSupported() else { return }

@@ -22,7 +22,7 @@ import {
 
 import type { MuscleOut } from '../api/types';
 import { listMuscles } from '../api/workouts';
-import { color, font } from '../theme/tokens';
+import { accentA, color, font } from '../theme/tokens';
 import { DraggableSheet } from './DraggableSheet';
 import { CheckIcon, SearchIcon } from './icons';
 
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     borderRadius: 11,
   },
   rowSelected: {
-    backgroundColor: 'rgba(255,74,28,0.06)',
+    backgroundColor: accentA(0.06),
   },
   rowName: {
     flex: 1,

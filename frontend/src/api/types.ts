@@ -172,6 +172,10 @@ export type RecordOut = {
   achieved_at?: string | null;
   /** Set on recent-record entries so the Profile list can name the lift. */
   exercise_name?: string | null;
+  /** The set this record came from. Present when that set still exists, so a
+   *  record card can hand its numbers to the 1RM calculator. */
+  weight?: number | null;
+  reps?: number | null;
 };
 
 /** Chart series for a single exercise's progress over time. */
@@ -179,6 +183,9 @@ export type ChartOut = {
   metric: RecordMetric;
   labels: string[];
   values: number[];
+  /** Epoch ms of each point, so the chart can place it on a real time axis
+   *  rather than spacing sessions evenly and hiding the gaps between them. */
+  times: number[];
 };
 
 // --- Profile ---
@@ -220,6 +227,8 @@ export type RoutineExerciseOut = {
   id: string;
   position: number;
   rest_seconds: number;
+  /** Shared by exercises paired as a superset. Null for an ordinary one. */
+  superset_group?: number | null;
   note?: string | null;
   exercise: ExerciseOut;
   sets: RoutineSetOut[];
@@ -245,6 +254,7 @@ export type RoutineSetIn = {
 export type RoutineExerciseIn = {
   exercise_id: string;
   rest_seconds: number;
+  superset_group?: number | null;
   note?: string | null;
   sets: RoutineSetIn[];
 };

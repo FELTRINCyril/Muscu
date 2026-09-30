@@ -62,16 +62,19 @@ const K_PREF = {
   writeWorkouts: 'ischys.healthPref.writeWorkouts',
   readHR: 'ischys.healthPref.readHR',
   readEnergy: 'ischys.healthPref.readEnergy',
+  readBody: 'ischys.healthPref.readBody',
 } as const;
 
 type PrefKey = keyof typeof K_PREF;
 
-// `readBody` is intentionally gone: body measurements are genuinely not built,
-// so the row is omitted rather than shown dead (board 5a behaviour note).
+// `readBody` was omitted while body measurements didn't exist — a row that
+// could never receive anything is worse than no row. #65 gives the values
+// somewhere to land, so it returns.
 const DEFAULT_PREFS: Record<PrefKey, boolean> = {
   writeWorkouts: true,
   readHR: true,
   readEnergy: true,
+  readBody: true,
 };
 
 // A read row's static copy. `offDesc` shows (no status colour) when the switch
@@ -95,6 +98,13 @@ const READ_ROWS: {
     offDesc: 'Calories burned per session',
     explainer:
       "This means one of two things, and iOS won't say which: Health is holding the data back, or nothing has recorded any yet. Active energy needs an Apple Watch worn during the session.",
+  },
+  {
+    pref: 'readBody',
+    label: 'Waist and body fat',
+    offDesc: 'Into your measurement history',
+    explainer:
+      "These are the only body measurements HealthKit has a type for — the rest of your measurements are logged here and stay here. Nothing is written back to Health.",
   },
 ];
 
@@ -125,6 +135,7 @@ export default function Health() {
   const [receipts, setReceipts] = useState<Record<ReadPref, Receipt | null>>({
     readHR: null,
     readEnergy: null,
+    readBody: null,
   });
   const [writeStatus, setWriteStatus] = useState<WriteStatus>('allowed');
   const [workoutsWritten, setWorkoutsWritten] = useState<number>(0);
@@ -134,15 +145,17 @@ export default function Health() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [c, w, ls, ww, rh, re, recHR, recEnergy, ws] = await Promise.all([
+      const [c, w, ls, ww, rh, re, rb, recHR, recEnergy, recBody, ws] = await Promise.all([
         SecureStore.getItemAsync(K_CONNECTED),
         SecureStore.getItemAsync(K_WRITTEN),
         SecureStore.getItemAsync(K_LAST_SYNC),
         SecureStore.getItemAsync(K_PREF.writeWorkouts),
         SecureStore.getItemAsync(K_PREF.readHR),
         SecureStore.getItemAsync(K_PREF.readEnergy),
+        SecureStore.getItemAsync(K_PREF.readBody),
         getReadReceipt('readHR'),
         getReadReceipt('readEnergy'),
+        getReadReceipt('readBody'),
         getWriteStatus(),
       ]);
       if (cancelled) return;
@@ -153,8 +166,9 @@ export default function Health() {
         writeWorkouts: ww == null ? DEFAULT_PREFS.writeWorkouts : ww === '1',
         readHR: rh == null ? DEFAULT_PREFS.readHR : rh === '1',
         readEnergy: re == null ? DEFAULT_PREFS.readEnergy : re === '1',
+        readBody: rb == null ? DEFAULT_PREFS.readBody : rb === '1',
       });
-      setReceipts({ readHR: recHR, readEnergy: recEnergy });
+      setReceipts({ readHR: recHR, readEnergy: recEnergy, readBody: recBody });
       setWriteStatus(ws);
       setLoaded(true);
     })();
@@ -192,7 +206,7 @@ export default function Health() {
       clearReadReceipts(),
     ]);
     setPrefsState(DEFAULT_PREFS);
-    setReceipts({ readHR: null, readEnergy: null });
+    setReceipts({ readHR: null, readEnergy: null, readBody: null });
     setWriteStatus('allowed');
     setWorkoutsWritten(0);
     setLastSyncIso(null);
@@ -366,6 +380,7 @@ function Connected({
   const [expanded, setExpanded] = useState<Record<ReadPref, boolean>>({
     readHR: false,
     readEnergy: false,
+    readBody: false,
   });
   const denied = writeStatus === 'denied';
 

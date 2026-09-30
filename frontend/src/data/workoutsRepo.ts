@@ -202,6 +202,9 @@ export async function startWorkout(body: { routine_id?: string; name?: string })
         exerciseId: re.exerciseId,
         position: re.position,
         restSeconds: re.restSeconds,
+        // Carry the grouping, or starting a routine would silently break its
+        // supersets apart.
+        supersetGroup: re.supersetGroup ?? null,
         // The routine's note is a template hint, surfaced via getPreviousNote as a
         // placeholder — not frozen onto the session as a value. Freezing it meant a
         // routine's note (e.g. inherited from an imported sample) reappeared every
@@ -283,6 +286,82 @@ export async function addSetApi(
   const row = (await db.select().from(schema.workoutSets).where(eq(schema.workoutSets.id, id)))[0];
   if (!row) throw new Error(`addSetApi: insert of ${id} failed`);
   return toWorkoutSetOut(row as WorkoutSetRow);
+}
+
+/**
+ * Inserts warm-up sets at the TOP of an exercise, shifting the existing sets
+ * down — the only insert that isn't an append.
+ *
+ * A warm-up below a working set isn't a warm-up, and `addSetApi` always appends,
+ * so this renumbers rather than reusing it. One transaction: a half-applied
+ * shift would leave two sets sharing a position, and the set list is ordered by
+ * position alone.
+ */
+export async function insertWarmupSets(
+  weId: string,
+  rows: { id?: string; weight: number | null; reps: number | null }[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  await db.transaction(async (tx) => {
+    const existing = await tx
+      .select()
+      .from(schema.workoutSets)
+      .where(eq(schema.workoutSets.workoutExerciseId, weId));
+    // Shift from the bottom up so no intermediate state collides with a row
+    // that hasn't moved yet.
+    const shifted = existing.slice().sort((a, b) => b.position - a.position);
+    for (const row of shifted) {
+      await tx
+        .update(schema.workoutSets)
+        .set({ position: row.position + rows.length, updatedAt: nowMs() })
+        .where(eq(schema.workoutSets.id, row.id));
+    }
+    for (const [i, r] of rows.entries()) {
+      await tx.insert(schema.workoutSets).values({
+        id: r.id ?? newId(),
+        workoutExerciseId: weId,
+        position: i,
+        type: 'warmup',
+        weight: r.weight,
+        reps: r.reps,
+        done: 0,
+        completedAt: null,
+        updatedAt: nowMs(),
+      });
+    }
+  });
+}
+
+/**
+ * Puts a set of workout-exercises into one superset group, or breaks a group up.
+ *
+ * The group id is just a shared number — it carries no meaning beyond "these
+ * belong together", so a fresh one per group is enough and the display letters
+ * are derived from reading order instead.
+ *
+ * A group left holding one exercise is not a superset, so it dissolves rather
+ * than lingering as a one-member group that renders a rail around nothing.
+ */
+export async function setSupersetGroup(weIds: string[], group: number | null): Promise<void> {
+  if (weIds.length === 0) return;
+  await db.transaction(async (tx) => {
+    for (const id of weIds) {
+      await tx
+        .update(schema.workoutExercises)
+        .set({ supersetGroup: group, updatedAt: nowMs() })
+        .where(eq(schema.workoutExercises.id, id));
+    }
+  });
+}
+
+/** A group number not currently in use by this workout. */
+export async function nextSupersetGroup(workoutId: string): Promise<number> {
+  const rows = await db
+    .select({ g: schema.workoutExercises.supersetGroup })
+    .from(schema.workoutExercises)
+    .where(eq(schema.workoutExercises.workoutId, workoutId));
+  const used = rows.map((r) => r.g ?? 0);
+  return (used.length ? Math.max(...used) : 0) + 1;
 }
 
 export async function deleteSet(setId: string): Promise<void> {
@@ -530,6 +609,7 @@ export async function saveAsRoutine(wid: string): Promise<{ id: string; name: st
       exerciseId: we.exerciseId,
       position: we.position,
       restSeconds: we.restSeconds,
+      supersetGroup: we.supersetGroup ?? null,
       note: we.note,
       updatedAt: nowMs(),
     });

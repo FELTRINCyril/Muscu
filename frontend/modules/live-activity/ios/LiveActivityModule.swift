@@ -30,6 +30,14 @@ public class LiveActivityModule: Module {
 
     /// Live Activities are usable *right now*: the OS can show them and the user
     /// has not switched them off for Ischys.
+    /// Mirrors the chosen accent into the shared App Group, which is the only
+    /// channel the widget process can read — it has no JS runtime and no access
+    /// to the app's keychain. Written on change rather than per activity, so a
+    /// card started later already has the right colour.
+    Function("setThemeId") { (id: String) in
+      UserDefaults(suiteName: LiveActivityActionQueue.appGroup)?.set(id, forKey: "ischys.themeId")
+    }
+
     Function("isSupported") { () -> Bool in
       guard #available(iOS 16.1, *) else { return false }
       return ActivityAuthorizationInfo().areActivitiesEnabled

@@ -32,7 +32,7 @@ import {
 import { ChevronRightIcon } from '../../src/components/icons';
 import { MusclePickerSheet } from '../../src/components/MusclePickerSheet';
 import { PressableScale } from '../../src/components/PressableScale';
-import { color, font } from '../../src/theme/tokens';
+import { accentA, color, font } from '../../src/theme/tokens';
 
 const EQUIPMENT_OPTIONS: { label: string; value: ExerciseEquipment }[] = [
   { label: 'Barbell', value: 'barbell' },
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: 'rgba(255,74,28,0.12)',
+    backgroundColor: accentA(0.12),
     borderColor: color.accent,
   },
   chipInactive: {

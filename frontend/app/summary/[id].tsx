@@ -33,6 +33,15 @@ import { parseServerDate } from '../../src/lib/serverTime';
 import { CheckIcon, ReorderArrowsIcon, StarIcon } from '../../src/components/icons';
 import { PressableScale } from '../../src/components/PressableScale';
 import { ShareWorkoutSheet } from '../../src/components/ShareWorkoutSheet';
+import { buildRoutineDiff } from '../../src/domain/routineDiff';
+import {
+  DELOAD_DAYS,
+  DELOAD_FACTOR,
+  shouldShowAdvisory,
+  type DeloadAdvice,
+} from '../../src/domain/deload';
+import { deloadHistoryFor } from '../../src/data/deloadRepo';
+import { getDeloadState, setDeloadState } from '../../src/lib/deloadState';
 import { fmtDateOnly, fmtDuration } from '../../src/lib/format';
 import { maybeRequestReviewAfterFinish } from '../../src/lib/reviewPrompt';
 import { getSummary } from '../../src/lib/summaryCache';
@@ -97,119 +106,7 @@ function computeMuscleFromWorkout(w: WorkoutOut): { name: string; sets: number }
  */
 const resolvedPrompts = new Set<string>();
 
-/** Non-warmup ("working") set count — the unit the diff compares, matching how
- *  `bestSetLine` already excludes warm-ups from what counts. */
-function workingSetCount(sets: { type: string }[]): number {
-  return sets.filter((s) => s.type !== 'warmup').length;
-}
-
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
-
-/** Values kept in the longest common subsequence of two id sequences — used to
- *  tell which common exercises actually moved vs. were merely shifted by others. */
-function lcsKept(a: string[], b: string[]): Set<string> {
-  const n = a.length;
-  const m = b.length;
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
-  for (let i = n - 1; i >= 0; i -= 1) {
-    for (let j = m - 1; j >= 0; j -= 1) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
-    }
-  }
-  const keep = new Set<string>();
-  let i = 0;
-  let j = 0;
-  while (i < n && j < m) {
-    if (a[i] === b[j]) {
-      keep.add(a[i]);
-      i += 1;
-      j += 1;
-    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-      i += 1;
-    } else {
-      j += 1;
-    }
-  }
-  return keep;
-}
-
-type DiffMarker = 'added' | 'removed' | 'changed';
-type DiffRow = { key: string; marker: DiffMarker; name: string; detail: string };
-
-/**
- * STRUCTURE-ONLY diff of what the workout did vs. the routine it started from:
- * exercises added / removed / reordered, set-count changes, and rest-timer
- * changes. Never logged actuals (weights, reps) — actuals differ from targets
- * almost every session, so prompting on them would fire every workout and get
- * dismissed reflexively.
- *
- * DECISION (Decision B / Option B open question): only Option A (structure only)
- * is implemented. Option B ("also prompt on edited targets") is NOT possible with
- * today's schema: a workout has a single value per set (`workout_sets.weight/reps`)
- * with no separate "edited target" column, so an edited target can't be told apart
- * from a logged actual. Implementing B needs a schema change — flag for the founder.
- */
-/** Rest duration for the diff row: "1:30", "45s". */
-function restLabel(s: number): string {
-  return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
-}
-
-function buildRoutineDiff(routine: RoutineOut, workout: WorkoutOut): DiffRow[] {
-  const rExs = routine.exercises;
-  const wExs = workout.exercises;
-  const rIds = rExs.map((e) => e.exercise.id);
-  const wIds = wExs.map((e) => e.exercise.id);
-  const rHas = new Set(rIds);
-  const wHas = new Set(wIds);
-  const rById = new Map(rExs.map((e) => [e.exercise.id, e]));
-
-  // Which common exercises genuinely moved (not just shifted by add/remove).
-  const commonR = rIds.filter((id) => wHas.has(id));
-  const commonW = wIds.filter((id) => rHas.has(id));
-  const kept = lcsKept(commonR, commonW);
-
-  const added: DiffRow[] = [];
-  const changed: DiffRow[] = [];
-  for (const we of wExs) {
-    const id = we.exercise.id;
-    if (!rHas.has(id)) {
-      added.push({
-        key: `add-${we.id}`,
-        marker: 'added',
-        name: we.exercise.name,
-        detail: plural(workingSetCount(we.sets), 'set'),
-      });
-      continue;
-    }
-    const re = rById.get(id);
-    if (!re) continue;
-    const wCount = workingSetCount(we.sets);
-    const rCount = workingSetCount(re.sets);
-    if (wCount !== rCount) {
-      changed.push({
-        key: `set-${we.id}`,
-        marker: 'changed',
-        name: we.exercise.name,
-        detail: `${rCount} → ${wCount} sets`,
-      });
-    } else if (we.rest_seconds !== re.rest_seconds) {
-      changed.push({
-        key: `rest-${we.id}`,
-        marker: 'changed',
-        name: we.exercise.name,
-        detail: `rest ${restLabel(re.rest_seconds)} → ${restLabel(we.rest_seconds)}`,
-      });
-    } else if (!kept.has(id)) {
-      changed.push({ key: `move-${we.id}`, marker: 'changed', name: we.exercise.name, detail: 'moved' });
-    }
-  }
-
-  const removed: DiffRow[] = rExs
-    .filter((re) => !wHas.has(re.exercise.id))
-    .map((re) => ({ key: `rm-${re.id}`, marker: 'removed' as const, name: re.exercise.name, detail: 'removed' }));
-
-  return [...added, ...removed, ...changed];
-}
 
 /** Map a full routine payload back to the update-input shape (for Undo). */
 function routineToInput(routine: RoutineOut): RoutineExerciseIn[] {
@@ -466,6 +363,77 @@ export default function WorkoutSummary() {
   // The prompt is eligible only for a routine-backed workout on the cached path
   // whose structure actually changed and that hasn't been resolved this session.
   const canPrompt = !alreadyResolved.current && !!summary && !!routineId && !!routine && diff.length > 0;
+
+  // --- stall / deload advisory (#70) ---------------------------------------
+  // Deliberately second in line: if the routine prompt also applies it wins,
+  // because that one is about the session just finished and this one is about
+  // the weeks around it. Two cards would be a list, and the design is explicit
+  // that this never becomes one.
+  const [advice, setAdvice] = useState<DeloadAdvice | null>(null);
+  const [adviceState, setAdviceState] = useState<'prompt' | 'accepted'>('prompt');
+
+  useEffect(() => {
+    if (!summary || canPrompt) return;
+    let alive = true;
+    void (async () => {
+      const state = await getDeloadState();
+      if (!alive || !state.enabled) return;
+      // The detectors live in domain/deload; everything this screen does is
+      // decide whether there is room to say it.
+      const { exercises, historyStartedAt } = await deloadHistoryFor(summary.workout.id);
+      const found = shouldShowAdvisory({
+        enabled: state.enabled,
+        now: Date.now(),
+        historyStartedAt,
+        lastShownAt: state.lastShownAt,
+        // A session that set a PR is the worst possible moment to suggest
+        // backing off, whatever the trend says.
+        prThisSession: (summary.prs?.length ?? 0) > 0,
+        exercises: exercises.map((e) => ({
+          ...e,
+          dismissedAt: state.dismissed[e.exerciseId] ?? null,
+        })),
+      });
+      if (alive) setAdvice(found);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [summary, canPrompt]);
+
+  const onAcceptDeload = async () => {
+    if (!advice) return;
+    const state = await getDeloadState();
+    await setDeloadState({
+      ...state,
+      lastShownAt: Date.now(),
+      // A window, never weights. progression.ts reads this and suggests lighter
+      // numbers while it is open; nothing is written to any set.
+      activeUntil: { ...state.activeUntil, [advice.exerciseId]: Date.now() + DELOAD_DAYS * 86400000 },
+    });
+    setAdviceState('accepted');
+  };
+
+  const onDismissDeload = async () => {
+    if (!advice) return;
+    const state = await getDeloadState();
+    await setDeloadState({
+      ...state,
+      lastShownAt: Date.now(),
+      dismissed: { ...state.dismissed, [advice.exerciseId]: Date.now() },
+    });
+    setAdvice(null);
+  };
+
+  const onUndoDeload = async () => {
+    if (!advice) return;
+    const state = await getDeloadState();
+    const next = { ...state.activeUntil };
+    delete next[advice.exerciseId];
+    await setDeloadState({ ...state, activeUntil: next });
+    setAdviceState('prompt');
+  };
+
   const visibleRows = expanded ? diff : diff.slice(0, 3);
   const hiddenCount = diff.length - visibleRows.length;
 
@@ -588,6 +556,52 @@ export default function WorkoutSummary() {
         <View style={styles.actions}>
           {/* Routine-update prompt sits directly above Done — the question
               arrives as the user is leaving, not while reading their PRs. */}
+          {/* Stall / deload advisory. Shown only when the routine prompt is not:
+              two cards would be a list, and the design is explicit that this
+              never becomes one. No accent anywhere — backing off is not the
+              action the app is encouraging, it is one it is offering. */}
+          {!canPrompt && advice && adviceState === 'prompt' && (
+            <View style={styles.deloadCard}>
+              <View style={styles.routineHeader}>
+                <View style={styles.deloadDot} />
+                <Text style={styles.routineTitle}>
+                  {advice.reason === 'stall' ? 'This lift has stalled' : 'Volume jumped fast'}
+                </Text>
+              </View>
+              <Text style={styles.deloadBody}>
+                {advice.reason === 'stall'
+                  ? `No new best in a while. A week at ${Math.round(DELOAD_FACTOR * 100)}% often moves it further than pushing does.`
+                  : `This has climbed quickly. Holding for ${DELOAD_DAYS} days lets it catch up.`}
+              </Text>
+              <View style={styles.routineActions}>
+                <Pressable style={styles.deloadAccept} onPress={() => void onAcceptDeload()}>
+                  <Text style={styles.deloadAcceptText}>
+                    {advice.reason === 'stall'
+                      ? `Ease off for ${DELOAD_DAYS} days`
+                      : `Hold for ${DELOAD_DAYS} days`}
+                  </Text>
+                </Pressable>
+                <Pressable style={styles.keepBtn} onPress={() => void onDismissDeload()}>
+                  <Text style={styles.keepBtnText}>Not now</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          {!canPrompt && advice && adviceState === 'accepted' && (
+            <View style={styles.receiptCard}>
+              <View style={styles.receiptCheck}>
+                <CheckIcon size={14} color={color.success} strokeWidth={3.2} />
+              </View>
+              <Text style={styles.deloadBody}>
+                {`Suggestions will read ${Math.round(DELOAD_FACTOR * 100)}% for ${DELOAD_DAYS} days. Nothing was written to your sets.`}
+              </Text>
+              <Pressable onPress={() => void onUndoDeload()} hitSlop={6}>
+                <Text style={styles.saveNewLink}>Undo</Text>
+              </Pressable>
+            </View>
+          )}
+
           {canPrompt && promptState === 'prompt' && (
             <View style={styles.routineCard}>
               <View style={styles.routineHeader}>
@@ -1012,6 +1026,28 @@ const styles = StyleSheet.create({
   },
 
   // ROUTINE-UPDATE PROMPT (Need 2)
+  deloadCard: {
+    backgroundColor: color.surface1,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 16,
+    gap: 10,
+  },
+  // Warning, not error: this is the colour the design system already assigns to
+  // "deload, missed", and the advisory is not a failure.
+  deloadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: color.warning },
+  deloadBody: { fontFamily: font.bodyRegular, fontSize: 13, lineHeight: 19, color: color.text2 },
+  deloadAccept: {
+    flex: 1,
+    height: 42,
+    borderRadius: 11,
+    backgroundColor: color.surface3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deloadAcceptText: { fontFamily: font.titleSemi, fontSize: 14, color: color.text1 },
   routineCard: {
     backgroundColor: color.surface1,
     borderWidth: 1,

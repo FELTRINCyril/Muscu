@@ -162,3 +162,32 @@ test('headline prefers best_set over others', () => {
   const prs = detectPrs({ best_set: 65, max_reps: 4 }, computeRecords(benchHistory()));
   assert.equal(headlinePr(prs)!.metric, 'best_set');
 });
+
+// --- est_1rm rep ceiling ---
+
+test('a high-rep set does not outrank a heavier low-rep set for est_1rm', () => {
+  // Raw Epley: 80x12 -> 112, 100x3 -> 110. The 12-rep set wins on the formula
+  // alone, which is exactly where Epley stops being trustworthy.
+  const recs = computeRecords([
+    session('w1', 3, [wset('s1', 'normal', 80, 12), wset('s2', 'normal', 100, 3)]),
+  ]);
+  assert.equal(recs.est_1rm!.reps, 3);
+  assert.equal(recs.est_1rm!.weight, 100);
+});
+
+test('est_1rm still uses a set at the rep ceiling', () => {
+  const recs = computeRecords([
+    session('w1', 3, [wset('s1', 'normal', 80, 10), wset('s2', 'normal', 60, 5)]),
+  ]);
+  assert.equal(recs.est_1rm!.reps, 10);
+});
+
+test('no est_1rm when every working set is above the rep ceiling', () => {
+  const recs = computeRecords([
+    session('w1', 3, [wset('s1', 'normal', 40, 15), wset('s2', 'normal', 40, 20)]),
+  ]);
+  assert.equal(recs.est_1rm, undefined);
+  // The other metrics still stand — a high-rep session is a real session.
+  assert.equal(recs.best_set!.value, 40);
+  assert.equal(recs.max_reps!.value, 20);
+});

@@ -48,6 +48,7 @@ export type LiveActivityAction =
 
 type LiveActivityNativeModule = {
   isSupported(): boolean;
+  setThemeId?(id: string): void;
   isAvailable(): boolean;
   isActive(): boolean;
   start(workoutStartedAt: number, state: LiveActivityState): string | null;
@@ -117,3 +118,9 @@ export const consumeActions = (): LiveActivityAction[] => native?.consumeActions
  */
 export const addActionListener = (listener: () => void): { remove(): void } =>
   native ? native.addListener('onActions', listener) : { remove: () => {} };
+
+/**
+ * Mirrors the accent into the App Group so the Live Activity card matches the
+ * app. No-op on an older native build, which simply keeps the default accent.
+ */
+export const setThemeId = (id: string): void => native?.setThemeId?.(id);

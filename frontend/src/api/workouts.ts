@@ -22,6 +22,9 @@ export {
   getActivityMap,
   patchSet,
   addSetApi,
+  insertWarmupSets,
+  setSupersetGroup,
+  nextSupersetGroup,
   deleteSet,
   removeWorkoutExercise,
   reorderExercises,
@@ -39,6 +42,7 @@ export {
 
 export {
   listExercises,
+  listExerciseUsage,
   listCategories,
   listMuscles,
   createExercise,

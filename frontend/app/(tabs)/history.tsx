@@ -14,7 +14,7 @@ import {
   startOfDay,
   startOfIsoWeek,
 } from '../../src/lib/format';
-import { color, font } from '../../src/theme/tokens';
+import { accentA, color, font } from '../../src/theme/tokens';
 
 const HEAT_WEEKS = 12;
 const HEAT_DAYS = HEAT_WEEKS * 7; // 84
@@ -22,8 +22,8 @@ const HEAT_DAYS = HEAT_WEEKS * 7; // 84
 /** Shade for a heat-map cell given its 0..3 intensity. */
 function shadeForIntensity(i: number): string {
   if (i >= 3) return color.accent;
-  if (i === 2) return 'rgba(255,74,28,0.62)';
-  if (i === 1) return 'rgba(255,74,28,0.35)';
+  if (i === 2) return accentA(0.62);
+  if (i === 1) return accentA(0.35);
   return color.surface3;
 }
 

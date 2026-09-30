@@ -6,7 +6,7 @@ import { BlurView } from 'expo-blur';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { color } from '../theme/tokens';
+import { accentA, color } from '../theme/tokens';
 import { HistoryIcon, HomeIcon, ProfileIcon } from './icons';
 
 /** Minimal shape of the navigation tabBar props we consume. */
@@ -85,6 +85,6 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 10,
   },
-  tabActive: { backgroundColor: 'rgba(255,74,28,0.12)' },
+  tabActive: { backgroundColor: accentA(0.12) },
   label: { fontFamily: 'SpaceGrotesk_600SemiBold', fontSize: 10, letterSpacing: 0.1, lineHeight: 10 },
 });

@@ -6,10 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ProfileOut, RecordOut, WorkoutListItem } from '../../src/api/types';
 import { getProfile, listRecentRecords, listWorkouts } from '../../src/api/workouts';
-import { DeviceIcon, HeartFilledIcon, SettingsIcon, StarIcon } from '../../src/components/icons';
+import { ChevronRightIcon, DeviceIcon, HeartFilledIcon, SettingsIcon, StarIcon } from '../../src/components/icons';
 import { fmtMonthYear, fmtVolumeLarge, metricLabel } from '../../src/lib/format';
 import { buildWeeklyBars, WEEK_BARS, type WeeklyBars } from '../../src/lib/weeklyBars';
 import { DEFAULT_NAME, setProfileName } from '../../src/lib/profileName';
+import { BodyMap } from '../../src/components/BodyMap';
+import { aggregateMuscleWork, isNeglected } from '../../src/domain/muscleMap';
+import { muscleWorkEntries } from '../../src/data/muscleMapRepo';
+import { latestMeasurements, type MeasurementRow } from '../../src/data/measurementsRepo';
+import { formatMeasurement, type MetricId } from '../../src/domain/measurements';
 import { color, font } from '../../src/theme/tokens';
 
 const BAR_MAX_HEIGHT = 56;
@@ -29,6 +34,31 @@ export default function Profile() {
   const [workouts, setWorkouts] = useState<WorkoutListItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [healthConnected, setHealthConnected] = useState(false);
+  const [muscle, setMuscle] = useState<{ work: Map<string, number>; historyDays: number } | null>(null);
+  const [measurements, setMeasurements] = useState<Map<MetricId, MeasurementRow>>(new Map());
+
+  // Loaded once: the window is a rolling week, so it doesn't change while the
+  // tab is open.
+  useEffect(() => {
+    let alive = true;
+    void latestMeasurements()
+      .then((m) => {
+        if (alive) setMeasurements(m);
+      })
+      .catch(() => {});
+    void muscleWorkEntries(7)
+      .then((r) => {
+        if (!alive) return;
+        setMuscle({
+          work: aggregateMuscleWork({ entries: r.entries, windowDays: 7, today: new Date() }),
+          historyDays: r.historyDays,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Inline name editing. `draft` is null when not editing.
   const [draft, setDraft] = useState<string | null>(null);
@@ -204,6 +234,51 @@ export default function Profile() {
               </View>
             </View>
 
+            {/* Measurements — the three most recent, as a way in. The full
+                list lives on its own screen; this is a status line. */}
+            <Text style={styles.recordsLabel}>MEASUREMENTS</Text>
+            <Pressable style={styles.muscleCard} onPress={() => router.push('/measurements')}>
+              <View style={styles.muscleText}>
+                <Text style={styles.muscleTitle}>
+                  {measurements.size === 0 ? 'Nothing logged yet' : 'Latest'}
+                </Text>
+                <Text style={styles.muscleSub}>
+                  {measurements.size === 0
+                    ? 'Waist, arms, body fat and more'
+                    : [...measurements.entries()]
+                        .slice(0, 3)
+                        .map(([m, r]) => formatMeasurement(r.value, m, { weightUnit: 'kg' }))
+                        .join('  ·  ')}
+                </Text>
+              </View>
+              <ChevronRightIcon size={15} color={color.text3} strokeWidth={2.2} />
+            </Pressable>
+
+            {/* Muscle map — a shortcut into the full screen. Front only here:
+                the card exists to show whether anything is being missed, and
+                two figures at this size read as decoration. */}
+            {muscle && (
+              <>
+                <Text style={styles.recordsLabel}>MUSCLE MAP</Text>
+                <Pressable style={styles.muscleCard} onPress={() => router.push('/muscle-map')}>
+                  <BodyMap side="front" work={muscle.work} historyDays={muscle.historyDays} width={92} />
+                  <View style={styles.muscleText}>
+                    <Text style={styles.muscleTitle}>Last 7 days</Text>
+                    <Text style={styles.muscleSub}>
+                      {(() => {
+                        const missed = [...muscle.work.entries()].filter(([, n]) =>
+                          isNeglected(n, muscle.historyDays, false),
+                        );
+                        if (missed.length === 0) return 'Everything has had work';
+                        return `${missed.length} not trained · ${missed.slice(0, 3).map(([r]) => r).join(', ')}`;
+                      })()}
+                    </Text>
+                  </View>
+                  <ChevronRightIcon size={15} color={color.text3} strokeWidth={2.2} />
+                </Pressable>
+              </>
+            )}
+
             {/* Records */}
             <Text style={styles.recordsLabel}>RECENT RECORDS</Text>
             <View style={styles.recordsList}>
@@ -220,6 +295,28 @@ export default function Profile() {
                   </Text>
                   <Text style={styles.recordValue}>{r.display}</Text>
                 </View>
+              ))}
+            </View>
+
+            {/* Tools — calculators that don't belong to any one workout. */}
+            <Text style={styles.recordsLabel}>TOOLS</Text>
+            <View style={styles.toolsList}>
+              {[
+                { label: '1RM calculator', sub: 'Estimate from a set', to: '/one-rep-max' as const },
+                { label: 'Plate calculator', sub: 'Bar and plates', to: '/plates' as const },
+              ].map((t, i) => (
+                <Pressable
+                  key={t.to}
+                  onPress={() => router.push(t.to)}
+                  style={[styles.toolRow, i === 0 && styles.toolRowFirst]}
+                  accessibilityRole="button"
+                >
+                  <View style={styles.toolText}>
+                    <Text style={styles.toolLabel}>{t.label}</Text>
+                    <Text style={styles.toolSub}>{t.sub}</Text>
+                  </View>
+                  <ChevronRightIcon size={15} color={color.text3} strokeWidth={2.2} />
+                </Pressable>
               ))}
             </View>
 
@@ -528,6 +625,41 @@ const styles = StyleSheet.create({
   },
 
   // On-device status (neutral)
+  muscleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: color.surface1,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  muscleText: { flex: 1, gap: 2 },
+  muscleTitle: { fontFamily: font.titleSemi, fontSize: 15, color: color.text1 },
+  muscleSub: { fontFamily: font.bodyRegular, fontSize: 12, lineHeight: 17, color: color.text3 },
+  toolsList: {
+    backgroundColor: color.surface1,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  toolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    height: 56,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: color.hair,
+  },
+  toolRowFirst: { borderTopWidth: 0 },
+  toolText: { gap: 1 },
+  toolLabel: { fontFamily: font.bodyMedium, fontSize: 15, color: color.text1 },
+  toolSub: { fontFamily: font.bodyRegular, fontSize: 12, color: color.text3 },
   statusCard: {
     flexDirection: 'row',
     alignItems: 'center',

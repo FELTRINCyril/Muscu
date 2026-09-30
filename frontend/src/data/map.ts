@@ -82,6 +82,7 @@ export type RoutineExerciseRow = {
   position: number;
   restSeconds: number;
   note: string | null;
+  supersetGroup?: number | null;
 };
 export type RoutineSetRow = {
   id: string;
@@ -189,6 +190,7 @@ export const toRoutineExerciseOut = (
   id: re.id,
   position: re.position,
   rest_seconds: re.restSeconds,
+  superset_group: re.supersetGroup ?? null,
   note: re.note,
   exercise,
   sets: sets.map(toRoutineSetOut),

@@ -23,11 +23,30 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import * as LiveActivity from '../modules/live-activity';
-import { getSettings, startWorkout } from '../src/api/workouts';
+import {
+  discardWorkout,
+  finishWorkout,
+  getDashboard,
+  getSettings,
+  listWorkouts,
+  startWorkout,
+} from '../src/api/workouts';
 import { setHapticsEnabled } from '../src/lib/haptics';
+import { getThemeId } from '../src/lib/themePref';
 import { useLocalDbBootstrap } from '../src/db/bootstrap';
 import { applyPendingCardActions } from '../src/lib/liveActivityBridge';
-import { onWatchAction } from '../src/lib/healthSync';
+import {
+  consumeWatchActions,
+  onWatchAction,
+  pushWatchState,
+  setWatchThemeId,
+  syncFinishedWorkout,
+} from '../src/lib/healthSync';
+import { forgetActiveWorkout } from '../src/lib/activeWorkout';
+import { clearRest } from '../src/lib/restSession';
+import { saveSummary } from '../src/lib/summaryCache';
+import { notifyWatchFinished, routeWatchFinish } from '../src/lib/watchFinish';
+import { parseServerDate } from '../src/lib/serverTime';
 import { color } from '../src/theme/tokens';
 
 /**
@@ -60,6 +79,35 @@ function useWatchStart() {
   useEffect(
     () =>
       onWatchAction((a) => {
+        // The Watch's Start screen asking for the routine list. Answered here
+        // and not on Home, because the Watch app can be opened with the phone
+        // app closed: iOS relaunches it at the root route, where Home never
+        // mounts and so never pushes. That is why opening the Watch app on its
+        // own showed "No routines yet" until a workout had been run.
+        if (a.action === 'requestState') {
+          void (async () => {
+            try {
+              // A mounted workout screen owns the Watch state and answers this
+              // itself. Pushing a Start screen over a running session would
+              // throw the wrist back to the routine list mid-workout.
+              const [active] = await listWorkouts({ status: 'active', limit: 1 });
+              if (active) return;
+              const dash = await getDashboard();
+              pushWatchState({
+                screen: 'start',
+                routines: dash.routines.map((r) => ({
+                  id: r.id,
+                  name: r.name,
+                  initials: r.initials,
+                  exerciseCount: r.exercise_count,
+                })),
+              });
+            } catch {
+              // No data to answer with; the Watch keeps what it had.
+            }
+          })();
+          return;
+        }
         if (a.action !== 'startEmpty' && a.action !== 'startRoutine') return;
         void (async () => {
           try {
@@ -76,15 +124,77 @@ function useWatchStart() {
   );
 }
 
+/**
+ * Completes a workout the user finished on the Watch, when no workout screen is
+ * mounted to do it.
+ *
+ * Finishing on the wrist ends the Watch's own session and asks the phone to
+ * finish too. That request was only ever handled inside the workout screen — so
+ * finishing while the phone sat in a pocket (backgrounded and since terminated,
+ * or simply backed out to Home) dropped it: the Watch showed the workout done
+ * and the phone still called it active, offering to resume a workout that was
+ * already over.
+ *
+ * Mounted screen wins when there is one — see `routeWatchFinish`. This is the
+ * fallback, and deliberately does NOT navigate: it can run while the app is in
+ * the background or sitting on an unrelated tab, and yanking the user to a
+ * summary they didn't ask for is worse than letting them find it in History.
+ */
+function useWatchFinish() {
+  useEffect(() => {
+    const apply = async (action: string) => {
+      try {
+        const [active] = await listWorkouts({ status: 'active', limit: 1 });
+        if (routeWatchFinish(action, active?.id ?? null) !== 'fallback' || !active) return;
+
+        void LiveActivity.end();
+        forgetActiveWorkout();
+        clearRest(active.id);
+
+        if (action === 'discard') {
+          await discardWorkout(active.id);
+          notifyWatchFinished(active.id);
+          return;
+        }
+        // The Watch ran the session, so it is the primary writer of the
+        // HKWorkout; this verifies that save rather than duplicating it.
+        const startedAt = parseServerDate(active.started_at);
+        if (!Number.isNaN(startedAt)) {
+          void syncFinishedWorkout(active.id, startedAt, Date.now(), true);
+        }
+        saveSummary(active.id, await finishWorkout(active.id));
+        notifyWatchFinished(active.id);
+      } catch {
+        // Best-effort: a finish we couldn't apply leaves the workout active and
+        // resumable, which is the state the user was already in.
+      }
+    };
+
+    // Actions queued natively before any listener existed — the cold-launch case,
+    // where WCSession can deliver before the JS bundle has subscribed.
+    void (async () => {
+      for (const a of await consumeWatchActions()) await apply(a.action);
+    })();
+
+    return onWatchAction((a) => void apply(a.action));
+  }, []);
+}
+
 export default function RootLayout() {
   useLiveActivityActions();
   useWatchStart();
+  useWatchFinish();
   // Phase 0: build + seed the on-device DB at startup. Nothing reads from it
   // yet (the app is still server-backed); this only guarantees it exists.
   const dbBootstrap = useLocalDbBootstrap();
 
   // Cache the haptic preference at startup; screens fire haptics before the
   // workout or settings screen would sync it.
+  // Mirror the accent onto Watch pushes for the rest of the session.
+  useEffect(() => {
+    void getThemeId().then(setWatchThemeId);
+  }, []);
+
   useEffect(() => {
     getSettings()
       .then((s) => setHapticsEnabled(s.haptic_feedback))
@@ -175,6 +285,46 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="import"
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              contentStyle: { backgroundColor: color.bg },
+            }}
+          />
+          <Stack.Screen
+            name="measurements"
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              contentStyle: { backgroundColor: color.bg },
+            }}
+          />
+          <Stack.Screen
+            name="measurement/[metric]"
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              contentStyle: { backgroundColor: color.bg },
+            }}
+          />
+          <Stack.Screen
+            name="muscle-map"
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              contentStyle: { backgroundColor: color.bg },
+            }}
+          />
+          <Stack.Screen
+            name="one-rep-max"
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              contentStyle: { backgroundColor: color.bg },
+            }}
+          />
+          <Stack.Screen
+            name="plates"
             options={{
               headerShown: false,
               animation: 'slide_from_right',

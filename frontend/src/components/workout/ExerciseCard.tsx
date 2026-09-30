@@ -25,6 +25,20 @@ type Props = {
   onWeightChange: (setId: string, text: string) => void;
   onRepsChange: (setId: string, text: string) => void;
   onToggleDone: (setId: string) => void;
+  /** Relays which set's weight/reps field is focused, for the keyboard toolbar. */
+  onFieldFocus?: (setId: string, field: 'weight' | 'reps') => void;
+  /** Per-set progression proposal, keyed by set id (#69). */
+  suggestionFor?: (setId: string) => { kind: 'up' | 'hold' | 'down'; weight: number; reps: number } | null;
+  onUseSuggestion?: (setId: string) => void;
+  /** Offers the warm-up ramp. Absent → the button isn't shown (see below). */
+  onWarmup?: () => void;
+  /** e.g. "A1" — this exercise's place in its superset. Absent when solo. */
+  supersetTag?: string | null;
+  /** Opens the partner picker, or leaves the group. Absent → not offered. */
+  onSuperset?: () => void;
+  inSuperset?: boolean;
+  /** Rest is owned by whoever closes the round; earlier partners say so. */
+  restOverrideLabel?: string | null;
   /** Delete a set. Omitted → swipe-to-delete disabled. */
   onDeleteSet?: (setId: string) => void;
   /** Id of the set whose swipe panel is currently revealed (single per screen). */
@@ -59,6 +73,14 @@ export function ExerciseCard({
   onWeightChange,
   onRepsChange,
   onToggleDone,
+  onFieldFocus,
+  suggestionFor,
+  onUseSuggestion,
+  onWarmup,
+  supersetTag,
+  onSuperset,
+  inSuperset,
+  restOverrideLabel,
   onDeleteSet,
   openSetId,
   onSetOpenChange,
@@ -96,7 +118,18 @@ export function ExerciseCard({
           <Text style={styles.name} numberOfLines={1}>
             {exercise.name}
           </Text>
-          <Text style={styles.meta}>{exerciseMeta(exercise)}</Text>
+          <View style={styles.metaRow}>
+            {/* Position within the group, at the start of the meta line. No new
+                colour — surface3 on the existing grey. */}
+            {supersetTag ? (
+              <View style={styles.ssTag}>
+                <Text style={styles.ssTagText}>{supersetTag}</Text>
+              </View>
+            ) : null}
+            <Text style={styles.meta} numberOfLines={1}>
+              {exerciseMeta(exercise)}
+            </Text>
+          </View>
         </Pressable>
         <View style={styles.menuAnchor}>
           <Pressable onPress={onToggleMenu} style={styles.menuButton} hitSlop={6}>
@@ -106,6 +139,8 @@ export function ExerciseCard({
             <ExerciseMenu
               onReorderStart={onReorderStart}
               onReplace={onReplace}
+              onSuperset={onSuperset}
+              inSuperset={inSuperset}
               onRemove={onRemove}
             />
           )}
@@ -127,7 +162,9 @@ export function ExerciseCard({
         <ClockRowIcon size={15} color={color.accent} strokeWidth={2.4} />
         <Text style={styles.restLabel}>Rest Timer</Text>
         <View style={styles.restRight}>
-          <Text style={styles.restValue}>{restLabel(exercise.rest)}</Text>
+          <Text style={styles.restValue}>
+            {restOverrideLabel ?? restLabel(exercise.rest)}
+          </Text>
           <ChevronRightIcon size={14} color={color.text3} strokeWidth={2.4} />
         </View>
       </Pressable>
@@ -160,6 +197,9 @@ export function ExerciseCard({
               onWeightChange={(t) => onWeightChange(s.id, t)}
               onRepsChange={(t) => onRepsChange(s.id, t)}
               onToggleDone={() => onToggleDone(s.id)}
+              onFieldFocus={(field) => onFieldFocus?.(s.id, field)}
+              suggestion={suggestionFor?.(s.id) ?? null}
+              onUseSuggestion={() => onUseSuggestion?.(s.id)}
               onDelete={onDeleteSet ? () => onDeleteSet(s.id) : undefined}
               isOpen={openSetId === s.id}
               onOpenChange={(o) => onSetOpenChange?.(s.id, o)}
@@ -171,10 +211,27 @@ export function ExerciseCard({
         })}
       </View>
 
-      {/* + Add Set */}
-      <PressableScale onPress={onAddSet} style={styles.addSet}>
-        <Text style={styles.addSetText}>+ Add Set</Text>
-      </PressableScale>
+      {/* + Add Set, sharing its row with Warm-up when a ramp is on offer. The
+          caller withholds `onWarmup` once the exercise already has a warm-up, or
+          when there's no working weight to ramp toward — if it isn't needed, it
+          isn't there, rather than sitting disabled. */}
+      <View style={styles.footerRow}>
+        <PressableScale onPress={onAddSet} style={[styles.addSet, styles.footerHalf]}>
+          <Text style={styles.addSetText}>+ Add Set</Text>
+        </PressableScale>
+        {onWarmup && (
+          <PressableScale
+            onPress={onWarmup}
+            style={[styles.addSet, styles.footerHalf]}
+            accessibilityRole="button"
+            accessibilityLabel="Add warm-up sets"
+          >
+            {/* Warning is the warm-up set-type colour, so the button matches the
+                W badges it creates. */}
+            <Text style={[styles.addSetText, styles.warmupText]}>Warm-up</Text>
+          </PressableScale>
+        )}
+      </View>
     </View>
   );
 }
@@ -280,6 +337,22 @@ const styles = StyleSheet.create({
 
   sets: { flexDirection: 'column', gap: 2 },
 
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  ssTag: {
+    backgroundColor: color.surface3,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  ssTagText: {
+    fontFamily: font.monoMedium,
+    fontSize: 10,
+    letterSpacing: 0.5,
+    color: color.text2,
+  },
+  footerRow: { flexDirection: 'row', gap: 8 },
+  footerHalf: { flex: 1 },
+  warmupText: { color: color.warning },
   addSet: {
     marginTop: 8,
     width: '100%',

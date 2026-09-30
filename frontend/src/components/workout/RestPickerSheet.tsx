@@ -2,7 +2,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { DraggableSheet } from '../DraggableSheet';
-import { color, font } from '../../theme/tokens';
+import { accentA, color, font } from '../../theme/tokens';
 import { CheckIcon } from '../icons';
 import { REST_OPTIONS } from './types';
 
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 11,
   },
-  optionSelected: { backgroundColor: 'rgba(255,74,28,0.12)' },
+  optionSelected: { backgroundColor: accentA(0.12) },
   optionLabel: {
     fontFamily: font.monoMedium,
     fontSize: 16,

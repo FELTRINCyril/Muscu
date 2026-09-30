@@ -74,6 +74,9 @@ export const routineExercises = sqliteTable('routine_exercises', {
   position: integer('position').notNull().default(0),
   restSeconds: integer('rest_seconds').notNull().default(120),
   note: text('note'),
+  // Mirrors workout_exercises: partners share a value. Without it a superset
+  // survived the workout but not the routine it came from.
+  supersetGroup: integer('superset_group'),
   ...sync,
 });
 
@@ -143,6 +146,28 @@ export const personalRecords = sqliteTable('personal_records', {
   display: text('display').notNull().default(''),
   achievedAt: integer('achieved_at'),
   workoutSetId: text('workout_set_id'),
+  ...sync,
+});
+
+/**
+ * Body measurements over time (#65).
+ *
+ * `value` is always canonical — cm for lengths, kg for masses, a plain number
+ * for percentages — so a unit change is a display concern and never rewrites
+ * history.
+ *
+ * `source` separates what the user typed from what arrived via Apple Health.
+ * Health rows are read-only here and carry `healthUuid`, so a re-read updates
+ * the same row instead of appending a duplicate every sync.
+ */
+export const bodyMeasurements = sqliteTable('body_measurements', {
+  id: text('id').primaryKey(),
+  userId: text('user_id'),
+  metric: text('metric').notNull(),
+  value: real('value').notNull(),
+  measuredAt: integer('measured_at').notNull(),
+  source: text('source').notNull().default('manual'),
+  healthUuid: text('health_uuid'),
   ...sync,
 });
 

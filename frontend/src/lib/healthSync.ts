@@ -249,9 +249,62 @@ export function stopWatchSession(opts?: { discard?: boolean }): void {
   if (Health.isAvailable()) Health.stopWatchWorkout(opts?.discard ?? false);
 }
 
-/** Push the latest workout state to the Watch companion (no-op if unavailable). */
+/**
+ * Push the latest workout state to the Watch companion (no-op if unavailable).
+ *
+ * The accent rides along on every push rather than through a channel of its
+ * own: the Watch caches it, so one field here keeps the wrist in step without
+ * any extra plumbing.
+ */
 export function pushWatchState(state: Record<string, unknown>): void {
-  if (Health.isAvailable()) Health.updateWatchState(state);
+  if (!Health.isAvailable()) return;
+  Health.updateWatchState({ themeId: currentThemeId, ...state });
+}
+
+/** Mirrors the phone's accent onto pushes; set once at startup. */
+let currentThemeId = 'ember';
+export function setWatchThemeId(id: string): void {
+  currentThemeId = id;
+}
+
+/**
+ * Watch actions that arrived before JS was listening — the cold-launch window,
+ * where WCSession can deliver a queued finish while the bundle is still loading.
+ * Drained once from the root layout. Empty when Health is unavailable.
+ */
+export async function consumeWatchActions(): Promise<Health.WatchAction[]> {
+  return Health.isAvailable() ? Health.consumeWatchActions() : [];
+}
+
+/**
+ * Pulls waist and body fat from Health into the measurement history.
+ *
+ * Only when the user connected Health and left body reading on — the same
+ * intent/receipt rule the rest of this module follows. Upserts by the sample's
+ * uuid, so running it repeatedly converges rather than accumulating.
+ */
+export async function syncBodyMeasurementsFromHealth(): Promise<number> {
+  try {
+    if (!Health.isAvailable()) return 0;
+    const connected = await SecureStore.getItemAsync(HEALTH_KEYS.connected);
+    if (connected !== '1') return 0;
+
+    const found = await Health.readBodyMeasurements();
+    const entries = Object.entries(found);
+    if (entries.length === 0) return 0;
+
+    const { upsertHealthMeasurement } = await import('../data/measurementsRepo');
+    for (const [metric, r] of entries) {
+      if (metric !== 'waist' && metric !== 'bodyFat') continue;
+      await upsertHealthMeasurement(metric, r.value, Math.round(r.measuredAt), r.uuid);
+    }
+    // A value arriving IS the receipt — the Health screen shows when data last
+    // actually came back rather than a permission the system will not disclose.
+    await recordReadReceipt('readBody', `${entries.length} reading${entries.length === 1 ? '' : 's'}`);
+    return entries.length;
+  } catch {
+    return 0;
+  }
 }
 
 /** Subscribe to control taps from the Watch. */

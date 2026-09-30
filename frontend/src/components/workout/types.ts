@@ -25,6 +25,8 @@ export interface Exercise {
   initials: string;
   equipment: string;
   kind: 'weighted' | 'bodyweight';
+  /** Shared by exercises trained as a superset. Null for an ordinary one. */
+  supersetGroup?: number | null;
   /** Rest duration in seconds. */
   rest: number;
   note: string;

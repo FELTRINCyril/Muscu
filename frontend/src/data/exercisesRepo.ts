@@ -2,7 +2,7 @@
  * Exercise catalog + custom exercises + Exercise-Detail compute, on-device.
  * Ported from the original server implementation. Touches the DB — not node-tested.
  */
-import { and, eq, inArray, like } from 'drizzle-orm';
+import { and, eq, inArray, like, sql } from 'drizzle-orm';
 
 import { db } from '../db/client';
 import * as schema from '../db/schema';
@@ -133,23 +133,73 @@ export async function getExerciseHistory(id: string): Promise<HistorySessionOut[
   );
 }
 
+/**
+ * How much each exercise has actually been trained: completed sessions it
+ * appeared in, and when the most recent of those was.
+ *
+ * One grouped query rather than a scan per exercise — the library calls this on
+ * mount, and it is the only thing standing between a 700-row catalog and the
+ * dozen lifts the user came to find. Exercises never trained are simply absent.
+ */
+export async function listExerciseUsage(): Promise<Map<string, { sessions: number; lastAt: number }>> {
+  const rows = await db
+    .select({
+      exerciseId: schema.workoutExercises.exerciseId,
+      sessions: sql<number>`count(distinct ${schema.workoutExercises.workoutId})`,
+      lastAt: sql<number>`max(${schema.workouts.startedAt})`,
+    })
+    .from(schema.workoutExercises)
+    .innerJoin(schema.workouts, eq(schema.workoutExercises.workoutId, schema.workouts.id))
+    .where(eq(schema.workouts.status, 'completed'))
+    .groupBy(schema.workoutExercises.exerciseId);
+
+  const out = new Map<string, { sessions: number; lastAt: number }>();
+  for (const r of rows) {
+    if (!r.exerciseId) continue;
+    out.set(r.exerciseId, { sessions: Number(r.sessions) || 0, lastAt: Number(r.lastAt) || 0 });
+  }
+  return out;
+}
+
 export async function getExerciseRecords(id: string): Promise<RecordOut[]> {
   const rows = await db
     .select()
     .from(schema.personalRecords)
     .where(eq(schema.personalRecords.exerciseId, id));
-  return rows.map((r) => ({
-    metric: r.metric as RecordMetric,
-    value: r.value,
-    display: r.display,
-    achieved_at: r.achievedAt === null ? null : new Date(r.achievedAt).toISOString(),
-  }));
+  // Carry the originating set's numbers alongside the record. `display` is prose
+  // ("121 kg"), and the 1RM calculator needs the weight and reps behind it. A
+  // left join rather than a second round trip per card; a set deleted since the
+  // record was written simply leaves them null.
+  const setIds = rows.map((r) => r.workoutSetId).filter((x): x is string => !!x);
+  const sets = setIds.length
+    ? await db.select().from(schema.workoutSets).where(inArray(schema.workoutSets.id, setIds))
+    : [];
+  const bySetId = new Map(sets.map((s) => [s.id, s]));
+  return rows.map((r) => {
+    const src = r.workoutSetId ? bySetId.get(r.workoutSetId) : undefined;
+    return {
+      metric: r.metric as RecordMetric,
+      value: r.value,
+      display: r.display,
+      achieved_at: r.achievedAt === null ? null : new Date(r.achievedAt).toISOString(),
+      weight: src?.weight ?? null,
+      reps: src?.reps ?? null,
+    };
+  });
 }
 
+/**
+ * A metric's series for one exercise.
+ *
+ * `since` reads everything from a timestamp forward; `sessions` keeps the old
+ * "last N" behaviour for callers that want a thumbnail. Points carry their real
+ * timestamp so the chart can space them by time — spacing sessions evenly made
+ * a three-month layoff look like a week off.
+ */
 export async function getExerciseChart(
   id: string,
   metric: RecordMetric = 'est_1rm',
-  sessions = 6,
+  opts: { since?: number | null; sessions?: number } = {},
 ): Promise<ChartOut> {
   const done = (await completedSessionsFor(id)).slice().reverse(); // oldest first
   // A bodyweight movement's volume counts the mover's mass; resolve it per day
@@ -161,6 +211,9 @@ export async function getExerciseChart(
   // Group by local day; sets that are done only (session_metric excludes undone).
   const byDay = new Map<string, SetLike[]>();
   const bwByDay = new Map<string, number>();
+  // Earliest start seen for a day, so a point sits on the real date rather than
+  // on whichever session of that day happened to be read last.
+  const dayStart = new Map<string, number>();
   for (const s of done) {
     const key = localDay(s.startedAt);
     const list = byDay.get(key) ?? [];
@@ -169,14 +222,23 @@ export async function getExerciseChart(
     }
     byDay.set(key, list);
     bwByDay.set(key, resolveWorkoutBodyweight(s.bodyweightKg, currentBw));
+    const seen = dayStart.get(key);
+    if (seen == null || s.startedAt < seen) dayStart.set(key, s.startedAt);
   }
-  const points: { label: string; value: number }[] = [];
+  const points: { label: string; value: number; t: number }[] = [];
   for (const [label, sets] of byDay) {
     const v = sessionMetric(sets, metric, bwByDay.get(label) ?? 0, countWarmups);
-    if (v !== null) points.push({ label, value: v });
+    if (v !== null) points.push({ label, value: v, t: dayStart.get(label) ?? 0 });
   }
-  const last = points.slice(-sessions);
-  return { metric, labels: last.map((p) => p.label), values: last.map((p) => p.value) };
+  const inRange =
+    opts.since != null ? points.filter((p) => p.t >= (opts.since as number)) : points;
+  const last = opts.sessions != null ? inRange.slice(-opts.sessions) : inRange;
+  return {
+    metric,
+    labels: last.map((p) => p.label),
+    values: last.map((p) => p.value),
+    times: last.map((p) => p.t),
+  };
 }
 
 // --- Merge duplicate exercises -------------------------------------------

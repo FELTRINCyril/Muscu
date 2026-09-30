@@ -19,7 +19,10 @@ private extension Color {
 }
 
 private enum LA {
-  static let accent = Color(hex: 0xFF4A1C)
+  /// Resolved per activity from the stored theme, which is fixed for the life
+  /// of an activity — so a theme changed mid-workout applies from the next one.
+  static func accent(_ themeId: String?) -> Color { Color(hex: LAPalette.accent(themeId)) }
+  static let accent = Color(hex: LAPalette.accent(LAPalette.stored))
   static let accentFg = Color(hex: 0x0B0B0C)
   static let bg = Color(hex: 0x0A0A0B)
 
@@ -324,5 +327,25 @@ private struct CheckmarkPath: Shape {
     path.addLine(to: CGPoint(x: 9 * sx, y: 17 * sy))
     path.addLine(to: CGPoint(x: 4 * sx, y: 12 * sy))
     return path
+  }
+}
+
+/// Accent palettes for the Live Activity (#72).
+///
+/// Duplicated from `src/theme/palettes.ts` rather than shared: the widget is a
+/// separate process with no JS runtime, and separate targets cannot see the
+/// Watch's copy either. The ids are the contract, and an unknown one falls back
+/// to Ember rather than rendering no colour.
+enum LAPalette {
+  static var stored: String? {
+    UserDefaults(suiteName: LiveActivityActionQueue.appGroup)?.string(forKey: "ischys.themeId")
+  }
+  static func accent(_ id: String?) -> UInt32 {
+    switch id {
+    case "volt": return 0xC6F135
+    case "ion": return 0xC58BFF
+    case "chalk": return 0xF4F4F5
+    default: return 0xFF4A1C
+    }
   }
 }

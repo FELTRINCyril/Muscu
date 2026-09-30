@@ -37,6 +37,10 @@ import {
   getSettings,
   discardWorkout,
   finishWorkout,
+  insertWarmupSets,
+  nextSupersetGroup,
+  setSupersetGroup,
+  listExerciseUsage,
   getPrevious,
   getPreviousNote,
   setWorkoutExerciseNote as setNoteApi,
@@ -75,6 +79,16 @@ import {
   syncFinishedWorkout,
 } from '../../src/lib/healthSync';
 import { buildFinishedWatchState, buildWatchState } from '../../src/lib/watchState';
+import { claimWatchFinish } from '../../src/lib/watchFinish';
+import { PlateSheet } from '../../src/components/workout/PlateSheet';
+import { WarmupSheet } from '../../src/components/workout/WarmupSheet';
+import { SupersetSheet } from '../../src/components/workout/SupersetSheet';
+import type { RampRow } from '../../src/domain/warmupRamp';
+import { getPlateSetup } from '../../src/lib/plateSetup';
+import { DEFAULT_BAR_SETUP, smallestStepKg, type BarSetup } from '../../src/domain/plateMath';
+import { suggestNextSet } from '../../src/domain/progression';
+import { deloadActiveFor, getDeloadState, type DeloadState } from '../../src/lib/deloadState';
+import { groupLabels, restAfterSet, roundOfSet } from '../../src/domain/supersets';
 import { getBodyweightKg } from '../../src/lib/bodyweight';
 import { getCountWarmups } from '../../src/lib/warmupVolume';
 import type { WatchAction } from '../../modules/health';
@@ -134,6 +148,7 @@ function mapExercise(
     equipment: we.exercise.equipment,
     kind: we.exercise.kind,
     rest: we.rest_seconds,
+    supersetGroup: we.superset_group ?? null,
     note: we.note ?? '',
     notePlaceholder: prevNote ?? undefined,
     sets: we.sets.map((s) => {
@@ -163,7 +178,7 @@ export default function ActiveWorkout() {
   );
   const [workoutId, setWorkoutId] = useState<string | null>(isDemo ? null : routeId);
   const [persist, setPersist] = useState(!isDemo);
-  const [name, setName] = useState(isDemo ? 'Temp Upper' : '');
+  const [name, setName] = useState(isDemo ? 'Upper' : '');
   const [status, setStatus] = useState<string>('active');
   const [elapsed, setElapsed] = useState(START_ELAPSED);
   /** Epoch ms the workout began. The elapsed clock is derived from this. */
@@ -178,6 +193,18 @@ export default function ActiveWorkout() {
   // The numeric keypads have no return key, so this is the only dismiss affordance
   // — and InputAccessoryView does not render under the New Architecture.
   const [kbHeight, setKbHeight] = useState(0);
+  // Which set the keyboard toolbar is acting on. The toolbar is one bar for the
+  // whole screen, so it can only offer Plates once it knows whose weight is
+  // being typed — and whether that exercise is even loaded with plates.
+  const [focusedSet, setFocusedSet] = useState<{ exerciseId: string; setId: string } | null>(null);
+  const [plateSheetOpen, setPlateSheetOpen] = useState(false);
+  const [warmupExId, setWarmupExId] = useState<string | null>(null);
+  const [supersetExId, setSupersetExId] = useState<string | null>(null);
+  const [plateSetup, setPlateSetupState] = useState<BarSetup>(DEFAULT_BAR_SETUP);
+  // When each exercise was last trained, for the progression suggestion's
+  // staleness rule. One grouped query, not one per exercise.
+  const [lastTrained, setLastTrained] = useState<Map<string, number>>(new Map());
+  const [deload, setDeload] = useState<DeloadState | null>(null);
   // Absolute bounds of the current rest, mirroring `restRemaining` for the Live
   // Activity: the widget ticks itself from these while the app is suspended, so
   // they change only when rest starts, is adjusted, or ends — never on the tick.
@@ -244,7 +271,7 @@ export default function ActiveWorkout() {
         if (cancelled) return;
         setExercises(seedWorkout());
         setPersist(false); // load failed → offline, don't write back
-        setName('Temp Upper');
+        setName('Upper');
         setStartedAt(Date.now() - START_ELAPSED * 1000);
         setLoading(false);
         return;
@@ -782,7 +809,28 @@ export default function ActiveWorkout() {
     // what is *coming* — which, after an exercise's last set, is the next
     // exercise. `exercises` has not re-rendered yet, so the set being completed
     // is passed as `treatAsDone`.
-    if (willBeDone) startRest(ex.rest, upcomingExerciseName(setId), ex.id);
+    if (willBeDone) {
+      // Inside a superset the rest waits for the round to finish: completing the
+      // first partner sends you to the second rather than starting a timer,
+      // which is the entire point of pairing them. A solo exercise is unchanged.
+      const decision = restAfterSet(
+        exercises.map((e) => ({
+          id: e.id,
+          supersetGroup: e.supersetGroup ?? null,
+          rest: e.rest,
+          sets: e.sets.map((x) => ({ id: x.id, type: x.type, done: x.done })),
+        })),
+        exId,
+        setId,
+      );
+      if (decision.startRest) {
+        startRest(decision.seconds, upcomingExerciseName(setId), ex.id);
+      } else {
+        // No timer — but the active row must move to the partner, or the screen
+        // would still be pointing at the exercise you just finished.
+        endRest();
+      }
+    }
     if (persist) write(patchSetApi(setId, { done: willBeDone }));
   };
 
@@ -1114,6 +1162,15 @@ export default function ActiveWorkout() {
     }
   };
 
+  // Claim the Watch's Finish/Discard while this screen is mounted, so the root
+  // layout's fallback stands down and only one of us completes the workout. The
+  // screen is the better handler when it exists: it also ends the Live Activity,
+  // mirrors to Health and navigates to the summary.
+  useEffect(() => {
+    if (!workoutId) return;
+    return claimWatchFinish(workoutId);
+  }, [workoutId]);
+
   useEffect(() => {
     const offAction = onWatchAction((a) => applyWatchAction.current(a));
     const offMetrics = onWatchMetrics(({ bpm, cal }) => {
@@ -1126,6 +1183,230 @@ export default function ActiveWorkout() {
       offMetrics();
     };
   }, []);
+
+  // Re-read the gym's bar and plates whenever the sheet opens. It is edited on
+  // another screen, and the workout outlives that trip, so loading once would
+  // leave the calculator proposing plates the user has just said they don't have.
+  useEffect(() => {
+    if (!plateSheetOpen) return;
+    let alive = true;
+    void getPlateSetup().then((s) => {
+      if (alive) setPlateSetupState(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [plateSheetOpen]);
+
+  // The exercise whose weight is being typed, when plates apply to it at all.
+  const plateExercise = useMemo(() => {
+    if (!focusedSet) return null;
+    const ex = exercises.find((e) => e.id === focusedSet.exerciseId);
+    return ex && ex.equipment === 'barbell' ? ex : null;
+  }, [focusedSet, exercises]);
+
+  // What the user has typed so far, or what the row would log if they ticked it
+  // now — so opening Plates on an untouched set still has something to work from.
+  const plateTargetKg = useMemo(() => {
+    if (!plateExercise || !focusedSet) return NaN;
+    const sets = plateExercise.sets;
+    const i = sets.findIndex((x) => x.id === focusedSet.setId);
+    if (i === -1) return NaN;
+    const resolved = resolveSet(sets[i], carryFor(sets, i));
+    return parseFloat(String(resolved.weight).replace(',', '.'));
+  }, [plateExercise, focusedSet]);
+
+  /**
+   * The first working set of an exercise, when it has a weight to ramp toward.
+   * Warm-ups are only worth offering for weighted work that already knows where
+   * it's going — a set with no weight yet has no ladder.
+   */
+  const warmupBaseFor = (ex: (typeof exercises)[number]) => {
+    if (ex.kind === 'bodyweight') return null;
+    if (ex.sets.some((x) => x.type === 'warmup')) return null;
+    const i = ex.sets.findIndex((x) => x.type !== 'warmup');
+    if (i === -1) return null;
+    const resolved = resolveSet(ex.sets[i], carryFor(ex.sets, i));
+    const kgValue = parseFloat(String(resolved.weight).replace(',', '.'));
+    const repsValue = parseInt(String(resolved.reps), 10);
+    if (!Number.isFinite(kgValue) || kgValue <= 0) return null;
+    return { kg: kgValue, reps: Number.isFinite(repsValue) ? repsValue : 0 };
+  };
+
+  const warmupExercise = exercises.find((e) => e.id === warmupExId) ?? null;
+  const warmupBase = warmupExercise ? warmupBaseFor(warmupExercise) : null;
+
+  const insertWarmups = (exId: string, rows: RampRow[]) => {
+    const fresh = rows.map((r) => ({
+      ...makeSet(),
+      type: 'warmup' as const,
+      weight: String(r.kg),
+      reps: String(r.reps),
+    }));
+    setExercises((prev) =>
+      prev.map((e) => (e.id === exId ? { ...e, sets: [...fresh, ...e.sets] } : e)),
+    );
+    if (persist && workoutId) {
+      write(
+        insertWarmupSets(
+          exId,
+          fresh.map((f) => ({ id: f.id, weight: Number(f.weight), reps: Number(f.reps) })),
+        ).catch(() => {
+          // Insert failed — take the optimistic rows back out rather than show
+          // sets the store doesn't hold.
+          setExercises((prev) =>
+            prev.map((e) =>
+              e.id === exId
+                ? { ...e, sets: e.sets.filter((x) => !fresh.some((f) => f.id === x.id)) }
+                : e,
+            ),
+          );
+        }),
+      );
+    }
+    setWarmupExId(null);
+  };
+
+  useEffect(() => {
+    let alive = true;
+    void listExerciseUsage()
+      .then((u) => {
+        if (!alive) return;
+        setLastTrained(new Map([...u].map(([id, v]) => [id, v.lastAt])));
+      })
+      .catch(() => {});
+    void getDeloadState().then((d) => {
+      if (alive) setDeload(d);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  /**
+   * The proposal for a set, or null when there is nothing worth saying.
+   *
+   * Computed at render and never stored: ✓ logs what is in the inputs, so the
+   * suggestion can never become a value the user didn't choose.
+   *
+   * NOTE (decision #4, routine targets): schema has no rep-range field, and the
+   * screen doesn't load the routine, so "reached the target" falls back to the
+   * spec's documented alternative — matching what you did last time.
+   */
+  const suggestionFor = (exId: string, setId: string) => {
+    const ex = exercises.find((e) => e.id === exId);
+    const set = ex?.sets.find((x) => x.id === setId);
+    if (!ex || !set) return null;
+    const catalogId = ex.exerciseCatalogId;
+    return suggestNextSet({
+      equipment: ex.equipment,
+      kind: ex.kind,
+      setType: set.type,
+      last:
+        set.prevWeight != null || set.prevReps != null
+          ? { weight: Number(set.prevWeight ?? 0), reps: Number(set.prevReps ?? 0) }
+          : null,
+      lastSessionAt: catalogId ? (lastTrained.get(catalogId) ?? null) : null,
+      targetReps: null,
+      stepKg: ex.equipment === 'barbell' ? smallestStepKg(plateSetup) : 2.5,
+      now: Date.now(),
+      // The only route to a downward suggestion: a deload the user accepted on
+      // a previous summary. Nothing here decides to back off on its own.
+      deloadActive: !!(deload && catalogId && deloadActiveFor(deload, catalogId)),
+    });
+  };
+
+  /** Groups `exId` with the chosen partners, or dissolves its group. */
+  const applySuperset = async (exId: string, partnerIds: string[]) => {
+    if (!workoutId) return;
+    const ids = [exId, ...partnerIds];
+    try {
+      const group = await nextSupersetGroup(workoutId);
+      await setSupersetGroup(ids, group);
+      setExercises((prev) =>
+        prev.map((e) => (ids.includes(e.id) ? { ...e, supersetGroup: group } : e)),
+      );
+    } catch {
+      // Grouping failed; the list is unchanged, so nothing is half-applied.
+    }
+    setSupersetExId(null);
+  };
+
+  const leaveSuperset = async (exId: string) => {
+    const me = exercises.find((e) => e.id === exId);
+    if (!me || me.supersetGroup == null) return;
+    const remaining = exercises.filter(
+      (e) => e.supersetGroup === me.supersetGroup && e.id !== exId,
+    );
+    // A group of one is not a superset, so it dissolves with the leaver rather
+    // than lingering as a rail drawn around a single card.
+    const toClear = remaining.length <= 1 ? [exId, ...remaining.map((e) => e.id)] : [exId];
+    try {
+      await setSupersetGroup(toClear, null);
+      setExercises((prev) =>
+        prev.map((e) => (toClear.includes(e.id) ? { ...e, supersetGroup: null } : e)),
+      );
+    } catch {
+      // as above
+    }
+    setOpenMenuId(null);
+  };
+
+  // --- supersets (#53) -------------------------------------------------
+  const ssLabels = useMemo(
+    () =>
+      groupLabels(
+        exercises.map((e) => ({
+          id: e.id,
+          supersetGroup: e.supersetGroup ?? null,
+          rest: e.rest,
+          sets: [],
+        })),
+      ),
+    [exercises],
+  );
+
+  /** "A1" / "A2" — letter of the group, index within it. */
+  const supersetTagFor = (exId: string): string | null => {
+    const me = exercises.find((e) => e.id === exId);
+    if (!me || me.supersetGroup == null) return null;
+    const letter = ssLabels.get(me.supersetGroup);
+    if (!letter) return null;
+    const partners = exercises.filter((e) => e.supersetGroup === me.supersetGroup);
+    return `${letter}${partners.findIndex((e) => e.id === exId) + 1}`;
+  };
+
+  /**
+   * Earlier partners don't own the round's rest, so their row says where it
+   * actually lives rather than a duration that will never run. Their stored
+   * value is untouched, for when the group is broken up again.
+   */
+  const restLabelFor = (exId: string): string | null => {
+    const me = exercises.find((e) => e.id === exId);
+    if (!me || me.supersetGroup == null) return null;
+    const partners = exercises.filter((e) => e.supersetGroup === me.supersetGroup);
+    if (partners.length < 2) return null;
+    const i = partners.findIndex((e) => e.id === exId);
+    if (i === partners.length - 1) return null;
+    const letter = ssLabels.get(me.supersetGroup);
+    return `None · then ${letter}${i + 2}`;
+  };
+
+  /** Round label for the group header, from the first partner's progress. */
+  const supersetHeaderFor = (exId: string): string | null => {
+    const me = exercises.find((e) => e.id === exId);
+    if (!me || me.supersetGroup == null) return null;
+    const partners = exercises.filter((e) => e.supersetGroup === me.supersetGroup);
+    if (partners.length < 2 || partners[0].id !== exId) return null; // header once per group
+    const letter = ssLabels.get(me.supersetGroup);
+    const rounds = Math.max(
+      ...partners.map((p) => p.sets.filter((x) => x.type === 'normal').length),
+    );
+    const lead = partners[0];
+    const doneRounds = lead.sets.filter((x) => x.type === 'normal' && x.done).length;
+    const current = Math.min(rounds, doneRounds + 1);
+    return `SUPERSET ${letter} · ROUND ${current} OF ${rounds}`;
+  };
 
   const statusText = status === 'active' ? 'In progress' : status;
   const restSheetExercise = exercises.find((e) => e.id === restSheetExId) ?? null;
@@ -1173,8 +1454,17 @@ export default function ActiveWorkout() {
           {!loading && exercises.length === 0 && <EmptyWorkout />}
 
           {exercises.map((ex) => (
-            <ExerciseCard
+            <View
               key={ex.id}
+              style={ex.supersetGroup != null ? styles.ssMember : undefined}
+            >
+              {/* One header per group, then a rail down the screen margin tying
+                  the partners together. No new colour: a 2pt text3 line. */}
+              {supersetHeaderFor(ex.id) ? (
+                <Text style={styles.ssHeader}>{supersetHeaderFor(ex.id)}</Text>
+              ) : null}
+              {ex.supersetGroup != null ? <View style={styles.ssRail} /> : null}
+            <ExerciseCard
               exercise={ex}
               onDeleteSet={(setId) => deleteSet(ex.id, setId)}
               openSetId={openSetId}
@@ -1186,6 +1476,16 @@ export default function ActiveWorkout() {
               menuOpen={openMenuId === ex.id}
               onToggleMenu={() => setOpenMenuId((id) => (id === ex.id ? null : ex.id))}
               onReplace={() => openReplace(ex.id)}
+              onSuperset={
+                exercises.length < 2
+                  ? undefined
+                  : () => {
+                      setOpenMenuId(null);
+                      if (ex.supersetGroup != null) void leaveSuperset(ex.id);
+                      else setSupersetExId(ex.id);
+                    }
+              }
+              inSuperset={ex.supersetGroup != null}
               onRemove={() => removeExercise(ex.id)}
               onNoteChange={(t) => setNote(ex.id, t)}
               onOpenRest={() => {
@@ -1198,12 +1498,24 @@ export default function ActiveWorkout() {
               onWeightChange={(setId, t) => editWeight(ex.id, setId, t)}
               onRepsChange={(setId, t) => editReps(ex.id, setId, t)}
               onToggleDone={(setId) => toggleDone(ex.id, setId)}
+              onFieldFocus={(setId) => setFocusedSet({ exerciseId: ex.id, setId })}
+              onWarmup={warmupBaseFor(ex) ? () => setWarmupExId(ex.id) : undefined}
+              suggestionFor={(setId) => suggestionFor(ex.id, setId)}
+              onUseSuggestion={(setId) => {
+                const sug = suggestionFor(ex.id, setId);
+                if (!sug) return;
+                editWeight(ex.id, setId, String(sug.weight));
+                editReps(ex.id, setId, String(sug.reps));
+              }}
               onOpenDetail={
                 ex.exerciseCatalogId
                   ? () => router.push(`/exercise/${ex.exerciseCatalogId}`)
                   : undefined
               }
+              supersetTag={supersetTagFor(ex.id)}
+              restOverrideLabel={restLabelFor(ex.id)}
             />
+            </View>
           ))}
 
           <PressableScale
@@ -1229,6 +1541,21 @@ export default function ActiveWorkout() {
           New Architecture. iOS-only; shown only while the keyboard is up. */}
       {Platform.OS === 'ios' && kbHeight > 0 && (
         <View style={[styles.kbdAccessory, { bottom: kbHeight }]}>
+          {/* Plates only for barbell work. Dumbbells, machines and cables come in
+              whatever increments they come in, so there is nothing to calculate —
+              and a disabled button on every other exercise is worse than none. */}
+          {plateExercise ? (
+            <Pressable
+              onPress={() => setPlateSheetOpen(true)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Plate calculator"
+            >
+              <Text style={styles.kbdAccessoryAction}>Plates</Text>
+            </Pressable>
+          ) : (
+            <View />
+          )}
           <Pressable
             onPress={() => Keyboard.dismiss()}
             hitSlop={8}
@@ -1248,6 +1575,44 @@ export default function ActiveWorkout() {
         onMinus15={() => adjustRest(-15)}
         onPlus15={() => adjustRest(15)}
         onSkip={endRest}
+      />
+
+      {warmupExercise && warmupBase && (
+        <WarmupSheet
+          visible
+          exerciseName={warmupExercise.name}
+          workingKg={warmupBase.kg}
+          workingReps={warmupBase.reps}
+          equipment={warmupExercise.equipment}
+          setup={plateSetup}
+          onInsert={(rows) => insertWarmups(warmupExercise.id, rows)}
+          onClose={() => setWarmupExId(null)}
+        />
+      )}
+
+      <SupersetSheet
+        visible={supersetExId != null}
+        anchorExercise={exercises.find((e) => e.id === supersetExId) ?? null}
+        candidates={exercises.filter((e) => e.id !== supersetExId)}
+        onConfirm={(ids) => {
+          if (supersetExId) void applySuperset(supersetExId, ids);
+        }}
+        onClose={() => setSupersetExId(null)}
+      />
+
+      <PlateSheet
+        visible={plateSheetOpen}
+        targetKg={plateTargetKg}
+        setup={plateSetup}
+        onUse={(kgValue) => {
+          if (focusedSet) editWeight(focusedSet.exerciseId, focusedSet.setId, String(kgValue));
+          setPlateSheetOpen(false);
+        }}
+        onEditSetup={() => {
+          setPlateSheetOpen(false);
+          router.push('/plates');
+        }}
+        onClose={() => setPlateSheetOpen(false)}
       />
 
       <RestPickerSheet
@@ -1411,12 +1776,40 @@ const styles = StyleSheet.create({
     // above the keyboard.
     height: 44,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    // Plates sits left, Done right. With no Plates an empty View holds the slot
+    // so Done stays where the thumb already expects it.
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
     backgroundColor: color.surface2,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.border,
+  },
+  // Partners sit 4pt apart and share a rail in the screen margin.
+  ssMember: { position: 'relative', marginBottom: 4 },
+  ssHeader: {
+    fontFamily: font.monoMedium,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: color.text3,
+    paddingTop: 10,
+    paddingBottom: 6,
+    paddingLeft: 7,
+  },
+  ssRail: {
+    position: 'absolute',
+    left: 7,
+    top: 0,
+    bottom: 0,
+    width: 2,
+    borderRadius: 1,
+    backgroundColor: color.text3,
+  },
+  kbdAccessoryAction: {
+    fontFamily: font.bodyMedium,
+    fontSize: 16,
+    color: color.text1,
+    paddingHorizontal: 6,
   },
   kbdAccessoryDone: {
     fontFamily: font.titleSemi,
