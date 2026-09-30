@@ -2,6 +2,8 @@
  * Pure workout-CSV helpers (parse + serialize) — no DB, node --test-runnable.
  * A flat, one-row-per-set CSV that round-trips a full training history.
  */
+import { toKg, type Unit } from '../domain/units.ts';
+
 export const CSV_COLUMNS = [
   'title', 'start_time', 'end_time', 'description', 'exercise_title', 'superset_id',
   'exercise_notes', 'set_index', 'set_type', 'weight_kg', 'reps',
@@ -34,13 +36,28 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.length > 1 || (r.length === 1 && r[0] !== ''));
 }
 
-/** CSV timestamp "10 Jul 2026, 09:00" -> epoch ms (local), or null. */
+/**
+ * CSV timestamp -> epoch ms (local), or null. Accepts our own "10 Jul 2026, 09:00"
+ * and the ISO-ish "2024-07-26 14:11:23" / "2024-07-26T14:11" / "2024-07-26" that
+ * other trackers emit. Both are read as local wall-clock time, so an imported
+ * workout keeps the date the exporting app displayed.
+ */
 export function parseCsvTime(v: string): number | null {
-  const m = /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4}),\s+(\d{1,2}):(\d{2})/.exec(v.trim());
-  if (!m) return null;
-  const month = MONTHS.indexOf(m[2]);
-  if (month < 0) return null;
-  return new Date(Number(m[3]), month, Number(m[1]), Number(m[4]), Number(m[5])).getTime();
+  const s = v.trim();
+  const m = /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4}),\s+(\d{1,2}):(\d{2})/.exec(s);
+  if (m) {
+    const month = MONTHS.indexOf(m[2]);
+    if (month < 0) return null;
+    return new Date(Number(m[3]), month, Number(m[1]), Number(m[4]), Number(m[5])).getTime();
+  }
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(s);
+  if (iso) {
+    return new Date(
+      Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]),
+      Number(iso[4] ?? 0), Number(iso[5] ?? 0), Number(iso[6] ?? 0),
+    ).getTime();
+  }
+  return null;
 }
 
 const fmtCsvTime = (ms: number): string => {
@@ -96,26 +113,98 @@ export type ParsedWorkoutCsv = {
     }[];
   }[];
   rowsSkipped: number;
+  /** True when the header stated its weight unit (`weight_kg` / `weight_lb`). */
+  weightUnitKnown: boolean;
+  /** True when no exercise-name column resolved, so nothing in the file is importable. */
+  unmapped: boolean;
 };
 
-/** Parse a workout CSV into structured workouts (grouped by title+start_time, then exercise). */
-export function parseWorkoutCsv(text: string): ParsedWorkoutCsv {
-  const rows = parseCsv(text);
-  if (rows.length === 0) return { workouts: [], rowsSkipped: 0 };
-  const header = rows[0].map((h) => h.trim());
-  const col = (name: string) => header.indexOf(name);
-  const idx = {
-    title: col('title'), start: col('start_time'), exercise: col('exercise_title'),
-    superset: col('superset_id'), type: col('set_type'), weight: col('weight_kg'), reps: col('reps'),
+/**
+ * Header aliases, in priority order. Other trackers export the same flat
+ * one-row-per-set shape under different column names, so columns are matched on a
+ * normalized header (case, spaces and punctuation stripped) rather than an exact
+ * string. Our own CSV_COLUMNS names lead each list, so exports round-trip unchanged.
+ */
+const COLUMN_ALIASES = {
+  title: ['title', 'workoutname', 'workout'],
+  start: ['starttime', 'date', 'datetime'],
+  exercise: ['exercisetitle', 'exercisename', 'exercise'],
+  superset: ['supersetid', 'superset'],
+  type: ['settype'],
+  reps: ['reps'],
+} as const;
+
+/** Weight columns, most specific first: a header that names its unit beats a bare `weight`. */
+const WEIGHT_ALIASES: readonly (readonly [string, Unit | null])[] = [
+  ['weightkg', 'kg'],
+  ['weightkgs', 'kg'],
+  ['weightlb', 'lb'],
+  ['weightlbs', 'lb'],
+  ['weightpounds', 'lb'],
+  ['weight', null],
+];
+
+const normalizeHeader = (h: string): string => h.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function resolveColumns(header: string[]) {
+  const normed = header.map(normalizeHeader);
+  const find = (aliases: readonly string[]): number => {
+    for (const a of aliases) {
+      const i = normed.indexOf(a);
+      if (i >= 0) return i;
+    }
+    return -1;
   };
+  let weight = -1;
+  let statedUnit: Unit | null = null;
+  for (const [alias, unit] of WEIGHT_ALIASES) {
+    const i = normed.indexOf(alias);
+    if (i >= 0) {
+      weight = i;
+      statedUnit = unit;
+      break;
+    }
+  }
+  return {
+    title: find(COLUMN_ALIASES.title),
+    start: find(COLUMN_ALIASES.start),
+    exercise: find(COLUMN_ALIASES.exercise),
+    superset: find(COLUMN_ALIASES.superset),
+    type: find(COLUMN_ALIASES.type),
+    reps: find(COLUMN_ALIASES.reps),
+    weight,
+    statedUnit,
+  };
+}
+
+/**
+ * Parse a workout CSV into structured workouts, grouped by workout (title + start)
+ * then by exercise. `weightUnit` is only consulted when the header does not state a
+ * unit — an explicit `weight_kg` column is always already canonical.
+ */
+export function parseWorkoutCsv(text: string, opts?: { weightUnit?: Unit }): ParsedWorkoutCsv {
+  const rows = parseCsv(text);
+  if (rows.length === 0) {
+    return { workouts: [], rowsSkipped: 0, weightUnitKnown: false, unmapped: true };
+  }
+  const idx = resolveColumns(rows[0]);
+  const weightUnitKnown = idx.statedUnit !== null;
+  // No exercise column means no row can become a set. Report that instead of
+  // skipping all of them, which used to surface as a successful import of nothing.
+  if (idx.exercise < 0) {
+    return { workouts: [], rowsSkipped: rows.length - 1, weightUnitKnown, unmapped: true };
+  }
+  const unit: Unit = idx.statedUnit ?? opts?.weightUnit ?? 'kg';
   const byWorkout = new Map<string, ParsedWorkoutCsv['workouts'][number]>();
   let rowsSkipped = 0;
   for (let i = 1; i < rows.length; i++) {
     const r = rows[i];
-    const title = (r[idx.title] ?? '').trim();
-    const startRaw = (r[idx.start] ?? '').trim();
     const exTitle = (r[idx.exercise] ?? '').trim();
-    if (!title || !exTitle) { rowsSkipped++; continue; }
+    if (!exTitle) { rowsSkipped++; continue; }
+    const startRaw = (r[idx.start] ?? '').trim();
+    // Some exports carry no workout-name column; an unnamed workout must not cost
+    // the user the row.
+    const title = (r[idx.title] ?? '').trim() || 'Workout';
     const key = `${title}@@${startRaw}`;
     let w = byWorkout.get(key);
     if (!w) {
@@ -135,9 +224,57 @@ export function parseWorkoutCsv(text: string): ParsedWorkoutCsv {
     }
     ex.sets.push({
       type: SET_TYPE_IN[(r[idx.type] ?? '').trim()] ?? 'normal',
-      weight: num(r[idx.weight]),
+      weight: toKg(num(r[idx.weight]), unit),
       reps: num(r[idx.reps]),
     });
   }
-  return { workouts: [...byWorkout.values()], rowsSkipped };
+  return { workouts: [...byWorkout.values()], rowsSkipped, weightUnitKnown, unmapped: false };
+}
+
+export type WorkoutCsvSummary = {
+  workouts: number;
+  exercises: number;
+  sets: number;
+  /** Sets with neither weight nor reps — cardio rows this importer cannot store. */
+  cardioSkipped: number;
+  rowsSkipped: number;
+  weightUnitKnown: boolean;
+  unmapped: boolean;
+  firstWorkouts: { name: string; count: number }[];
+};
+
+/**
+ * Preview counts for a workout CSV. Derived from the same parse the import runs, so
+ * the preview cannot promise workouts the import will not write.
+ */
+export function summarizeWorkoutCsv(text: string, opts?: { weightUnit?: Unit }): WorkoutCsvSummary {
+  const parsed = parseWorkoutCsv(text, opts);
+  const exercises = new Set<string>();
+  const firstWorkouts: { name: string; count: number }[] = [];
+  let sets = 0;
+  let cardioSkipped = 0;
+  for (const w of parsed.workouts) {
+    let count = 0;
+    for (const ex of w.exercises) {
+      exercises.add(ex.title);
+      for (const s of ex.sets) {
+        sets++;
+        count++;
+        const hasWeight = s.weight !== null && s.weight > 0;
+        const hasReps = s.reps !== null && s.reps > 0;
+        if (!hasWeight && !hasReps) cardioSkipped++;
+      }
+    }
+    if (firstWorkouts.length < 5) firstWorkouts.push({ name: w.title, count });
+  }
+  return {
+    workouts: parsed.workouts.length,
+    exercises: exercises.size,
+    sets,
+    cardioSkipped,
+    rowsSkipped: parsed.rowsSkipped,
+    weightUnitKnown: parsed.weightUnitKnown,
+    unmapped: parsed.unmapped,
+    firstWorkouts,
+  };
 }

@@ -7,7 +7,7 @@
  */
 import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -22,7 +22,9 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ImportResult } from '../src/api/types';
-import { importFile } from '../src/api/workouts';
+import { getSettings, importFile } from '../src/api/workouts';
+import { summarizeWorkoutCsv } from '../src/data/workoutCsv';
+import type { Unit } from '../src/domain/units';
 import { CheckIcon, UploadIcon } from '../src/components/icons';
 import { PressableScale } from '../src/components/PressableScale';
 import { accentA, color, font } from '../src/theme/tokens';
@@ -35,17 +37,21 @@ type PickedFile = {
   mimeType?: string;
 };
 
-type ParsedCsv = {
+type ParsedPreview = {
   supported: true;
-  rows?: Record<string, string>[];
+  /** A CSV preview can be re-read under a different weight unit; a JSON backup is already canonical. */
+  kind: 'csv' | 'json';
   workouts: number;
   exercises: number;
   sets: number;
   cardioSkipped?: number;
+  rowsSkipped?: number;
+  /** False only for a CSV whose weight column never named its unit — then the user picks. */
+  weightUnitKnown: boolean;
   firstWorkouts: { name: string; count: number }[];
 };
 
-type ParsePayload = ParsedCsv | { supported: false };
+type ParsePayload = ParsedPreview | { supported: false };
 
 /** Preview summary for an Ischys JSON backup. */
 function summarizeJson(text: string): ParsePayload {
@@ -66,7 +72,7 @@ function summarizeJson(text: string): ParsePayload {
       sets += count;
       if (i < 5) firstWorkouts.push({ name: (w.name ?? 'Workout') || 'Workout', count });
     }
-    return { supported: true, workouts: wk.length, exercises: exercises.size, sets, firstWorkouts };
+    return { supported: true, kind: 'json', weightUnitKnown: true, workouts: wk.length, exercises: exercises.size, sets, firstWorkouts };
   } catch {
     return { supported: false };
   }
@@ -104,92 +110,25 @@ function XGlyph({ color: strokeColor }: { color: string }) {
   );
 }
 
-/** Minimal CSV parser: handles quoted fields with embedded commas / quotes. */
-function parseCsv(text: string): Record<string, string>[] {
-  const rows: string[][] = [];
-  let field = '';
-  let row: string[] = [];
-  let inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        field += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ',') {
-      row.push(field);
-      field = '';
-    } else if (ch === '\n' || ch === '\r') {
-      // consume CRLF as one break
-      if (ch === '\r' && text[i + 1] === '\n') i++;
-      row.push(field);
-      field = '';
-      // skip trailing blank lines
-      if (row.length > 1 || (row.length === 1 && row[0] !== '')) rows.push(row);
-      row = [];
-    } else {
-      field += ch;
-    }
-  }
-  if (field !== '' || row.length) {
-    row.push(field);
-    if (row.length > 1 || (row.length === 1 && row[0] !== '')) rows.push(row);
-  }
-  if (rows.length === 0) return [];
-  const header = rows[0].map((h) => h.trim());
-  const out: Record<string, string>[] = [];
-  for (let r = 1; r < rows.length; r++) {
-    const rec: Record<string, string> = {};
-    for (let c = 0; c < header.length; c++) rec[header[c]] = rows[r][c] ?? '';
-    out.push(rec);
-  }
-  return out;
-}
-
-function summarize(rows: Record<string, string>[]): ParsedCsv {
-  const workouts = new Set<string>();
-  const exercises = new Set<string>();
-  const workoutOrder: string[] = [];
-  const workoutCounts: Record<string, { name: string; count: number }> = {};
-  let cardioSkipped = 0;
-  for (const r of rows) {
-    const title = r['title'] ?? '';
-    const start = r['start_time'] ?? '';
-    const wKey = `${title}||${start}`;
-    if (!workouts.has(wKey)) {
-      workouts.add(wKey);
-      workoutOrder.push(wKey);
-      workoutCounts[wKey] = { name: title || 'Untitled', count: 0 };
-    }
-    workoutCounts[wKey].count += 1;
-    const ex = r['exercise_title'] ?? '';
-    if (ex) exercises.add(ex);
-    const weight = (r['weight_kg'] ?? '').trim();
-    const reps = (r['reps'] ?? '').trim();
-    const weightNum = weight === '' ? NaN : Number(weight);
-    const repsNum = reps === '' ? NaN : Number(reps);
-    const hasWeight = Number.isFinite(weightNum) && weightNum > 0;
-    const hasReps = Number.isFinite(repsNum) && repsNum > 0;
-    if (!hasWeight && !hasReps) cardioSkipped += 1;
-  }
-  const firstWorkouts = workoutOrder.slice(0, 5).map((k) => workoutCounts[k]);
+/**
+ * Preview counts for a workout CSV. Deliberately delegates to the same
+ * summarizeWorkoutCsv/parseWorkoutCsv the import itself runs: this screen used to
+ * carry its own parser that recognised only one set of column names, so a CSV with
+ * different headers previewed as a single untitled workout and then imported nothing.
+ */
+function summarizeCsvPreview(text: string, weightUnit: Unit): ParsePayload {
+  const s = summarizeWorkoutCsv(text, { weightUnit });
+  if (s.unmapped || s.workouts === 0) return { supported: false };
   return {
     supported: true,
-    rows,
-    workouts: workouts.size,
-    exercises: exercises.size,
-    sets: rows.length,
-    cardioSkipped,
-    firstWorkouts,
+    kind: 'csv',
+    workouts: s.workouts,
+    exercises: s.exercises,
+    sets: s.sets,
+    cardioSkipped: s.cardioSkipped,
+    rowsSkipped: s.rowsSkipped,
+    weightUnitKnown: s.weightUnitKnown,
+    firstWorkouts: s.firstWorkouts,
   };
 }
 
@@ -199,16 +138,32 @@ export default function ImportScreen() {
 
   const [step, setStep] = useState<Step>('file_pick');
   const [file, setFile] = useState<PickedFile | null>(null);
-  const [parse, setParse] = useState<ParsePayload | null>(null);
+  // Raw file contents, kept so the preview can be recomputed when the unit changes.
+  const [source, setSource] = useState<{ kind: 'csv' | 'json'; text: string } | 'unreadable' | null>(null);
+  // Only consulted for a CSV that never stated its unit. Seeded from the user's
+  // own setting, which is the best guess available, but always overridable below.
+  const [csvUnit, setCsvUnit] = useState<Unit>('kg');
   const [result, setResult] = useState<ImportResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Client-side parse when a file is picked, so preview can show counts.
+  // Default the unit answer to whatever the user already trains in.
   useEffect(() => {
-    if (!file) {
-      setParse(null);
-      return;
-    }
+    let alive = true;
+    void getSettings()
+      .then((settings) => {
+        if (alive && (settings?.unit === 'kg' || settings?.unit === 'lb')) setCsvUnit(settings.unit);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // Read the file when it's picked; the counts themselves are derived below so
+  // changing the unit doesn't re-read from disk.
+  useEffect(() => {
+    setSource(null);
+    if (!file) return;
     const isJson = (file.mimeType ?? '').includes('json') || /\.json$/i.test(file.name);
     const isCsv = (file.mimeType ?? '').includes('csv') || /\.csv$/i.test(file.name);
     let cancelled = false;
@@ -218,21 +173,24 @@ export default function ImportScreen() {
         const text = await res.text();
         if (cancelled) return;
         // Sniff by extension/mime, falling back to content (JSON starts with `{`).
-        if (isJson || (!isCsv && text.trimStart().startsWith('{'))) {
-          setParse(summarizeJson(text));
-        } else if (isCsv || text.includes('title')) {
-          setParse(summarize(parseCsv(text)));
-        } else {
-          setParse({ supported: false });
-        }
+        const kind = isJson || (!isCsv && text.trimStart().startsWith('{')) ? 'json' : 'csv';
+        setSource({ kind, text });
       } catch {
-        if (!cancelled) setParse({ supported: false });
+        if (!cancelled) setSource('unreadable');
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [file]);
+
+  const parse = useMemo<ParsePayload | null>(() => {
+    if (!file || source === null) return null; // still reading
+    if (source === 'unreadable') return { supported: false };
+    return source.kind === 'json'
+      ? summarizeJson(source.text)
+      : summarizeCsvPreview(source.text, csvUnit);
+  }, [file, source, csvUnit]);
 
   const pick = async () => {
     setErrorMsg(null);
@@ -254,7 +212,7 @@ export default function ImportScreen() {
     if (!file) return;
     setStep('progress');
     try {
-      const r = await importFile(file);
+      const r = await importFile(file, { weightUnit: csvUnit });
       setResult(r);
       setStep('success');
     } catch (e) {
@@ -266,7 +224,7 @@ export default function ImportScreen() {
   const reset = () => {
     setErrorMsg(null);
     setFile(null);
-    setParse(null);
+    setSource(null);
     setResult(null);
     setStep('file_pick');
   };
@@ -289,6 +247,8 @@ export default function ImportScreen() {
           <PreviewState
             file={file}
             parse={parse}
+            weightUnit={csvUnit}
+            onChangeWeightUnit={setCsvUnit}
             onChangeFile={() => setStep('file_pick')}
             onImport={startImport}
           />
@@ -398,11 +358,15 @@ function ChecklistRow({ text }: { text: string }) {
 function PreviewState({
   file,
   parse,
+  weightUnit,
+  onChangeWeightUnit,
   onChangeFile,
   onImport,
 }: {
   file: PickedFile;
   parse: ParsePayload | null;
+  weightUnit: Unit;
+  onChangeWeightUnit: (u: Unit) => void;
   onChangeFile: () => void;
   onImport: () => void;
 }) {
@@ -455,7 +419,39 @@ function PreviewState({
                 {parse.cardioSkipped} rows will be skipped (cardio / rest-only)
               </Text>
             )}
+            {(parse.rowsSkipped ?? 0) > 0 && (
+              <Text style={styles.cardioSkip}>
+                {parse.rowsSkipped} rows will be skipped (no exercise name)
+              </Text>
+            )}
           </View>
+
+          {parse.kind === 'csv' && !parse.weightUnitKnown && (
+            <View style={styles.unitCard}>
+              <Text style={styles.unitQuestion}>
+                This file&apos;s weights don&apos;t say which unit they&apos;re in. Which is it?
+              </Text>
+              <View style={styles.unitToggle}>
+                {(['kg', 'lb'] as const).map((u) => {
+                  const active = weightUnit === u;
+                  return (
+                    <Pressable
+                      key={u}
+                      onPress={() => onChangeWeightUnit(u)}
+                      style={[styles.unitBtn, active && styles.unitBtnActive]}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={u === 'kg' ? 'Kilograms' : 'Pounds'}
+                    >
+                      <Text style={[styles.unitBtnText, active && styles.unitBtnTextActive]}>
+                        {u.toUpperCase()}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
 
           {parse.firstWorkouts.length > 0 && (
             <>
@@ -901,6 +897,39 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: color.text3,
   },
+  unitCard: {
+    backgroundColor: color.surface1,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 12,
+    gap: 12,
+  },
+  unitQuestion: {
+    fontFamily: font.titleSemi,
+    fontSize: 13,
+    fontWeight: '600',
+    color: color.text2,
+    lineHeight: 18,
+  },
+  unitToggle: { flexDirection: 'row', gap: 8 },
+  unitBtn: {
+    flex: 1,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: color.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unitBtnActive: { borderColor: color.accent, backgroundColor: accentA(0.12) },
+  unitBtnText: {
+    fontFamily: font.monoRegular,
+    fontSize: 12.5,
+    color: color.text3,
+  },
+  unitBtnTextActive: { color: color.accent },
   firstLabel: { marginTop: 16 },
   previewList: { flexDirection: 'column', gap: 8 },
   previewRow: {
