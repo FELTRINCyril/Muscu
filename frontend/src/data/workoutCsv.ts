@@ -60,6 +60,29 @@ export function parseCsvTime(v: string): number | null {
   return null;
 }
 
+/**
+ * A workout duration -> seconds, or null. Accepts "24m", "1h 5m", "90s", "45 min"
+ * and clock form ("45:00" as mm:ss, "1:05:30" as h:mm:ss).
+ *
+ * A bare number is deliberately rejected: exports disagree on whether it means
+ * seconds or minutes, and either guess is wrong by 60x.
+ */
+export function parseCsvDuration(v: string): number | null {
+  const s = v.trim().toLowerCase();
+  if (!s) return null;
+  const clock = /^(\d+):(\d{2})(?::(\d{2}))?$/.exec(s);
+  if (clock) {
+    return clock[3] === undefined
+      ? Number(clock[1]) * 60 + Number(clock[2])
+      : Number(clock[1]) * 3600 + Number(clock[2]) * 60 + Number(clock[3]);
+  }
+  const parts = /^(?:(\d+(?:\.\d+)?)\s*h)?\s*(?:(\d+(?:\.\d+)?)\s*m(?:in)?)?\s*(?:(\d+(?:\.\d+)?)\s*s)?$/.exec(s);
+  if (parts && (parts[1] !== undefined || parts[2] !== undefined || parts[3] !== undefined)) {
+    return Math.round(Number(parts[1] ?? 0) * 3600 + Number(parts[2] ?? 0) * 60 + Number(parts[3] ?? 0));
+  }
+  return null;
+}
+
 const fmtCsvTime = (ms: number): string => {
   const d = new Date(ms);
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -106,6 +129,9 @@ export type ParsedWorkoutCsv = {
   workouts: {
     title: string;
     startedAt: number | null;
+    endedAt: number | null;
+    /** Seconds, or null when the file said nothing — which is not the same as zero. */
+    durationSeconds: number | null;
     exercises: {
       title: string;
       superset: number | null;
@@ -128,6 +154,10 @@ export type ParsedWorkoutCsv = {
 const COLUMN_ALIASES = {
   title: ['title', 'workoutname', 'workout'],
   start: ['starttime', 'date', 'datetime'],
+  end: ['endtime', 'enddate'],
+  // Workout-level only. Our own set-level cardio column normalizes to
+  // 'durationseconds', so it can never be mistaken for this one.
+  duration: ['duration', 'workoutduration', 'totalduration'],
   exercise: ['exercisetitle', 'exercisename', 'exercise'],
   superset: ['supersetid', 'superset'],
   type: ['settype'],
@@ -168,6 +198,8 @@ function resolveColumns(header: string[]) {
   return {
     title: find(COLUMN_ALIASES.title),
     start: find(COLUMN_ALIASES.start),
+    end: find(COLUMN_ALIASES.end),
+    duration: find(COLUMN_ALIASES.duration),
     exercise: find(COLUMN_ALIASES.exercise),
     superset: find(COLUMN_ALIASES.superset),
     type: find(COLUMN_ALIASES.type),
@@ -208,7 +240,23 @@ export function parseWorkoutCsv(text: string, opts?: { weightUnit?: Unit }): Par
     const key = `${title}@@${startRaw}`;
     let w = byWorkout.get(key);
     if (!w) {
-      w = { title, startedAt: parseCsvTime(startRaw), exercises: [] };
+      const startedAt = parseCsvTime(startRaw);
+      // Prefer an explicit end time (our own export writes one, to the minute) and
+      // fall back to a duration column. Every row of a workout repeats both.
+      const endedAt = parseCsvTime((r[idx.end] ?? '').trim());
+      const stated = parseCsvDuration((r[idx.duration] ?? '').trim());
+      const spanned =
+        endedAt !== null && startedAt !== null && endedAt >= startedAt
+          ? Math.round((endedAt - startedAt) / 1000)
+          : null;
+      const durationSeconds = spanned ?? stated;
+      w = {
+        title,
+        startedAt,
+        endedAt: endedAt ?? (startedAt !== null && stated !== null ? startedAt + stated * 1000 : null),
+        durationSeconds,
+        exercises: [],
+      };
       byWorkout.set(key, w);
     }
     const num = (v: string | undefined) => {

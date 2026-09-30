@@ -6,6 +6,7 @@ import {
   parseCsv,
   parseWorkoutCsv,
   parseCsvTime,
+  parseCsvDuration,
   summarizeWorkoutCsv,
   toWorkoutCsv,
   type ExportWorkout,
@@ -135,4 +136,55 @@ test('summarizeWorkoutCsv flags a CSV whose columns it cannot map', () => {
   const s = summarizeWorkoutCsv('foo,bar\n1,2\n');
   assert.equal(s.workouts, 0);
   assert.equal(s.unmapped, true);
+});
+
+// --- Workout duration ---------------------------------------------------------
+test('parseCsvDuration reads the formats exports actually use', () => {
+  assert.equal(parseCsvDuration('24m'), 24 * 60);
+  assert.equal(parseCsvDuration('39m'), 39 * 60);
+  assert.equal(parseCsvDuration('1h'), 3600);
+  assert.equal(parseCsvDuration('1h 5m'), 3900);
+  assert.equal(parseCsvDuration('1h5m30s'), 3930);
+  assert.equal(parseCsvDuration('90s'), 90);
+  assert.equal(parseCsvDuration('45 min'), 45 * 60);
+  assert.equal(parseCsvDuration('0m'), 0);
+  // Clock form: two parts read as mm:ss, three as h:mm:ss.
+  assert.equal(parseCsvDuration('45:00'), 45 * 60);
+  assert.equal(parseCsvDuration('1:05:30'), 3930);
+});
+
+test('parseCsvDuration refuses to guess a bare number', () => {
+  // Seconds or minutes? Wrong either way is a wildly wrong workout length.
+  assert.equal(parseCsvDuration('24'), null);
+  assert.equal(parseCsvDuration('garbage'), null);
+  assert.equal(parseCsvDuration(''), null);
+});
+
+test('parseWorkoutCsv takes duration from a Duration column', () => {
+  const parsed = parseWorkoutCsv(TITLECASE_CSV);
+  assert.equal(parsed.workouts[0].durationSeconds, 24 * 60);
+  assert.equal(parsed.workouts[0].endedAt, parsed.workouts[0].startedAt! + 24 * 60 * 1000);
+  assert.equal(parsed.workouts[1].durationSeconds, 39 * 60);
+});
+
+test('our own export round-trips duration through end_time', () => {
+  const startedAt = new Date(2026, 6, 10, 9, 0).getTime();
+  const endedAt = new Date(2026, 6, 10, 10, 30).getTime();
+  const csv = toWorkoutCsv([
+    {
+      name: 'Push', startedAt, endedAt, notes: null,
+      exercises: [{ name: 'Bench Press', note: null, supersetGroup: null,
+        sets: [{ position: 0, type: 'normal', weight: 60, reps: 8 }] }],
+    },
+  ]);
+  const w = parseWorkoutCsv(csv).workouts[0];
+  assert.equal(w.endedAt, endedAt);
+  assert.equal(w.durationSeconds, 90 * 60);
+});
+
+test('a workout with neither duration nor end time reports null, not zero', () => {
+  const csv = 'Workout Name,Exercise Name,Weight,Reps\nPush,Bench,60,8\n';
+  const w = parseWorkoutCsv(csv).workouts[0];
+  assert.equal(w.durationSeconds, null);
+  assert.equal(w.endedAt, null);
 });

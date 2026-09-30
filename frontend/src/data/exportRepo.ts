@@ -165,9 +165,15 @@ async function importWorkoutCsv(text: string, opts?: { weightUnit?: Unit }): Pro
         seen.add(key);
       }
       const wid = newId();
+      // A CSV can state duration either as an end time or as a "24m" column; keep
+      // endedAt consistent with whichever we got, and fall back to a zero-length
+      // workout only when the file said nothing at all.
+      const durationSeconds = pw.durationSeconds ?? 0;
+      const endedAt =
+        pw.endedAt ?? (durationSeconds > 0 ? startedAt + durationSeconds * 1000 : startedAt);
       await tx.insert(schema.workouts).values({
         id: wid, userId: LOCAL_USER_ID, name: pw.title, status: 'completed',
-        startedAt, endedAt: startedAt, durationSeconds: 0, updatedAt: nowMs(),
+        startedAt, endedAt, durationSeconds, updatedAt: nowMs(),
       });
       const allSets: SetLike[] = [];
       for (let p = 0; p < pw.exercises.length; p++) {
