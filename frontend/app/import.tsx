@@ -263,11 +263,13 @@ function RoutineCandidateRow({
   candidate,
   selected,
   recent,
+  dateLabel,
   onToggle,
 }: {
   candidate: RoutineCandidate;
   selected: boolean;
   recent: boolean;
+  dateLabel: string;
   onToggle: () => void;
 }) {
   return (
@@ -294,7 +296,7 @@ function RoutineCandidateRow({
         </Text>
       </View>
       <Text style={[styles.candidateDate, { color: recent ? color.text2 : color.text3 }]}>
-        {lastTrainedLabel(candidate.lastTrainedAt)}
+        {dateLabel}
       </Text>
     </Pressable>
   );
@@ -325,6 +327,7 @@ function RoutinesCard({ picks }: { picks: RoutinePicks }) {
             candidate={c}
             selected={picked.has(c.key)}
             recent={isRecentlyTrained(c.lastTrainedAt, newestAt)}
+            dateLabel={lastTrainedLabel(c.lastTrainedAt, newestAt)}
             onToggle={() => picks.toggle(c.key)}
           />
         ))}

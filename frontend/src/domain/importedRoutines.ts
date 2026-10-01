@@ -138,10 +138,21 @@ export function routineCandidateMeta(c: RoutineCandidate): string {
   )}`;
 }
 
-/** `28 SEP` — the right-hand column. Local time, since the user trained locally. */
-export function lastTrainedLabel(ms: number): string {
+/**
+ * `28 SEP`, or `03 AUG 25` when the row is from a different year than the newest
+ * session in the import. Local time, since the user trained locally.
+ *
+ * The year is not decoration. A real import listed "New upper · 03 AUG" (2025)
+ * below "Lower & Core · 23 JUN" (2026): sorted correctly, but a day and a month
+ * alone read as the more recent of the two. A list ordered by date has to say
+ * which dates these are.
+ */
+export function lastTrainedLabel(ms: number, newestAt: number): string {
   const d = new Date(ms);
-  return `${String(d.getDate()).padStart(2, '0')} ${MONTHS[d.getMonth()]}`;
+  const day = `${String(d.getDate()).padStart(2, '0')} ${MONTHS[d.getMonth()]}`;
+  const year = d.getFullYear();
+  if (year === new Date(newestAt).getFullYear()) return day;
+  return `${day} ${String(year % 100).padStart(2, '0')}`;
 }
 
 /** Whether a row's date gets the brighter colour. `newestAt` is the newest import. */

@@ -150,9 +150,19 @@ test('meta line names sessions and exercises, singular at one', () => {
 });
 
 test('last trained label is a padded day and an upper-case month', () => {
-  assert.equal(lastTrainedLabel(new Date(2026, 8, 28, 12).getTime()), '28 SEP');
-  assert.equal(lastTrainedLabel(new Date(2026, 2, 2, 12).getTime()), '02 MAR');
-  assert.equal(lastTrainedLabel(new Date(2025, 11, 31, 12).getTime()), '31 DEC');
+  const newest = new Date(2026, 8, 30, 12).getTime();
+  assert.equal(lastTrainedLabel(new Date(2026, 8, 28, 12).getTime(), newest), '28 SEP');
+  assert.equal(lastTrainedLabel(new Date(2026, 2, 2, 12).getTime(), newest), '02 MAR');
+});
+
+test('a row from another year says so, because the month alone misleads', () => {
+  // Real data: "New upper · 03 AUG" (2025) rendered below "Lower & Core · 23 JUN"
+  // (2026) and read as the newer of the two. Sorted right, labelled wrong.
+  const newest = new Date(2026, 8, 30, 12).getTime();
+  assert.equal(lastTrainedLabel(new Date(2025, 7, 3, 12).getTime(), newest), '03 AUG 25');
+  assert.equal(lastTrainedLabel(new Date(2025, 11, 31, 12).getTime(), newest), '31 DEC 25');
+  // Same year as the newest session stays compact.
+  assert.equal(lastTrainedLabel(new Date(2026, 5, 23, 12).getTime(), newest), '23 JUN');
 });
 
 test('a session is recent when it is inside the window before the newest one', () => {
