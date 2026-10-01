@@ -105,6 +105,12 @@ export function groupImportedRoutines(sessions: ImportedSession[]): RoutineCandi
  * "N MORE · SEEN ONCE" row. A title trained once is the weakest evidence of a
  * routine, so on a long list those fold away.
  *
+ * A one-off that was trained *recently* is kept visible. The list sorts on
+ * recency, so collapsing purely on session count contradicted it: someone who
+ * switched apps mid-programme had the thing they actually train now folded away
+ * beneath months-old titles. Weak evidence and stale evidence are different
+ * things, and only the second is worth hiding.
+ *
  * Collapsing is skipped when it would empty the list: an import of nothing but
  * one-off titles should still show them, not a single row to expand.
  */
@@ -113,9 +119,12 @@ export function splitSeenOnce(candidates: RoutineCandidate[]): {
   seenOnce: RoutineCandidate[];
 } {
   if (candidates.length < COLLAPSE_MIN_TITLES) return { rows: candidates, seenOnce: [] };
-  const rows = candidates.filter((c) => c.sessions > 1);
+  const newestAt = candidates.reduce((m, c) => Math.max(m, c.lastTrainedAt), 0);
+  const keep = (c: RoutineCandidate) =>
+    c.sessions > 1 || isRecentlyTrained(c.lastTrainedAt, newestAt);
+  const rows = candidates.filter(keep);
   if (rows.length === 0) return { rows: candidates, seenOnce: [] };
-  return { rows, seenOnce: candidates.filter((c) => c.sessions === 1) };
+  return { rows, seenOnce: candidates.filter((c) => !keep(c)) };
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;

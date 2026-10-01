@@ -209,3 +209,41 @@ test('a collision is judged the way titles are matched', () => {
 test('trims the name it returns', () => {
   assert.equal(uniqueRoutineName('  Upper  ', []), 'Upper');
 });
+
+// --- A recent one-off must not be collapsed -----------------------------------
+// The list sorts on recency but the collapse rule counted sessions, so the two
+// disagreed: someone who switched apps mid-programme had the thing they actually
+// train now hidden behind the expander, under five stale titles.
+const NOW = Date.UTC(2026, 9, 1);
+const sess = (title: string, n: number, daysAgo: number) =>
+  Array.from({ length: n }, (_, i) => ({
+    workout_id: `${title}-${i}`,
+    title,
+    started_at: NOW - (daysAgo + i * 7) * DAY,
+    exercise_count: 5,
+  }));
+
+test('a title trained once but trained recently stays visible', () => {
+  const sessions = [
+    ...sess('Old Push', 20, 200), ...sess('Old Pull', 18, 205), ...sess('Old Legs', 15, 210),
+    ...sess('Temp A', 9, 220), ...sess('Temp B', 8, 230),
+    ...sess('New Upper', 1, 2),
+  ];
+  const { rows, seenOnce } = splitSeenOnce(groupImportedRoutines(sessions));
+  assert.ok(
+    rows.some((c) => c.name === 'New Upper'),
+    'the most recently trained title was hidden behind the expander',
+  );
+  assert.equal(seenOnce.length, 0);
+});
+
+test('a title trained once long ago still collapses', () => {
+  const sessions = [
+    ...sess('Old Push', 20, 200), ...sess('Old Pull', 18, 205), ...sess('Old Legs', 15, 210),
+    ...sess('Temp A', 9, 220), ...sess('Temp B', 8, 230),
+    ...sess('Abandoned', 1, 400),
+  ];
+  const { rows, seenOnce } = splitSeenOnce(groupImportedRoutines(sessions));
+  assert.deepEqual(seenOnce.map((c) => c.name), ['Abandoned']);
+  assert.ok(!rows.some((c) => c.name === 'Abandoned'));
+});
