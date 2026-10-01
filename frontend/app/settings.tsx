@@ -20,6 +20,7 @@ import {
   updateSettings,
 } from '../src/api/workouts';
 import { DraggableSheet } from '../src/components/DraggableSheet';
+import { Segment, type SegmentOption } from '../src/components/ui';
 import { toDisplay, toKg } from '../src/domain/units';
 import { getBodyweightKg, setBodyweightKg } from '../src/lib/bodyweight';
 import { syncBodyweightFromHealth } from '../src/lib/healthSync';
@@ -67,8 +68,6 @@ const DEFAULT_SETTINGS: SettingsOut = {
   rest_timer_alerts: true,
   haptic_feedback: true,
 };
-
-type SegmentOption<T extends string> = { label: string; value: T };
 
 const UNIT_OPTIONS: SegmentOption<Unit>[] = [
   { label: 'KG', value: 'kg' },
@@ -732,34 +731,7 @@ function SegmentRow<T extends string>({
       icon={icon}
       label={label}
       isLast={isLast}
-      right={
-        <View style={styles.segment}>
-          {options.map((opt) => {
-            const selected = opt.value === value;
-            return (
-              <Pressable
-                key={opt.value}
-                onPress={() => onChange(opt.value)}
-                style={[
-                  styles.segmentOption,
-                  selected && styles.segmentOptionSelected,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={opt.label}
-              >
-                <Text
-                  style={[
-                    styles.segmentText,
-                    selected && styles.segmentTextSelected,
-                  ]}
-                >
-                  {opt.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      }
+      right={<Segment options={options} value={value} onChange={onChange} />}
     />
   );
 }
@@ -942,33 +914,6 @@ const styles = StyleSheet.create({
   },
 
   // Segment
-  segment: {
-    flexDirection: 'row',
-    backgroundColor: color.surface2,
-    borderRadius: 8,
-    padding: 3,
-    flexShrink: 0,
-  },
-  segmentOption: {
-    height: 26,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentOptionSelected: {
-    backgroundColor: color.surface3,
-  },
-  segmentText: {
-    fontFamily: font.monoSemi,
-    fontSize: 12,
-    fontWeight: '600',
-    color: color.text3,
-  },
-  segmentTextSelected: {
-    color: color.text1,
-  },
-
   // Link right
   themeRow: { flexDirection: 'row', gap: 8, padding: 12 },
   themeSwatchWrap: {

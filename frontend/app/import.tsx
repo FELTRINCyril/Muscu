@@ -27,9 +27,16 @@ import { summarizeWorkoutCsv } from '../src/data/workoutCsv';
 import type { Unit } from '../src/domain/units';
 import { CheckIcon, UploadIcon } from '../src/components/icons';
 import { PressableScale } from '../src/components/PressableScale';
+import { Segment, type SegmentOption } from '../src/components/ui';
 import { accentA, color, font } from '../src/theme/tokens';
 
 type Step = 'file_pick' | 'preview' | 'progress' | 'success' | 'error';
+
+/** Same options, same control, as the Units row in Settings. */
+const UNIT_OPTIONS: SegmentOption<Unit>[] = [
+  { label: 'KG', value: 'kg' },
+  { label: 'LB', value: 'lb' },
+];
 
 type PickedFile = {
   uri: string;
@@ -424,34 +431,22 @@ function PreviewState({
                 {parse.rowsSkipped} rows will be skipped (no exercise name)
               </Text>
             )}
+            {parse.kind === 'csv' && !parse.weightUnitKnown && (
+              <>
+                <View style={styles.unitRow}>
+                  <Text style={styles.label}>WEIGHT UNIT</Text>
+                  <Segment
+                    options={UNIT_OPTIONS}
+                    value={weightUnit}
+                    onChange={onChangeWeightUnit}
+                  />
+                </View>
+                <Text style={styles.cardioSkip}>
+                  This file doesn&apos;t say, so weights are read as {weightUnit.toUpperCase()}
+                </Text>
+              </>
+            )}
           </View>
-
-          {parse.kind === 'csv' && !parse.weightUnitKnown && (
-            <View style={styles.unitCard}>
-              <Text style={styles.unitQuestion}>
-                This file&apos;s weights don&apos;t say which unit they&apos;re in. Which is it?
-              </Text>
-              <View style={styles.unitToggle}>
-                {(['kg', 'lb'] as const).map((u) => {
-                  const active = weightUnit === u;
-                  return (
-                    <Pressable
-                      key={u}
-                      onPress={() => onChangeWeightUnit(u)}
-                      style={[styles.unitBtn, active && styles.unitBtnActive]}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: active }}
-                      accessibilityLabel={u === 'kg' ? 'Kilograms' : 'Pounds'}
-                    >
-                      <Text style={[styles.unitBtnText, active && styles.unitBtnTextActive]}>
-                        {u.toUpperCase()}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          )}
 
           {parse.firstWorkouts.length > 0 && (
             <>
@@ -897,39 +892,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: color.text3,
   },
-  unitCard: {
-    backgroundColor: color.surface1,
-    borderWidth: 1,
-    borderColor: color.border,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 12,
+  unitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
   },
-  unitQuestion: {
-    fontFamily: font.titleSemi,
-    fontSize: 13,
-    fontWeight: '600',
-    color: color.text2,
-    lineHeight: 18,
-  },
-  unitToggle: { flexDirection: 'row', gap: 8 },
-  unitBtn: {
-    flex: 1,
-    height: 36,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: color.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unitBtnActive: { borderColor: color.accent, backgroundColor: accentA(0.12) },
-  unitBtnText: {
-    fontFamily: font.monoRegular,
-    fontSize: 12.5,
-    color: color.text3,
-  },
-  unitBtnTextActive: { color: color.accent },
   firstLabel: { marginTop: 16 },
   previewList: { flexDirection: 'column', gap: 8 },
   previewRow: {

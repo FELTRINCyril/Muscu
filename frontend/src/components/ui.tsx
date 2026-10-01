@@ -121,3 +121,68 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 });
+
+export type SegmentOption<T extends string> = { label: string; value: T };
+
+/**
+ * Two-or-more-option segmented control. Lifted out of the Settings units row so
+ * the import screen's unit question uses the same control the user already knows,
+ * rather than a lookalike.
+ */
+export function Segment<T extends string>({
+  options,
+  value,
+  onChange,
+  style,
+}: {
+  options: SegmentOption<T>[];
+  value: T;
+  onChange: (next: T) => void;
+  style?: ViewStyle;
+}) {
+  return (
+    <View style={[segmentStyles.segment, style]}>
+      {options.map((opt) => {
+        const selected = opt.value === value;
+        return (
+          <Pressable
+            key={opt.value}
+            onPress={() => onChange(opt.value)}
+            style={[segmentStyles.option, selected && segmentStyles.optionSelected]}
+            accessibilityRole="button"
+            accessibilityLabel={opt.label}
+          >
+            <Text style={[segmentStyles.text, selected && segmentStyles.textSelected]}>
+              {opt.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+const segmentStyles = StyleSheet.create({
+  segment: {
+    flexDirection: 'row',
+    backgroundColor: color.surface2,
+    borderRadius: 8,
+    padding: 3,
+    flexShrink: 0,
+  },
+  option: {
+    height: 26,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionSelected: { backgroundColor: color.surface3 },
+  text: {
+    fontFamily: font.monoSemi,
+    fontSize: 12,
+    fontWeight: '600',
+    color: color.text3,
+  },
+  textSelected: { color: color.text1 },
+});
