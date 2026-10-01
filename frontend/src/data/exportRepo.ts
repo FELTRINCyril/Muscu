@@ -11,6 +11,8 @@ import type { ImportResult, SetType } from '../api/types';
 import { countWorkingSets, workoutVolume, type SetLike } from '../domain/stats';
 import { LOCAL_USER_ID, newId, nowMs } from './ids';
 import { toWorkoutCsv, parseWorkoutCsv, type ExportWorkout } from './workoutCsv';
+import type { Unit } from '../domain/units';
+import { equipmentFromNameSuffix } from '../domain/exerciseNaming';
 import { parseServerDate } from '../lib/serverTime';
 import { initialsOf } from './exercisesRepo';
 import { recomputeForExercise } from './recordStore';
@@ -95,9 +97,12 @@ async function findOrCreateExercise(
     return { id: existing[0].id, created: false };
   }
   const id = newId();
+  // Read equipment off a "Deadlift (Barbell)" style name rather than stamping every
+  // import 'other': that one value also gates the duplicate-merge flow, which won't
+  // offer a name-based merge unless equipment matches.
   await exec.insert(schema.exercises).values({
     id, userId: LOCAL_USER_ID, name: name.trim(), initials: initialsOf(name.trim()),
-    kind: 'weighted', equipment: 'other', isCustom: 1, updatedAt: nowMs(),
+    kind: 'weighted', equipment: equipmentFromNameSuffix(name) ?? 'other', isCustom: 1, updatedAt: nowMs(),
   });
   cache.set(key, id);
   return { id, created: true };
@@ -106,18 +111,23 @@ async function findOrCreateExercise(
 /**
  * Import a file — an Ischys JSON backup (full fidelity: notes, supersets, PR
  * flags) or a workout CSV. Sniffs the format so the caller doesn't have to.
+ * `weightUnit` is a fallback for a CSV whose weight column doesn't name its unit;
+ * a JSON backup and an explicit `weight_kg` column ignore it.
  */
-export async function importFile(file: { uri: string; name: string; mimeType?: string }): Promise<ImportResult> {
+export async function importFile(
+  file: { uri: string; name: string; mimeType?: string },
+  opts?: { weightUnit?: Unit },
+): Promise<ImportResult> {
   const text = await readAsStringAsync(file.uri);
   const looksJson =
     text.trimStart().startsWith('{') ||
     /\.json$/i.test(file.name) ||
     (file.mimeType ?? '').includes('json');
-  return looksJson ? importJsonBackup(text) : importWorkoutCsv(text);
+  return looksJson ? importJsonBackup(text) : importWorkoutCsv(text, opts);
 }
 
-async function importWorkoutCsv(text: string): Promise<ImportResult> {
-  const parsed = parseWorkoutCsv(text);
+async function importWorkoutCsv(text: string, opts?: { weightUnit?: Unit }): Promise<ImportResult> {
+  const parsed = parseWorkoutCsv(text, opts);
 
   const cache = new Map<string, string>();
   let workoutsCreated = 0;
@@ -155,9 +165,15 @@ async function importWorkoutCsv(text: string): Promise<ImportResult> {
         seen.add(key);
       }
       const wid = newId();
+      // A CSV can state duration either as an end time or as a "24m" column; keep
+      // endedAt consistent with whichever we got, and fall back to a zero-length
+      // workout only when the file said nothing at all.
+      const durationSeconds = pw.durationSeconds ?? 0;
+      const endedAt =
+        pw.endedAt ?? (durationSeconds > 0 ? startedAt + durationSeconds * 1000 : startedAt);
       await tx.insert(schema.workouts).values({
         id: wid, userId: LOCAL_USER_ID, name: pw.title, status: 'completed',
-        startedAt, endedAt: startedAt, durationSeconds: 0, updatedAt: nowMs(),
+        startedAt, endedAt, durationSeconds, updatedAt: nowMs(),
       });
       const allSets: SetLike[] = [];
       for (let p = 0; p < pw.exercises.length; p++) {
@@ -191,6 +207,10 @@ async function importWorkoutCsv(text: string): Promise<ImportResult> {
 
   if (duplicatesSkipped > 0) {
     warnings.push(`${duplicatesSkipped} workout${duplicatesSkipped === 1 ? '' : 's'} already imported, skipped`);
+  }
+  // Recognising no columns used to look identical to importing an empty file.
+  if (parsed.unmapped) {
+    warnings.push("Couldn't recognise this CSV's columns — nothing was imported");
   }
 
   return {
