@@ -12,6 +12,7 @@ import {
 import { Edge, SafeAreaView } from 'react-native-safe-area-context';
 
 import { color, font, space, TAP_TARGET, type } from '../theme/tokens';
+import { CheckIcon } from './icons';
 import { PressableScale } from './PressableScale';
 
 export function Screen({
@@ -87,6 +88,26 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
   );
 }
 
+/**
+ * The 24pt selection circle: an unselected ring that advertises a tappable row,
+ * an accent disc with a check when it is on. Shared so every multi-select list
+ * (Add Exercise, routines-from-import) reads as the same control.
+ */
+export function SelectCircle({ selected }: { selected: boolean }) {
+  return (
+    <View
+      style={[
+        styles.selectCircle,
+        selected
+          ? { borderColor: color.accent, backgroundColor: color.accent }
+          : { borderColor: color.text3 },
+      ]}
+    >
+      {selected ? <CheckIcon size={13} color={color.accentFg} strokeWidth={3.4} /> : null}
+    </View>
+  );
+}
+
 export function Label({ children, style }: { children: React.ReactNode; style?: TextStyle }) {
   return <Text style={[styles.label, style]}>{children}</Text>;
 }
@@ -112,6 +133,16 @@ const styles = StyleSheet.create({
   },
   inert: { backgroundColor: color.surface2, borderColor: color.border },
   pressed: { opacity: 0.85 },
+  // 24pt ring, 1.5px border — present whether or not the row is selected, so the
+  // row advertises that tapping it does something.
+  selectCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   buttonRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   buttonLabel: { fontFamily: font.displayBold, fontSize: 16, letterSpacing: -0.16, color: color.accentFg },
   ghostLabel: { fontFamily: font.titleSemi, fontSize: 14.5, color: color.text2 },

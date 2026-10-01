@@ -7,7 +7,7 @@ import { readAsStringAsync } from 'expo-file-system/legacy';
 
 import { db, type Executor } from '../db/client';
 import * as schema from '../db/schema';
-import type { ImportResult, SetType } from '../api/types';
+import type { ImportedSession, ImportResult, SetType } from '../api/types';
 import { countWorkingSets, workoutVolume, type SetLike } from '../domain/stats';
 import { LOCAL_USER_ID, newId, nowMs } from './ids';
 import { toWorkoutCsv, parseWorkoutCsv, type ExportWorkout } from './workoutCsv';
@@ -136,6 +136,7 @@ async function importWorkoutCsv(text: string, opts?: { weightUnit?: Unit }): Pro
   let duplicatesSkipped = 0;
   const touched = new Set<string>();
   const warnings: string[] = [];
+  const importedSessions: ImportedSession[] = [];
 
   // Idempotency: a completed workout is identified by (name, startedAt) — the key
   // parseWorkoutCsv groups on. Re-importing the same export, or a later overlapping one,
@@ -200,6 +201,16 @@ async function importWorkoutCsv(text: string, opts?: { weightUnit?: Unit }): Pro
         totalVolume: workoutVolume(allSets, 0, countWarmups), totalSets: countWorkingSets(allSets), updatedAt: nowMs(),
       }).where(eq(schema.workouts.id, wid));
       workoutsCreated++;
+      // Reported so the success screen can offer to rebuild routines from this
+      // history; a workout the file never named has no routine name to offer.
+      if (pw.titled) {
+        importedSessions.push({
+          workout_id: wid,
+          title: pw.title,
+          started_at: startedAt,
+          exercise_count: pw.exercises.length,
+        });
+      }
     }
 
     for (const exId of touched) await recomputeForExercise(exId, tx, null, countWarmups);
@@ -219,6 +230,7 @@ async function importWorkoutCsv(text: string, opts?: { weightUnit?: Unit }): Pro
     sets_imported: setsImported,
     rows_skipped: parsed.rowsSkipped,
     warnings,
+    imported_sessions: importedSessions,
   };
 }
 
@@ -254,6 +266,10 @@ async function importJsonBackup(text: string): Promise<ImportResult> {
   let workoutsSkipped = 0;
   const touched = new Set<string>();
   const warnings: string[] = [];
+  // A JSON backup carries workouts only — `exportData` writes no routines — so a
+  // restore loses the user's routines exactly as a CSV import does, and the
+  // success screen gets the same offer to rebuild them.
+  const importedSessions: ImportedSession[] = [];
 
   const seen = new Set(
     (await db.select().from(schema.workouts).where(eq(schema.workouts.status, 'completed'))).map(
@@ -266,7 +282,8 @@ async function importJsonBackup(text: string): Promise<ImportResult> {
 
   await db.transaction(async (tx) => {
     for (const w of workoutsIn) {
-      const name = (w.name ?? '').trim() || 'Workout';
+      const rawName = (w.name ?? '').trim();
+      const name = rawName || 'Workout';
       const startedAt = parseServerDate(w.started_at ?? '');
       if (Number.isNaN(startedAt)) {
         workoutsSkipped++;
@@ -295,10 +312,12 @@ async function importJsonBackup(text: string): Promise<ImportResult> {
 
       const allSets: SetLike[] = [];
       const exs = Array.isArray(w.exercises) ? w.exercises : [];
+      let exercisesInWorkout = 0;
       for (let p = 0; p < exs.length; p++) {
         const pe = exs[p];
         const exName = (pe.name ?? '').trim();
         if (!exName) continue;
+        exercisesInWorkout++;
         const { id: exId, created } = await findOrCreateExercise(exName, cache, tx);
         if (created) exercisesCreated++;
         touched.add(exId);
@@ -341,6 +360,14 @@ async function importJsonBackup(text: string): Promise<ImportResult> {
         .set({ totalVolume: workoutVolume(allSets, 0, countWarmups), totalSets: countWorkingSets(allSets), updatedAt: nowMs() })
         .where(eq(schema.workouts.id, wid));
       workoutsCreated++;
+      if (rawName) {
+        importedSessions.push({
+          workout_id: wid,
+          title: rawName,
+          started_at: startedAt,
+          exercise_count: exercisesInWorkout,
+        });
+      }
     }
 
     for (const exId of touched) await recomputeForExercise(exId, tx, null, countWarmups);
@@ -359,5 +386,6 @@ async function importJsonBackup(text: string): Promise<ImportResult> {
     sets_imported: setsImported,
     rows_skipped: 0,
     warnings,
+    imported_sessions: importedSessions,
   };
 }

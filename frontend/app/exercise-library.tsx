@@ -30,10 +30,11 @@ import {
   nextSupersetGroup,
   setSupersetGroup,
 } from '../src/api/workouts';
-import { CheckIcon, ChevronRightIcon, InfoIcon, PlusIcon, SearchIcon } from '../src/components/icons';
+import { ChevronRightIcon, InfoIcon, PlusIcon, SearchIcon } from '../src/components/icons';
 import { setPendingSelection } from '../src/lib/pendingSelection';
 import { ExerciseAvatar } from '../src/components/ExerciseAvatar';
 import { PressableScale } from '../src/components/PressableScale';
+import { SelectCircle } from '../src/components/ui';
 import { mediaUrl } from '../src/lib/media';
 import { rankByUsage } from '../src/domain/exerciseRanking';
 import { registerPicker } from '../src/lib/exercisePicker';
@@ -495,18 +496,7 @@ function ExerciseRow({
     >
       {/* A selection circle up front, so a row reads as selectable before it is
           tapped. Without it, whole-row tapping isn't discoverable. */}
-      {selectable ? (
-        <View
-          style={[
-            styles.pickCircle,
-            selected
-              ? { borderColor: color.accent, backgroundColor: color.accent }
-              : { borderColor: color.text3 },
-          ]}
-        >
-          {selected ? <CheckIcon size={13} color={color.accentFg} strokeWidth={3.4} /> : null}
-        </View>
-      ) : null}
+      {selectable ? <SelectCircle selected={selected} /> : null}
 
       <ExerciseAvatar
         imageUrl={mediaUrl(exercise.image_url)}
@@ -697,16 +687,6 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
     paddingLeft: 8,
     borderRadius: 12,
-  },
-  // 24pt ring, 1.5px border — present whether or not the row is selected, so
-  // the row advertises that tapping it does something.
-  pickCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   // Full thumb target for the details affordance, matching the checkbox it
   // replaces in the same slot.

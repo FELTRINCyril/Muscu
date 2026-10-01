@@ -185,6 +185,15 @@ export function ChevronRightIcon({ size = 14, color, strokeWidth = 2.4 }: IconPr
   );
 }
 
+/** Disclosure chevron for a row that expands in place. */
+export function ChevronDownIcon({ size = 14, color, strokeWidth = 2.4 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth={strokeWidth} {...common} />
+    </Svg>
+  );
+}
+
 /** Cog/gear used by the Profile header settings button. */
 export function SettingsIcon({ size = 18, color, strokeWidth = 2 }: IconProps) {
   return (

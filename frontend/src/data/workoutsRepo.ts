@@ -19,6 +19,7 @@ import type {
   WorkoutSummaryOut,
 } from '../api/types';
 import { activityMap } from '../domain/activityMap';
+import { uniqueRoutineName } from '../domain/importedRoutines';
 import { latestBefore } from '../domain/previous';
 import { detectPrs, headlinePr } from '../domain/records';
 import { countWorkingSets, workoutVolume, type SetLike } from '../domain/stats';
@@ -591,13 +592,18 @@ export async function saveAsRoutine(wid: string): Promise<{ id: string; name: st
     .where(eq(schema.workoutExercises.workoutId, wid))
     .orderBy(asc(schema.workoutExercises.position));
 
-  const lastPos = (await db.select().from(schema.routines)).reduce((m, r) => Math.max(m, r.position + 1), 0);
+  const existing = await db.select().from(schema.routines);
+  const lastPos = existing.reduce((m, r) => Math.max(m, r.position + 1), 0);
+  // Never overwrite, and never leave two routines a list can't tell apart: a
+  // clash becomes "<name> (2)". Matters most when rebuilding routines from an
+  // import, but "Save as new" from a routine-backed summary always clashes too.
+  const name = uniqueRoutineName(w.name, existing.map((r) => r.name));
   const routineId = newId();
   await db.insert(schema.routines).values({
     id: routineId,
     userId: LOCAL_USER_ID,
-    name: w.name,
-    initials: initialsOf(w.name),
+    name,
+    initials: initialsOf(name),
     position: lastPos,
     updatedAt: nowMs(),
   });
@@ -630,5 +636,5 @@ export async function saveAsRoutine(wid: string): Promise<{ id: string; name: st
       });
     }
   }
-  return { id: routineId, name: w.name };
+  return { id: routineId, name };
 }

@@ -18,16 +18,29 @@ import {
   Text,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { ImportResult } from '../src/api/types';
-import { getSettings, importFile } from '../src/api/workouts';
+import { getSettings, importFile, saveAsRoutine } from '../src/api/workouts';
 import { summarizeWorkoutCsv } from '../src/data/workoutCsv';
 import type { Unit } from '../src/domain/units';
-import { CheckIcon, UploadIcon } from '../src/components/icons';
+import {
+  createRoutinesLabel,
+  groupImportedRoutines,
+  isRecentlyTrained,
+  lastTrainedLabel,
+  partialFailureNote,
+  routineCandidateMeta,
+  seenOnceLabel,
+  splitSeenOnce,
+  titlesHeaderLabel,
+  type RoutineCandidate,
+} from '../src/domain/importedRoutines';
+import { CheckIcon, ChevronDownIcon, UploadIcon } from '../src/components/icons';
 import { PressableScale } from '../src/components/PressableScale';
-import { Segment, type SegmentOption } from '../src/components/ui';
+import { Segment, SelectCircle, type SegmentOption } from '../src/components/ui';
+import { haptics } from '../src/lib/haptics';
 import { accentA, color, font } from '../src/theme/tokens';
 
 type Step = 'file_pick' | 'preview' | 'progress' | 'success' | 'error';
@@ -139,6 +152,257 @@ function summarizeCsvPreview(text: string, weightUnit: Unit): ParsePayload {
   };
 }
 
+// --- Routines from imported history (board 12a) ---------------------------
+
+/**
+ * The pick list state. An import restores sessions, not routines, so the success
+ * screen offers to rebuild them — one `saveAsRoutine` per picked title, from that
+ * title's most recent session.
+ *
+ * Nothing starts ticked: session count can't tell a routine from a scratch name,
+ * and a suggestion the user has to un-tick is auto-creation with extra steps.
+ */
+function useRoutinePicks(result: ImportResult | null, onCreated: () => void) {
+  const candidates = useMemo(
+    () => groupImportedRoutines(result?.imported_sessions ?? []),
+    [result],
+  );
+  const { rows, seenOnce } = useMemo(() => splitSeenOnce(candidates), [candidates]);
+  const newestAt = candidates.length ? candidates[0].lastTrainedAt : 0;
+
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
+  const [expanded, setExpanded] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failedKeys, setFailedKeys] = useState<string[]>([]);
+  // Keys already written. A retry must not create a second copy of a routine
+  // that landed on the first attempt.
+  const createdKeys = useRef(new Set<string>());
+
+  const toggle = (key: string) => {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+    // Changing the picks invalidates the last attempt's tally, so the footer goes
+    // back to Create rather than reporting a count that no longer adds up.
+    setFailedKeys([]);
+  };
+
+  const failedNames = candidates.filter((c) => failedKeys.includes(c.key)).map((c) => c.name);
+  const failureNote = partialFailureNote(createdKeys.current.size, picked.size, failedNames);
+
+  const create = async () => {
+    if (busy) return;
+    const targets = candidates.filter(
+      (c) => picked.has(c.key) && !createdKeys.current.has(c.key),
+    );
+    if (targets.length === 0) {
+      onCreated();
+      return;
+    }
+    setBusy(true);
+    const failures: string[] = [];
+    // Sequential: each routine's position is derived from the rows already there,
+    // and so is the "(2)" suffix a name clash gets.
+    for (const c of targets) {
+      try {
+        await saveAsRoutine(c.workoutId);
+        createdKeys.current.add(c.key);
+      } catch {
+        failures.push(c.key);
+      }
+    }
+    setFailedKeys(failures);
+    setBusy(false);
+    if (failures.length === 0) {
+      haptics.success();
+      onCreated();
+    } else {
+      // Nothing is rolled back — the routines that landed are still what was asked for.
+      haptics.error();
+    }
+  };
+
+  return {
+    candidates,
+    rows: expanded ? candidates : rows,
+    seenOnce,
+    expanded,
+    expand: () => setExpanded(true),
+    picked,
+    toggle,
+    newestAt,
+    busy,
+    failureNote,
+    retrying: failedKeys.length > 0,
+    create,
+  };
+}
+
+type RoutinePicks = ReturnType<typeof useRoutinePicks>;
+
+/** The vertical fade that lifts the pinned CTA off the scrolling list. */
+function FooterFade() {
+  return (
+    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+      <Defs>
+        <LinearGradient id="importFooterFade" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={color.bg} stopOpacity={0} />
+          <Stop offset="0.38" stopColor={color.bg} stopOpacity={1} />
+          <Stop offset="1" stopColor={color.bg} stopOpacity={1} />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill="url(#importFooterFade)" />
+    </Svg>
+  );
+}
+
+function RoutineCandidateRow({
+  candidate,
+  selected,
+  recent,
+  dateLabel,
+  onToggle,
+}: {
+  candidate: RoutineCandidate;
+  selected: boolean;
+  recent: boolean;
+  dateLabel: string;
+  onToggle: () => void;
+}) {
+  return (
+    // The whole row is the tap target — a 24pt circle alone is not a thumb target,
+    // and people tap the name expecting it to tick.
+    <Pressable
+      onPress={onToggle}
+      style={[
+        styles.candidateRow,
+        { backgroundColor: selected ? accentA(0.07) : 'transparent' },
+      ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={candidate.name}
+      accessibilityHint="Saves this as a routine"
+    >
+      <SelectCircle selected={selected} />
+      <View style={styles.candidateText}>
+        <Text style={styles.candidateName} numberOfLines={1} ellipsizeMode="tail">
+          {candidate.name}
+        </Text>
+        <Text style={styles.candidateMeta} numberOfLines={1}>
+          {routineCandidateMeta(candidate)}
+        </Text>
+      </View>
+      <Text style={[styles.candidateDate, { color: recent ? color.text2 : color.text3 }]}>
+        {dateLabel}
+      </Text>
+    </Pressable>
+  );
+}
+
+function RoutinesCard({ picks }: { picks: RoutinePicks }) {
+  const { candidates, rows, seenOnce, expanded, picked, newestAt } = picks;
+  return (
+    <View style={styles.routinesCard}>
+      <Text style={styles.routinesLabel}>ROUTINES</Text>
+      <Text style={styles.routinesHeading}>Save any as routines?</Text>
+      <Text style={styles.routinesBody}>
+        Your import restored sessions, not routines. Pick the ones you still train. Each is
+        built from its most recent session.
+      </Text>
+
+      <View style={styles.routinesListHead}>
+        <Text style={[styles.routinesListHeadText, styles.routinesListHeadLeft]}>
+          {titlesHeaderLabel(candidates.length)}
+        </Text>
+        <Text style={styles.routinesListHeadText}>LAST TRAINED</Text>
+      </View>
+
+      <View style={styles.routinesList}>
+        {rows.map((c) => (
+          <RoutineCandidateRow
+            key={c.key}
+            candidate={c}
+            selected={picked.has(c.key)}
+            recent={isRecentlyTrained(c.lastTrainedAt, newestAt)}
+            dateLabel={lastTrainedLabel(c.lastTrainedAt, newestAt)}
+            onToggle={() => picks.toggle(c.key)}
+          />
+        ))}
+        {!expanded && seenOnce.length > 0 && (
+          <Pressable
+            onPress={picks.expand}
+            style={styles.seenOnceRow}
+            accessibilityRole="button"
+            accessibilityLabel={seenOnceLabel(seenOnce.length)}
+            accessibilityHint="Shows the titles trained once"
+          >
+            <View style={styles.seenOnceChevron}>
+              <ChevronDownIcon size={14} color={color.text3} />
+            </View>
+            <Text style={styles.seenOnceText}>{seenOnceLabel(seenOnce.length)}</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
+/**
+ * The pinned bottom bar of the success screen. One accent button, which reads
+ * "Done" until something is picked — so leaving without creating is one tap
+ * whichever way the user came at it.
+ */
+function SuccessFooter({
+  picks,
+  offerRoutines,
+  onDone,
+  onLayoutHeight,
+  bottomInset,
+}: {
+  picks: RoutinePicks;
+  offerRoutines: boolean;
+  onDone: () => void;
+  onLayoutHeight: (h: number) => void;
+  bottomInset: number;
+}) {
+  const count = offerRoutines ? picks.picked.size : 0;
+  const label = picks.retrying ? 'Retry' : createRoutinesLabel(count);
+  // 34dp is the design's home-indicator allowance; a deeper inset wins.
+  const paddingBottom = Math.max(34, bottomInset);
+  return (
+    <View
+      style={[styles.successFooter, { paddingBottom }]}
+      onLayout={(e) => onLayoutHeight(e.nativeEvent.layout.height)}
+    >
+      <FooterFade />
+      <PressableScale
+        onPress={count === 0 ? onDone : picks.create}
+        disabled={picks.busy}
+        style={[styles.routinesCta, picks.busy && styles.importBtnDisabled]}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: picks.busy }}
+        accessibilityLabel={label}
+      >
+        <Text style={styles.routinesCtaText}>{label}</Text>
+      </PressableScale>
+      {!!picks.failureNote && <Text style={styles.failureNote}>{picks.failureNote}</Text>}
+      {count > 0 && (
+        <Pressable
+          onPress={onDone}
+          style={styles.skipBtn}
+          accessibilityRole="button"
+          accessibilityLabel={picks.retrying ? 'Done' : 'Skip'}
+        >
+          <Text style={styles.skipBtnText}>{picks.retrying ? 'Done' : 'Skip'}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 export default function ImportScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -152,6 +416,26 @@ export default function ImportScreen() {
   const [csvUnit, setCsvUnit] = useState<Unit>('kg');
   const [result, setResult] = useState<ImportResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Measured rather than assumed: the bar grows a Skip button and a failure note.
+  const [footerHeight, setFooterHeight] = useState(0);
+
+  const dismiss = () => {
+    if (router.canGoBack()) router.dismissAll();
+    else router.replace('/(tabs)');
+  };
+  // Freshly created routines are listed under History's Save-as-routine path, so
+  // that is where creating lands.
+  const goToHistory = () => {
+    try {
+      if (router.canGoBack()) router.dismissAll();
+    } catch {
+      // Not a dismissable stack — navigating is enough.
+    }
+    router.navigate('/(tabs)/history');
+  };
+  const picks = useRoutinePicks(result, goToHistory);
+  // The card is hidden when the import named nothing — there is no title to offer.
+  const offerRoutines = step === 'success' && picks.candidates.length > 0;
 
   // Default the unit answer to whatever the user already trains in.
   useEffect(() => {
@@ -244,7 +528,11 @@ export default function ImportScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: 108 + insets.top, paddingBottom: 40 + insets.bottom },
+          {
+            paddingTop: 108 + insets.top,
+            paddingBottom:
+              step === 'success' ? footerHeight + 8 : 40 + insets.bottom,
+          },
         ]}
       >
         {step === 'file_pick' && (
@@ -262,10 +550,7 @@ export default function ImportScreen() {
         )}
         {step === 'progress' && <ProgressState />}
         {step === 'success' && result && (
-          <SuccessState
-            result={result}
-            onDone={() => (router.canGoBack() ? router.dismissAll() : router.replace('/(tabs)'))}
-          />
+          <SuccessState result={result} picks={offerRoutines ? picks : null} />
         )}
         {step === 'error' && (
           <ErrorState message={errorMsg ?? 'Import failed'} onRetry={reset} />
@@ -296,6 +581,18 @@ export default function ImportScreen() {
         <Text style={styles.title} numberOfLines={1}>Import history</Text>
         <View style={styles.headerSpacer} />
       </View>
+
+      {/* The success CTA is pinned, because the routines list can be long enough
+          to scroll the action off the screen. */}
+      {step === 'success' && (
+        <SuccessFooter
+          picks={picks}
+          offerRoutines={offerRoutines}
+          onDone={dismiss}
+          onLayoutHeight={setFooterHeight}
+          bottomInset={insets.bottom}
+        />
+      )}
     </View>
   );
 }
@@ -579,12 +876,17 @@ function ProgressState() {
   );
 }
 
+/**
+ * The success screen. Counts first, then — when the import named any workouts —
+ * the offer to rebuild routines from them. The action lives in the pinned footer,
+ * so this is scrolling content only.
+ */
 function SuccessState({
   result,
-  onDone,
+  picks,
 }: {
   result: ImportResult;
-  onDone: () => void;
+  picks: RoutinePicks | null;
 }) {
   return (
     <View style={styles.successWrap}>
@@ -606,14 +908,12 @@ function SuccessState({
           {w}
         </Text>
       ))}
-      <PressableScale
-        onPress={onDone}
-        style={[styles.primaryBtn, styles.doneBtn]}
-        accessibilityRole="button"
-        accessibilityLabel="Done"
-      >
-        <Text style={styles.importBtnText}>Done</Text>
-      </PressableScale>
+      {picks && (
+        <>
+          <RoutinesCard picks={picks} />
+          <Text style={styles.routinesFootnote}>You can save more later from History.</Text>
+        </>
+      )}
     </View>
   );
 }
@@ -1042,11 +1342,146 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontVariant: ['tabular-nums'],
   },
-  doneBtn: {
-    height: 54,
-    borderRadius: 13,
-    marginTop: 28,
+  // --- Routines from imported history (board 12a) ---
+  routinesCard: {
     alignSelf: 'stretch',
+    backgroundColor: color.surface1,
+    borderWidth: 1,
+    borderColor: color.border,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 28,
+  },
+  routinesLabel: {
+    fontFamily: font.monoRegular,
+    fontSize: 11,
+    letterSpacing: 1.54, // 0.14em
+    color: color.text3,
+  },
+  routinesHeading: {
+    fontFamily: font.titleSemi,
+    fontSize: 20,
+    fontWeight: '600',
+    letterSpacing: -0.4,
+    color: color.text1,
+    marginTop: 8,
+  },
+  routinesBody: {
+    fontFamily: font.bodyRegular,
+    fontSize: 14,
+    lineHeight: 21,
+    color: color.text2,
+    marginTop: 6,
+  },
+  routinesListHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 28,
+    marginTop: 14,
+    paddingHorizontal: 4,
+  },
+  routinesListHeadText: {
+    fontFamily: font.monoRegular,
+    fontSize: 11,
+    letterSpacing: 1.1, // 0.1em
+    color: color.text3,
+  },
+  routinesListHeadLeft: { flex: 1 },
+  // The list bleeds 8dp past the card padding so a selected row's tint reads as a
+  // row rather than as a box inside a box.
+  routinesList: { marginHorizontal: -8, gap: 2 },
+  candidateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 56,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  candidateText: { flex: 1, minWidth: 0 },
+  candidateName: {
+    fontFamily: font.titleSemi,
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.15,
+    color: color.text1,
+  },
+  candidateMeta: {
+    fontFamily: font.monoRegular,
+    fontSize: 11,
+    letterSpacing: 0.66, // 0.06em
+    color: color.text3,
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
+  },
+  candidateDate: {
+    fontFamily: font.monoRegular,
+    fontSize: 11.5,
+    fontVariant: ['tabular-nums'],
+  },
+  seenOnceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 48,
+    paddingHorizontal: 12,
+  },
+  seenOnceChevron: { width: 24, alignItems: 'center' },
+  seenOnceText: {
+    fontFamily: font.monoRegular,
+    fontSize: 11.5,
+    letterSpacing: 0.92, // 0.08em
+    color: color.text2,
+  },
+  routinesFootnote: {
+    fontFamily: font.bodyRegular,
+    fontSize: 13,
+    color: color.text3,
+    textAlign: 'center',
+    marginTop: 14,
+  },
+
+  // --- Pinned success footer ---
+  successFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 36,
+    paddingHorizontal: 16,
+  },
+  routinesCta: {
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: color.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routinesCtaText: {
+    fontFamily: font.displayBold,
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.15,
+    color: color.accentFg,
+  },
+  skipBtn: {
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  skipBtnText: {
+    fontFamily: font.bodyMedium,
+    fontSize: 14,
+    fontWeight: '500',
+    color: color.text2,
+  },
+  failureNote: {
+    fontFamily: font.monoRegular,
+    fontSize: 11.5,
+    color: color.warning,
+    textAlign: 'center',
+    marginTop: 8,
   },
 
   // --- Error banner + retry ---
