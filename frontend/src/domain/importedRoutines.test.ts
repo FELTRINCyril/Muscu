@@ -247,3 +247,18 @@ test('a title trained once long ago still collapses', () => {
   assert.deepEqual(seenOnce.map((c) => c.name), ['Abandoned']);
   assert.ok(!rows.some((c) => c.name === 'Abandoned'));
 });
+
+test('a second import walks past the suffix it created last time', () => {
+  // Import once -> "Upper (2)". Import the same history again -> must not land
+  // back on "Upper (2)" and must never reuse a name already taken.
+  assert.equal(uniqueRoutineName('Upper', ['Upper', 'Upper (2)']), 'Upper (3)');
+  assert.equal(uniqueRoutineName('Upper', ['Upper', 'Upper (2)', 'Upper (3)']), 'Upper (4)');
+  // A gap is filled rather than skipped past.
+  assert.equal(uniqueRoutineName('Upper', ['Upper', 'Upper (3)']), 'Upper (2)');
+});
+
+test('the recency window includes its own boundary', () => {
+  const newest = NOW;
+  assert.equal(isRecentlyTrained(newest - RECENT_WINDOW_DAYS * DAY, newest), true);
+  assert.equal(isRecentlyTrained(newest - (RECENT_WINDOW_DAYS * DAY + 1), newest), false);
+});
