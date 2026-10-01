@@ -341,25 +341,11 @@ export default function WorkoutSummary() {
     setPromptState('prompt');
   };
 
-  // Empty shell while the fallback is loading (or if it never loads).
-  if (!view) {
-    return (
-      <View style={styles.root}>
-        <View style={[styles.header, { paddingTop: 56 + insets.top }]}>
-          <Pressable style={styles.headerBtn} onPress={onClose} hitSlop={8}>
-            <CloseIcon tint={color.text2} />
-          </Pressable>
-          <Text style={styles.headerTitle}>WORKOUT COMPLETE</Text>
-          {/* Layout spacer only — no surface fill, no press target. */}
-          <View style={styles.headerSpacer} />
-        </View>
-      </View>
-    );
-  }
-
-  const { workout, prs, muscles } = view;
-  const maxSets = muscles.length > 0 ? Math.max(...muscles.map((m) => m.sets)) : 0;
-
+  // These must stay above the `!view` return below: that early return used to
+  // sit between the hooks, so a workout opened without a warm summary cache
+  // (an import, a deep link, History after a restart) rendered the shell first,
+  // then the real screen with more hooks than the previous render, and React
+  // threw. Hooks run unconditionally; only the JSX is allowed to branch.
   // The prompt is eligible only for a routine-backed workout on the cached path
   // whose structure actually changed and that hasn't been resolved this session.
   const canPrompt = !alreadyResolved.current && !!summary && !!routineId && !!routine && diff.length > 0;
@@ -400,6 +386,25 @@ export default function WorkoutSummary() {
       alive = false;
     };
   }, [summary, canPrompt]);
+
+  // Empty shell while the fallback is loading (or if it never loads).
+  if (!view) {
+    return (
+      <View style={styles.root}>
+        <View style={[styles.header, { paddingTop: 56 + insets.top }]}>
+          <Pressable style={styles.headerBtn} onPress={onClose} hitSlop={8}>
+            <CloseIcon tint={color.text2} />
+          </Pressable>
+          <Text style={styles.headerTitle}>WORKOUT COMPLETE</Text>
+          {/* Layout spacer only — no surface fill, no press target. */}
+          <View style={styles.headerSpacer} />
+        </View>
+      </View>
+    );
+  }
+
+  const { workout, prs, muscles } = view;
+  const maxSets = muscles.length > 0 ? Math.max(...muscles.map((m) => m.sets)) : 0;
 
   const onAcceptDeload = async () => {
     if (!advice) return;
