@@ -378,9 +378,17 @@ function PreviewState({
   onImport: () => void;
 }) {
   const workoutCount = parse && parse.supported ? parse.workouts : 0;
+  // When the file doesn't name its unit, name it on the button itself. The unit is
+  // the one irreversible choice in this flow — a re-import is refused as a
+  // duplicate — so the assumption belongs on the control being tapped, not only in
+  // a note above it that is easy to scroll past.
+  const unitSuffix =
+    parse && parse.supported && parse.kind === 'csv' && !parse.weightUnitKnown
+      ? ` as ${weightUnit.toUpperCase()}`
+      : '';
   const importLabel =
     parse && parse.supported
-      ? `Import ${workoutCount} workout${workoutCount === 1 ? '' : 's'}`
+      ? `Import ${workoutCount} workout${workoutCount === 1 ? '' : 's'}${unitSuffix}`
       : 'Import file';
 
   return (
