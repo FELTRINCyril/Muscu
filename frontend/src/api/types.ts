@@ -276,6 +276,23 @@ export type SettingsUpdate = Partial<SettingsOut>;
 
 // --- Import ---
 
+/**
+ * One completed workout an import created. The counts below say how much landed;
+ * this says *what*, which is what the success screen needs to offer rebuilding
+ * routines from the imported history (board 12a) — a title alone can't be turned
+ * into a routine, only a specific session can.
+ *
+ * Untitled workouts are not reported: there is no name to offer.
+ */
+export type ImportedSession = {
+  workout_id: string;
+  /** The workout's name as the file spelled it; never blank. */
+  title: string;
+  /** Epoch ms. */
+  started_at: number;
+  exercise_count: number;
+};
+
 /** Result of a workout CSV import — counts of what landed after mapping the rows. */
 export type ImportResult = {
   workouts_created: number;
@@ -283,4 +300,10 @@ export type ImportResult = {
   sets_imported: number;
   rows_skipped: number;
   warnings: string[];
+  /**
+   * The titled workouts this import created, in the order they were written.
+   * Empty when the import created nothing, or nothing with a name — both import
+   * paths populate it, because a JSON backup carries no routines either.
+   */
+  imported_sessions: ImportedSession[];
 };

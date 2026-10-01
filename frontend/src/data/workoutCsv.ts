@@ -128,6 +128,12 @@ export function toWorkoutCsv(workouts: ExportWorkout[]): string {
 export type ParsedWorkoutCsv = {
   workouts: {
     title: string;
+    /**
+     * False when the file named no workout — `title` is then the 'Workout'
+     * fallback, which a genuinely untitled session must not be offered as a
+     * routine name under.
+     */
+    titled: boolean;
     startedAt: number | null;
     endedAt: number | null;
     /** Seconds, or null when the file said nothing — which is not the same as zero. */
@@ -236,7 +242,8 @@ export function parseWorkoutCsv(text: string, opts?: { weightUnit?: Unit }): Par
     const startRaw = (r[idx.start] ?? '').trim();
     // Some exports carry no workout-name column; an unnamed workout must not cost
     // the user the row.
-    const title = (r[idx.title] ?? '').trim() || 'Workout';
+    const rawTitle = (r[idx.title] ?? '').trim();
+    const title = rawTitle || 'Workout';
     const key = `${title}@@${startRaw}`;
     let w = byWorkout.get(key);
     if (!w) {
@@ -252,6 +259,7 @@ export function parseWorkoutCsv(text: string, opts?: { weightUnit?: Unit }): Par
       const durationSeconds = spanned ?? stated;
       w = {
         title,
+        titled: rawTitle !== '',
         startedAt,
         endedAt: endedAt ?? (startedAt !== null && stated !== null ? startedAt + stated * 1000 : null),
         durationSeconds,

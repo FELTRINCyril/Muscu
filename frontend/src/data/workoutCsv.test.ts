@@ -65,6 +65,22 @@ test('rows missing title/exercise are skipped', () => {
   assert.ok(parsed.rowsSkipped >= 1);
 });
 
+test('a workout the file never named is marked untitled', () => {
+  // The 'Workout' fallback keeps the sets, but must not become a routine name.
+  const csv =
+    'title,start_time,exercise_title,set_type,weight_kg,reps\n' +
+    ',10 Jul 2026 09:00,Bench,normal,60,8\n' +
+    'Push,11 Jul 2026 09:00,Bench,normal,60,8\n';
+  const parsed = parseWorkoutCsv(csv);
+  assert.deepEqual(
+    parsed.workouts.map((w) => [w.title, w.titled]),
+    [
+      ['Workout', false],
+      ['Push', true],
+    ],
+  );
+});
+
 // --- Third-party CSV schemas (issue #73) -------------------------------------
 // A flat one-row-per-set CSV from another tracker: Title Case headers, an
 // ISO-ish timestamp, and a unit-less `Weight` column. Before header aliasing
