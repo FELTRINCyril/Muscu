@@ -429,6 +429,108 @@ final class MigrationTests: XCTestCase {
         XCTAssertTrue(fresh.canRevert)
     }
 
+    // MARK: - V6 -> V7
+
+    /// Écrit un store avec le schéma V6 FIGÉ, puis l'ouvre avec le schéma
+    /// courant. Les dix attributs ajoutés en v7 doivent être ABSENTS (nil),
+    /// jamais un zéro inventé, et les données existantes intactes.
+    func testV6StoreMigratesToV7WithoutLoss() throws {
+        let url = temporaryDirectory.appendingPathComponent("v6-written.store")
+        let sessionId = UUID()
+        let customId = UUID()
+
+        do {
+            let container = try ModelContainer(
+                for: Schema(versionedSchema: MuscuSchemaV6.self),
+                configurations: ModelConfiguration(url: url)
+            )
+            let context = ModelContext(container)
+
+            let completed = MuscuSchemaV6.CompletedSession(
+                id: sessionId,
+                date: Date(timeIntervalSince1970: 1_700_000_000),
+                programName: "Programme v6",
+                sessionName: "Séance A",
+                durationSeconds: 3_000,
+                bodyweightKilograms: 80
+            )
+            let set = MuscuSchemaV6.CompletedSet(
+                exerciseId: "bench",
+                displayName: "Développé couché",
+                orderIndex: 0,
+                setIndex: 0,
+                weight: 100,
+                reps: 5
+            )
+            set.session = completed
+            completed.sets = [set]
+            context.insert(completed)
+
+            context.insert(MuscuSchemaV6.CustomExercise(id: customId, name: "Curl maison"))
+            context.insert(MuscuSchemaV6.ExerciseLibraryEntry(exerciseId: "bench", isFavorite: true))
+            context.insert(MuscuSchemaV6.BodyMeasurement(value: 81.5, sourceRaw: "healthKit"))
+            let adaptation = MuscuSchemaV6.AdaptationEntry(
+                exerciseId: "burpees",
+                displayName: "Burpees",
+                previousIntervalWork: 30
+            )
+            context.insert(adaptation)
+
+            try context.save()
+        }
+
+        let container = try ModelContainer(
+            for: Schema(versionedSchema: MuscuCurrentSchema.self),
+            migrationPlan: MuscuMigrationPlan.self,
+            configurations: ModelConfiguration(url: url)
+        )
+        let context = ModelContext(container)
+
+        let session = try XCTUnwrap(try context.fetch(FetchDescriptor<CompletedSession>()).first)
+        XCTAssertEqual(session.id, sessionId)
+        XCTAssertEqual(session.durationSeconds, 3_000)
+        XCTAssertEqual(session.bodyweightKilograms, 80)
+        XCTAssertNil(session.effortRating)
+        XCTAssertNil(session.avgHeartRate)
+        XCTAssertNil(session.maxHeartRate)
+        XCTAssertNil(session.minHeartRate)
+        XCTAssertNil(session.activeEnergyKcal)
+        XCTAssertNil(session.editedAt)
+
+        let set = try XCTUnwrap(session.sets.first)
+        XCTAssertEqual(set.weight, 100)
+        XCTAssertEqual(set.reps, 5)
+        XCTAssertNil(set.actualRestSeconds, "Un repos non mesuré reste absent, pas zéro")
+
+        let custom = try XCTUnwrap(try context.fetch(FetchDescriptor<CustomExercise>()).first)
+        XCTAssertEqual(custom.id, customId)
+        XCTAssertNil(custom.mergedIntoExerciseId)
+
+        let entry = try XCTUnwrap(try context.fetch(FetchDescriptor<ExerciseLibraryEntry>()).first)
+        XCTAssertTrue(entry.isFavorite)
+        XCTAssertNil(entry.demoURL)
+
+        let measurement = try XCTUnwrap(try context.fetch(FetchDescriptor<BodyMeasurement>()).first)
+        XCTAssertEqual(measurement.value, 81.5)
+        XCTAssertNil(measurement.healthSampleUUID)
+
+        // Les champs v6 survivent à l'étape suivante.
+        let migratedAdaptation = try XCTUnwrap(try context.fetch(FetchDescriptor<AdaptationEntry>()).first)
+        XCTAssertEqual(migratedAdaptation.previousIntervalWork, 30)
+
+        // Et les nouveaux champs s'écrivent puis se relisent.
+        session.effortRating = 8
+        session.avgHeartRate = 132
+        session.activeEnergyKcal = 0
+        set.actualRestSeconds = 95
+        try context.save()
+        let reread = try XCTUnwrap(try ModelContext(container).fetch(FetchDescriptor<CompletedSession>()).first)
+        XCTAssertEqual(reread.effortRating, 8)
+        XCTAssertEqual(reread.avgHeartRate, 132)
+        XCTAssertEqual(reread.activeEnergyKcal, 0, "Zéro mesuré reste zéro, distinct d'une absence")
+        XCTAssertEqual(reread.sets.first?.actualRestSeconds, 95)
+    }
+
     /// Un store corrompu ne doit pas faire disparaitre le fichier d'origine :
     /// l'ouverture echoue proprement et les octets restent sur disque.
     func testCorruptedStoreFailsWithoutDestroyingTheFile() throws {

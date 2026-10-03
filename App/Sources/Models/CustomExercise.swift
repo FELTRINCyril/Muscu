@@ -21,6 +21,15 @@ final class CustomExercise {
     var tags: [String] = []
     var isFavorite: Bool = false
 
+    // MARK: - Champs v7 (facultatifs)
+
+    /// Exercice vers lequel celui-ci a ete FUSIONNE (doublon d'un exercice
+    /// du catalogue ou d'un autre exercice personnalise). nil = exercice
+    /// actif. Conserver la fiche avec cette redirection — plutot que la
+    /// supprimer — permet de resoudre une reference ancienne (programme,
+    /// archive, appareil pas encore synchronise) vers l'exercice retenu.
+    var mergedIntoExerciseId: String?
+
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var deletedAt: Date?
@@ -37,6 +46,7 @@ final class CustomExercise {
         isUnilateral: Bool = false,
         tags: [String] = [],
         isFavorite: Bool = false,
+        mergedIntoExerciseId: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         deletedAt: Date? = nil
@@ -52,6 +62,7 @@ final class CustomExercise {
         self.isUnilateral = isUnilateral
         self.tags = tags
         self.isFavorite = isFavorite
+        self.mergedIntoExerciseId = mergedIntoExerciseId
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt

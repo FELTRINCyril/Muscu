@@ -14,6 +14,14 @@ final class ExerciseLibraryEntry {
     /// `[String]` encode, tags deja normalises (sans accent ni majuscule).
     var tagsData: Data?
     var lastUsedAt: Date?
+
+    // MARK: - Champs v7 (facultatifs)
+
+    /// Lien de demonstration choisi par l'utilisateur (video, article).
+    /// nil = aucun. Le texte est conserve tel que saisi ; sa validation
+    /// (schema http/https) se fait a la saisie et a l'import.
+    var demoURL: String?
+
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var deletedAt: Date?
@@ -23,6 +31,7 @@ final class ExerciseLibraryEntry {
         isFavorite: Bool = false,
         tagsData: Data? = nil,
         lastUsedAt: Date? = nil,
+        demoURL: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         deletedAt: Date? = nil
@@ -31,6 +40,7 @@ final class ExerciseLibraryEntry {
         self.isFavorite = isFavorite
         self.tagsData = tagsData
         self.lastUsedAt = lastUsedAt
+        self.demoURL = demoURL
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
@@ -47,9 +57,12 @@ extension ExerciseLibraryEntry {
         set { tagsData = try? JSONEncoder().encode(newValue.sorted()) }
     }
 
-    /// Une entree sans favori, sans tag et sans usage ne merite pas d'exister :
-    /// la supprimer evite d'accumuler des lignes vides au fil des clics.
-    var isEmpty: Bool { !isFavorite && tags.isEmpty && lastUsedAt == nil }
+    /// Une entree sans favori, sans tag, sans usage et sans lien de
+    /// demonstration ne merite pas d'exister : la supprimer evite d'accumuler
+    /// des lignes vides au fil des clics.
+    var isEmpty: Bool {
+        !isFavorite && tags.isEmpty && lastUsedAt == nil && (demoURL ?? "").isEmpty
+    }
 }
 
 /// Collection personnalisee d'exercices (« Mes tractions », « Voyage »...).

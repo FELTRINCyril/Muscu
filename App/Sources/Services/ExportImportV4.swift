@@ -73,6 +73,8 @@ extension ExportImport {
         var createdAt: Date
         var updatedAt: Date
         var deletedAt: Date?
+        // Champ v7 (schema SwiftData), absent des archives anterieures.
+        var demoURL: String?
     }
 
     struct CollectionDTO: Codable {
@@ -151,7 +153,8 @@ extension ExportImport {
             lastUsedAt: entry.lastUsedAt,
             createdAt: entry.createdAt,
             updatedAt: entry.updatedAt,
-            deletedAt: entry.deletedAt
+            deletedAt: entry.deletedAt,
+            demoURL: entry.demoURL
         )
     }
 
@@ -234,6 +237,7 @@ extension ExportImport {
             exerciseId: dto.exerciseId,
             isFavorite: dto.isFavorite,
             lastUsedAt: dto.lastUsedAt,
+            demoURL: dto.demoURL,
             createdAt: dto.createdAt,
             updatedAt: dto.updatedAt,
             deletedAt: dto.deletedAt

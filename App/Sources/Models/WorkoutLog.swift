@@ -71,6 +71,23 @@ final class CompletedSession {
     /// Cle de deduplication d'import. Vide hors import.
     var importSignature: String = ""
 
+    // MARK: - Champs v7 (facultatifs, migration legere)
+
+    /// Effort global ressenti, de 1 a 10. nil = non renseigne (jamais 0).
+    var effortRating: Int?
+    /// Frequence cardiaque moyenne, maximale et minimale (bpm) sur la seance,
+    /// quand une source (Sante, montre) l'a mesuree. nil = non mesuree.
+    var avgHeartRate: Double?
+    var maxHeartRate: Double?
+    var minHeartRate: Double?
+    /// Energie active depensee (kcal) mesuree par une source externe.
+    /// nil = non mesuree ; 0 serait une mesure, pas une absence.
+    var activeEnergyKcal: Double?
+    /// Derniere correction d'une seance terminee par l'utilisateur. nil =
+    /// jamais modifiee apres coup. Distinct de `updatedAt`, que la
+    /// synchronisation et les reparations touchent aussi.
+    var editedAt: Date?
+
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var deletedAt: Date?
@@ -94,6 +111,12 @@ final class CompletedSession {
         readinessEntryId: UUID? = nil,
         bodyweightKilograms: Double? = nil,
         revision: Int = 1,
+        effortRating: Int? = nil,
+        avgHeartRate: Double? = nil,
+        maxHeartRate: Double? = nil,
+        minHeartRate: Double? = nil,
+        activeEnergyKcal: Double? = nil,
+        editedAt: Date? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         deletedAt: Date? = nil,
@@ -114,6 +137,12 @@ final class CompletedSession {
         self.readinessEntryId = readinessEntryId
         self.bodyweightKilograms = bodyweightKilograms
         self.revision = revision
+        self.effortRating = effortRating
+        self.avgHeartRate = avgHeartRate
+        self.maxHeartRate = maxHeartRate
+        self.minHeartRate = minHeartRate
+        self.activeEnergyKcal = activeEnergyKcal
+        self.editedAt = editedAt
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
@@ -189,6 +218,13 @@ final class CompletedSet {
     /// anterieures a ce champ, qui n'en avaient pas besoin (aucun groupe).
     var sequenceIndex: Int = 0
 
+    // MARK: - Champs v7 (facultatifs, migration legere)
+
+    /// Repos REELLEMENT pris avant cette serie (secondes), mesure entre la
+    /// fin de la serie precedente et le debut de celle-ci. nil = non mesure
+    /// (premiere serie, saisie a posteriori, import) — jamais 0 par defaut.
+    var actualRestSeconds: Int?
+
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var deletedAt: Date?
@@ -221,6 +257,7 @@ final class CompletedSet {
         plannedExerciseId: String = "",
         formatRaw: String = SetFormat.classic.rawValue,
         sequenceIndex: Int = 0,
+        actualRestSeconds: Int? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         deletedAt: Date? = nil
@@ -249,6 +286,7 @@ final class CompletedSet {
         self.plannedExerciseId = plannedExerciseId
         self.formatRaw = formatRaw
         self.sequenceIndex = sequenceIndex
+        self.actualRestSeconds = actualRestSeconds
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt

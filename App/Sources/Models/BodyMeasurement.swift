@@ -40,6 +40,14 @@ final class BodyMeasurement {
     var sourceRaw: String = MeasurementSource.manual.rawValue
     var notes: String = ""
 
+    // MARK: - Champs v7 (facultatifs)
+
+    /// `UUID` de l'echantillon HealthKit d'origine, en texte, pour une mesure
+    /// importee depuis Sante. Dedoublonne un import de facon exacte, la ou
+    /// la comparaison valeur + date restait approximative. nil = saisie
+    /// manuelle, import fichier, ou import Sante anterieur a ce champ.
+    var healthSampleUUID: String?
+
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var deletedAt: Date?
@@ -52,6 +60,7 @@ final class BodyMeasurement {
         value: Double,
         sourceRaw: String = MeasurementSource.manual.rawValue,
         notes: String = "",
+        healthSampleUUID: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         deletedAt: Date? = nil
@@ -63,6 +72,7 @@ final class BodyMeasurement {
         self.value = value
         self.sourceRaw = sourceRaw
         self.notes = notes
+        self.healthSampleUUID = healthSampleUUID
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt

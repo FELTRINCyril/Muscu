@@ -55,7 +55,7 @@ enum SyncSerialization {
         }
 
         try add(.program, context.fetch(FetchDescriptor<Program>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))
-        try add(.completedSession, context.fetch(FetchDescriptor<CompletedSession>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))
+        try add(.completedSession, context.fetch(FetchDescriptor<CompletedSession>()), metadata: \.syncMetadata, dto: syncDTO(from:))
         try add(.activeWorkout, context.fetch(FetchDescriptor<ActiveWorkout>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))
         // Un `ExerciseRecord` porte deux performances distinctes (1RM et max
         // de repetitions). On compare la plus structurante, le 1RM, en
@@ -87,6 +87,22 @@ enum SyncSerialization {
         return result
     }
 
+    /// Charge utile synchronisée d'une séance : le DTO d'export, SANS les
+    /// mesures issues de Santé (fréquence cardiaque, énergie active).
+    ///
+    /// Les règles d'Apple interdisent de stocker dans iCloud des données
+    /// de santé lues dans HealthKit. Ces valeurs restent donc sur l'appareil
+    /// qui les a mesurées — et dans l'export JSON, déclenché explicitement
+    /// par l'utilisateur. La note d'effort, saisie dans Muscu, voyage.
+    static func syncDTO(from session: CompletedSession) -> ExportImport.CompletedSessionDTO {
+        var dto = ExportImport.dto(from: session)
+        dto.avgHeartRate = nil
+        dto.maxHeartRate = nil
+        dto.minHeartRate = nil
+        dto.activeEnergyKcal = nil
+        return dto
+    }
+
     // MARK: - Écriture
 
     enum SerializationError: LocalizedError {
@@ -116,6 +132,12 @@ enum SyncSerialization {
             return
         }
 
+        // Les mesures Santé ne voyagent pas (voir `syncDTO`) : remplacer la
+        // séance locale par la version distante ne doit pas les effacer.
+        let preservedHealth = record.kind == .completedSession
+            ? try localHealthMeasures(of: record.identifier, context: context)
+            : nil
+
         try deleteLocal(kind: record.kind, identifier: record.identifier, context: context)
 
         switch record.kind {
@@ -129,7 +151,14 @@ enum SyncSerialization {
             context.insert(program)
 
         case .completedSession:
-            context.insert(ExportImport.model(from: try decoder.decode(ExportImport.CompletedSessionDTO.self, from: record.payload)))
+            let session = ExportImport.model(from: try decoder.decode(ExportImport.CompletedSessionDTO.self, from: record.payload))
+            if let preservedHealth {
+                session.avgHeartRate = session.avgHeartRate ?? preservedHealth.avgHeartRate
+                session.maxHeartRate = session.maxHeartRate ?? preservedHealth.maxHeartRate
+                session.minHeartRate = session.minHeartRate ?? preservedHealth.minHeartRate
+                session.activeEnergyKcal = session.activeEnergyKcal ?? preservedHealth.activeEnergyKcal
+            }
+            context.insert(session)
         case .activeWorkout:
             context.insert(ExportImport.model(from: try decoder.decode(ExportImport.ActiveWorkoutDTO.self, from: record.payload)))
         case .exerciseRecord:
@@ -153,6 +182,24 @@ enum SyncSerialization {
         case .healthWorkoutLink:
             throw SerializationError.unsupportedKind(.healthWorkoutLink)
         }
+    }
+
+    private struct HealthMeasures {
+        var avgHeartRate: Double?
+        var maxHeartRate: Double?
+        var minHeartRate: Double?
+        var activeEnergyKcal: Double?
+    }
+
+    private static func localHealthMeasures(of identifier: UUID, context: ModelContext) throws -> HealthMeasures? {
+        let descriptor = FetchDescriptor<CompletedSession>(predicate: #Predicate { $0.id == identifier })
+        guard let session = try context.fetch(descriptor).first else { return nil }
+        return HealthMeasures(
+            avgHeartRate: session.avgHeartRate,
+            maxHeartRate: session.maxHeartRate,
+            minHeartRate: session.minHeartRate,
+            activeEnergyKcal: session.activeEnergyKcal
+        )
     }
 
     /// Supprime l'agrégat local portant cet identifiant, s'il existe. Les

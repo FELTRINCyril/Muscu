@@ -171,6 +171,14 @@ enum ExportImport {
         var readinessEntryId: UUID?
         var bodyweightKilograms: Double?
         var revision: Int?
+        // Champs v7 (schema SwiftData), tous facultatifs : une archive
+        // anterieure les omet et se decode sans eux.
+        var effortRating: Int?
+        var avgHeartRate: Double?
+        var maxHeartRate: Double?
+        var minHeartRate: Double?
+        var activeEnergyKcal: Double?
+        var editedAt: Date?
     }
 
     struct CompletedSetDTO: Codable {
@@ -199,6 +207,8 @@ enum ExportImport {
         var plannedExerciseId: String?
         var formatRaw: String?
         var sequenceIndex: Int?
+        // Champ v7 (schema SwiftData).
+        var actualRestSeconds: Int?
     }
 
     // MARK: - DTO Records / exercices personnalises
@@ -225,6 +235,8 @@ enum ExportImport {
         var isUnilateral: Bool?
         var tags: [String]?
         var isFavorite: Bool?
+        // Champ v7 (schema SwiftData).
+        var mergedIntoExerciseId: String?
     }
 
     // MARK: - DTO v3
@@ -264,6 +276,8 @@ enum ExportImport {
         var notes: String
         var createdAt: Date
         var updatedAt: Date
+        // Champ v7 (schema SwiftData).
+        var healthSampleUUID: String?
     }
 
     struct ReadinessEntryDTO: Codable {
@@ -924,7 +938,13 @@ enum ExportImport {
             scheduledWorkoutId: session.scheduledWorkoutId,
             readinessEntryId: session.readinessEntryId,
             bodyweightKilograms: session.bodyweightKilograms,
-            revision: session.revision
+            revision: session.revision,
+            effortRating: session.effortRating,
+            avgHeartRate: session.avgHeartRate,
+            maxHeartRate: session.maxHeartRate,
+            minHeartRate: session.minHeartRate,
+            activeEnergyKcal: session.activeEnergyKcal,
+            editedAt: session.editedAt
         )
     }
 
@@ -953,7 +973,8 @@ enum ExportImport {
             calories: set.calories,
             plannedExerciseId: set.plannedExerciseId.isEmpty ? nil : set.plannedExerciseId,
             formatRaw: set.formatRaw,
-            sequenceIndex: set.sequenceIndex
+            sequenceIndex: set.sequenceIndex,
+            actualRestSeconds: set.actualRestSeconds
         )
     }
 
@@ -980,7 +1001,8 @@ enum ExportImport {
             defaultLoadKindRaw: customExercise.defaultLoadKindRaw,
             isUnilateral: customExercise.isUnilateral,
             tags: customExercise.tags,
-            isFavorite: customExercise.isFavorite
+            isFavorite: customExercise.isFavorite,
+            mergedIntoExerciseId: customExercise.mergedIntoExerciseId
         )
     }
 
@@ -1021,7 +1043,8 @@ enum ExportImport {
             sourceRaw: measurement.sourceRaw,
             notes: measurement.notes,
             createdAt: measurement.createdAt,
-            updatedAt: measurement.updatedAt
+            updatedAt: measurement.updatedAt,
+            healthSampleUUID: measurement.healthSampleUUID
         )
     }
 
@@ -1272,7 +1295,13 @@ enum ExportImport {
             scheduledWorkoutId: dto.scheduledWorkoutId,
             readinessEntryId: dto.readinessEntryId,
             bodyweightKilograms: dto.bodyweightKilograms,
-            revision: dto.revision ?? 1
+            revision: dto.revision ?? 1,
+            effortRating: dto.effortRating,
+            avgHeartRate: dto.avgHeartRate,
+            maxHeartRate: dto.maxHeartRate,
+            minHeartRate: dto.minHeartRate,
+            activeEnergyKcal: dto.activeEnergyKcal,
+            editedAt: dto.editedAt
         )
         session.sets = dto.sets.map { setDTO -> CompletedSet in
             let set = model(from: setDTO)
@@ -1307,7 +1336,8 @@ enum ExportImport {
             calories: dto.calories,
             plannedExerciseId: dto.plannedExerciseId ?? "",
             formatRaw: dto.formatRaw ?? SetFormat.classic.rawValue,
-            sequenceIndex: dto.sequenceIndex ?? 0
+            sequenceIndex: dto.sequenceIndex ?? 0,
+            actualRestSeconds: dto.actualRestSeconds
         )
     }
 
@@ -1334,7 +1364,8 @@ enum ExportImport {
             defaultLoadKindRaw: dto.defaultLoadKindRaw ?? LoadKind.external.rawValue,
             isUnilateral: dto.isUnilateral ?? false,
             tags: dto.tags ?? [],
-            isFavorite: dto.isFavorite ?? false
+            isFavorite: dto.isFavorite ?? false,
+            mergedIntoExerciseId: dto.mergedIntoExerciseId
         )
     }
 
@@ -1374,6 +1405,7 @@ enum ExportImport {
             value: dto.value,
             sourceRaw: dto.sourceRaw,
             notes: dto.notes,
+            healthSampleUUID: dto.healthSampleUUID,
             createdAt: dto.createdAt,
             updatedAt: dto.updatedAt
         )
@@ -1584,6 +1616,7 @@ enum ExportImport {
                 throw ImportError.invalidData("durée ou nombre de séries d’une séance invalide")
             }
             for set in session.sets { try validate(set) }
+            try validateVersionSevenFields(of: session)
         }
 
         for record in envelope.records {
@@ -1605,6 +1638,12 @@ enum ExportImport {
             try validateText(exercise.equipment, label: "équipement", maximum: 200)
             try validateText(exercise.notes, label: "notes d’exercice", maximum: 10_000)
             guard exercise.primaryMuscles.count <= 50 else { throw ImportError.invalidData("trop de muscles") }
+            if let target = exercise.mergedIntoExerciseId {
+                try validateText(target, label: "exercice de fusion", maximum: 500, allowEmpty: false)
+                guard target != exercise.id.uuidString else {
+                    throw ImportError.invalidData("exercice fusionné avec lui-même")
+                }
+            }
         }
 
         if let active = envelope.activeWorkout {
@@ -1704,6 +1743,11 @@ enum ExportImport {
             try validateText(entry.exerciseId, label: "identifiant d’exercice", maximum: 500, allowEmpty: false)
             guard entry.tags.count <= 50 else { throw ImportError.invalidData("trop de tags") }
             for tag in entry.tags { try validateText(tag, label: "tag", maximum: 100, allowEmpty: false) }
+            if let link = entry.demoURL, !link.isEmpty {
+                guard DemoLink.isAcceptable(link) else {
+                    throw ImportError.invalidData("lien de démonstration invalide")
+                }
+            }
         }
 
         guard envelope.collections.count <= 500 else {
@@ -1787,6 +1831,7 @@ enum ExportImport {
                 throw ImportError.invalidData("mesure corporelle hors limites")
             }
             try validateText(measurement.customName, label: "nom de mesure", maximum: 100)
+            try validateText(measurement.healthSampleUUID ?? "", label: "identifiant d’échantillon Santé", maximum: 100)
             try validateText(measurement.notes, label: "notes de mesure", maximum: 2_000)
         }
 
@@ -1919,7 +1964,8 @@ enum ExportImport {
               (set.distanceMeters ?? 0).isFinite,
               (0...1_000_000).contains(set.distanceMeters ?? 0),
               (set.calories ?? 0).isFinite,
-              (0...100_000).contains(set.calories ?? 0) else {
+              (0...100_000).contains(set.calories ?? 0),
+              (0...86_400).contains(set.actualRestSeconds ?? 0) else {
             throw ImportError.invalidData("série hors limites")
         }
         if let notation = set.tempoNotation, !notation.isEmpty, Tempo(notation: notation) == nil {
@@ -1929,6 +1975,22 @@ enum ExportImport {
             throw ImportError.invalidData("effort de série invalide")
         }
         try validateText(set.notes ?? "", label: "notes de série", maximum: 2_000)
+    }
+
+    /// Champs ajoutes avec le schema v7. Absents = non renseignes ; presents,
+    /// ils doivent rester plausibles : une frequence cardiaque de 0 ou une
+    /// note d'effort de 11 trahit une archive alteree.
+    private static func validateVersionSevenFields(of session: CompletedSessionDTO) throws {
+        if let rating = session.effortRating, !(1...10).contains(rating) {
+            throw ImportError.invalidData("note d’effort hors échelle")
+        }
+        for value in [session.avgHeartRate, session.maxHeartRate, session.minHeartRate].compactMap({ $0 })
+        where !value.isFinite || !(20...300).contains(value) {
+            throw ImportError.invalidData("fréquence cardiaque hors limites")
+        }
+        if let energy = session.activeEnergyKcal, !energy.isFinite || !(0...100_000).contains(energy) {
+            throw ImportError.invalidData("énergie active hors limites")
+        }
     }
 
     private static func validateText(_ value: String, label: String, maximum: Int, allowEmpty: Bool = true) throws {

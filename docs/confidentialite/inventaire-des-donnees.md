@@ -4,7 +4,7 @@ Ce document décrit ce que Muscu enregistre, où, pourquoi et pour combien de
 temps. Il doit rester **fidèle au code** : toute donnée ajoutée au modèle y est
 ajoutée ici, et la fiche de confidentialité App Store en découle.
 
-Dernière vérification : 14/09/2026, modèle v5.
+Dernière vérification : 03/10/2026, modèle v7.
 
 ## Principe
 
@@ -20,6 +20,7 @@ Aucun SDK publicitaire, aucun traqueur, aucun service d'analyse tiers.
 | --- | --- | --- | --- |
 | Programmes, séances types, prescriptions | Base locale (SwiftData) | Construire et exécuter les séances | Jusqu'à suppression par l'utilisateur |
 | Historique des séances et des séries | Base locale | Progression, records, analyses | Idem |
+| Note d'effort, fréquence cardiaque et énergie active d'une séance (si mesurées) | Base locale | Résumé et analyse de la séance | Idem |
 | Records et records typés | Base locale | Suivi de performance ; recalculables depuis l'historique | Idem |
 | Profil (objectif, niveau, matériel, unités) | Base locale | Adapter le générateur et les règles de progression | Idem |
 | Mesures corporelles, poids | Base locale | Calculs de charge effective, suivi | Idem |
@@ -56,8 +57,10 @@ Aucun SDK publicitaire, aucun traqueur, aucun service d'analyse tiers.
   sauvegarde ou le corps d'une requête — seulement dans un en-tête
   d'autorisation.
 - L'**identité** (prénom, nom) : jamais envoyée au coach IA.
-- Les données **HealthKit lues** : elles alimentent l'app, ne repartent nulle
-  part.
+- Les données **HealthKit lues** : elles alimentent l'app et ne repartent vers
+  aucun service. La fréquence cardiaque et l'énergie active d'une séance sont
+  retirées de la synchronisation iCloud ; seul l'export JSON, déclenché par
+  l'utilisateur, les contient.
 
 ## Effacement
 

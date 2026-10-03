@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Inspirations open source
+
+- Modèle de données v7 (migration légère depuis v6) : note d'effort, cardio et
+  énergie d'une séance, date de correction, repos réel d'une série, lien de
+  démonstration, redirection d'un exercice fusionné, identifiant d'échantillon
+  Santé. Tous facultatifs, exportés et validés à l'import ; les mesures Santé
+  ne partent pas dans la synchronisation iCloud.
+
 ### Écosystème Apple (phase 7)
 
 - HealthKit facultatif : séances terminées écrites une seule fois, poids

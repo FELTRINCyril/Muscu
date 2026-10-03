@@ -1,17 +1,19 @@
 import Foundation
 import SwiftData
 
-/// Version courante du schema : modele v6 du produit. Ajoute au modele v5
-/// les valeurs precedentes manquantes sur `AdaptationEntry`, sans lesquelles
-/// deux adaptations acceptees — l'ajustement d'un intervalle et le changement
-/// de variante apres plateau — ne pouvaient pas etre annulees.
+/// Version courante du schema : modele v7 du produit. Ajoute au modele v6
+/// des attributs FACULTATIFS preparant les inspirations open source (document
+/// 10) : note d'effort, cardio et calories d'une seance, date de correction,
+/// repos reellement pris avant une serie, lien de demonstration personnel,
+/// redirection d'un exercice personnalise fusionne et identifiant d'echantillon
+/// Sante d'une mesure importee.
 ///
-/// Contrairement aux versions figees (`MuscuSchemaV1` a `MuscuSchemaV5`),
+/// Contrairement aux versions figees (`MuscuSchemaV1` a `MuscuSchemaV6`),
 /// celle-ci pointe sur les modeles reellement utilises par l'application.
 /// Une evolution future doit d'abord FIGER une copie de ces modeles
 /// (`Scripts/freeze-schema.py`) avant de les modifier ici.
-enum MuscuSchemaV6: VersionedSchema {
-    static let versionIdentifier = Schema.Version(6, 0, 0)
+enum MuscuSchemaV7: VersionedSchema {
+    static let versionIdentifier = Schema.Version(7, 0, 0)
 
     static var models: [any PersistentModel.Type] {
         [
@@ -51,18 +53,22 @@ enum MuscuSchemaV6: VersionedSchema {
 
 /// Schema courant de l'application. Un seul point a changer lors de l'ajout
 /// d'une version ; les tests de migration s'appuient dessus.
-typealias MuscuCurrentSchema = MuscuSchemaV6
+typealias MuscuCurrentSchema = MuscuSchemaV7
 
 enum MuscuMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
         [
             MuscuSchemaV1.self, MuscuSchemaV2.self, MuscuSchemaV3.self,
             MuscuSchemaV4.self, MuscuSchemaV5.self, MuscuSchemaV6.self,
+            MuscuSchemaV7.self,
         ]
     }
 
     static var stages: [MigrationStage] {
-        [migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5, migrateV5toV6]
+        [
+            migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5,
+            migrateV5toV6, migrateV6toV7,
+        ]
     }
 
     /// V1 -> V2 : ajout des identifiants uniques, du typage de charge des
@@ -106,5 +112,15 @@ enum MuscuMigrationPlan: SchemaMigrationPlan {
     static let migrateV5toV6 = MigrationStage.lightweight(
         fromVersion: MuscuSchemaV5.self,
         toVersion: MuscuSchemaV6.self
+    )
+
+    /// V6 -> V7 : dix attributs FACULTATIFS (`CompletedSession`,
+    /// `CompletedSet`, `ExerciseLibraryEntry`, `CustomExercise`,
+    /// `BodyMeasurement`), tous `nil` par defaut. Que des ajouts : aucune
+    /// donnee existante n'est relue ni reecrite, et `nil` signifie « non
+    /// renseigne » — jamais zero.
+    static let migrateV6toV7 = MigrationStage.lightweight(
+        fromVersion: MuscuSchemaV6.self,
+        toVersion: MuscuSchemaV7.self
     )
 }
