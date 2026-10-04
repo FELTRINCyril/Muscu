@@ -71,6 +71,19 @@ dragging, with green-to-red effort bands, in
 `Packages/MuscuEngine/Sources/MuscuEngine/Runner/SessionEffort.swift`. Bands
 refined to six labels (very easy to maximal) and made optional and accessible.
 
+Adapted from UpLift (`Services/HealthKitWorkoutService.swift`,
+`Views/Workout/LiveHealthKitCard.swift`): live `HKWorkoutSession` /
+`HKLiveWorkoutBuilder` on iPhone (start, pause, resume, end, discard), reading
+heart rate and active energy from the builder statistics, relating the
+workout effort score to the saved workout, and the compact live heart rate /
+calories / elapsed card. Used in
+`App/Sources/Services/Health/LiveHealthWorkoutController.swift`,
+`App/Sources/Services/Health/HealthStore.swift` and
+`App/Sources/Features/Health/HealthCardioViews.swift`. Reworked for iOS 18
+deployment (iOS 26+ availability checks, Mac Catalyst excluded), crash
+recovery (`recoverActiveWorkoutSession`), linking to the existing duplicate
+protection, and hiding the heart rate instead of showing zero.
+
 ```
 MIT License
 

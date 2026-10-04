@@ -204,8 +204,7 @@ final class HealthSyncServiceTests: XCTestCase {
 
         await HealthSyncService.exportBodyweight(kilograms: 78, date: reference, store: store)
 
-        let samples = try await store.readBodyweightSamples(since: reference.addingTimeInterval(-86_400))
-        XCTAssertTrue(samples.isEmpty)
+        XCTAssertTrue(store.bodyweightSamples.isEmpty)
     }
 
     // MARK: - Désactivation et suppression

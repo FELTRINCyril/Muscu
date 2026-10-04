@@ -17,6 +17,9 @@ struct WorkoutSummaryView: View {
     // est supprimee, cf. WorkoutState.finish) : on garde les series de la
     // CompletedSession fraichement creee pour continuer a afficher le recap.
     @State private var finishedSets: [CompletedSet]?
+    /// Seance enregistree : son cardio arrive apres coup (fin de la seance
+    /// Sante en direct, ou lecture dans Sante), la vue l'observe.
+    @State private var finishedSession: CompletedSession?
     @State private var isFinishing = false
     /// Note d'effort facultative, choisie avant « Terminer » : elle part
     /// avec la seance. Ensuite elle est figee — une seance terminee est
@@ -58,6 +61,13 @@ struct WorkoutSummaryView: View {
 
                     if let breakdown = timeBreakdown {
                         SessionTimeBreakdownRow(breakdown: breakdown)
+                            .padding()
+                            .background(Theme.card)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+
+                    if let finishedSession, finishedSession.hasCardio {
+                        SessionCardioView(session: finishedSession)
                             .padding()
                             .background(Theme.card)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -146,6 +156,7 @@ struct WorkoutSummaryView: View {
             return
         }
         finishedSets = completedSession.sets
+        finishedSession = completedSession
         finishedDurationSeconds = completedSession.durationSeconds
         // La structure se compare au deroule FINAL de la seance, toujours en
         // memoire apres la fin ; rien n'est propose si rien n'a change.
@@ -157,7 +168,13 @@ struct WorkoutSummaryView: View {
 
         // Écriture dans Santé, si et seulement si l'utilisateur l'a activée.
         // Un échec n'affecte pas la séance : elle est déjà enregistrée.
+        // Une seance Sante en direct est d'abord terminee et reliee : la
+        // synchronisation la reconnait alors comme deja ecrite.
         Task {
+            await LiveHealthWorkoutController.shared.finishRecording(
+                in: state.modelContext,
+                store: AppServices.healthStore
+            )
             await HealthSyncService.synchronize(
                 in: state.modelContext,
                 store: AppServices.healthStore

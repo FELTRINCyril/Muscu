@@ -148,6 +148,9 @@ struct SessionDetailView: View {
                         .foregroundStyle(SessionEffortPresentation.color(for: rating))
                         .accessibilityIdentifier("history.effort")
                 }
+                if session.hasCardio {
+                    SessionCardioView(session: session)
+                }
                 if let editedAt = session.editedAt {
                     Text("Corrigée le \(editedAt.formatted(date: .abbreviated, time: .shortened))")
                         .font(.caption)

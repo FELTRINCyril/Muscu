@@ -115,34 +115,50 @@
         }
       }
     },
-    "%@ : %@ → %@": {
+    "%@ / %@ bpm": {
       "localizations": {
         "fr": {
           "stringUnit": {
             "state": "new",
-            "value": "%1$@ : %2$@ → %3$@"
+            "value": "%1$@ / %2$@ bpm"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
+            "value": "%@ / %@ bpm"
+          }
+        }
+      }
+    },
+    "%@ : %@ → %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
             "value": "%@: %@ → %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ : %2$@ → %3$@"
           }
         }
       }
     },
     "%@ : %lld → %lld séries": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ : %2$lld → %3$lld séries"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@: %lld → %lld sets"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ : %2$lld → %3$lld séries"
           }
         }
       }
@@ -557,6 +573,16 @@
         }
       }
     },
+    "%lld bpm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld bpm"
+          }
+        }
+      }
+    },
     "%lld créé(s), %lld mis à jour, %lld retiré(s), %lld échec(s).": {
       "localizations": {
         "en": {
@@ -631,16 +657,16 @@
     },
     "%lld h %@": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$lld h %2$@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%lld h %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld h %2$@"
           }
         }
       }
@@ -657,6 +683,16 @@
           "stringUnit": {
             "state": "new",
             "value": "%1$lld jour(s) actif(s) sur la période, total %2$@%3$@, maximum le %4$@."
+          }
+        }
+      }
+    },
+    "%lld kcal": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld kcal"
           }
         }
       }
@@ -870,16 +906,16 @@
     },
     "%lld séance(s) · dernière le %@": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$lld séance(s) · dernière le %2$@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%lld session(s) · last on %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld séance(s) · dernière le %2$@"
           }
         }
       }
@@ -1714,16 +1750,16 @@
     },
     "Ajouté : %@ (%lld séries)": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Ajouté : %1$@ (%2$lld séries)"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Added: %@ (%lld sets)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Ajouté : %1$@ (%2$lld séries)"
           }
         }
       }
@@ -2956,6 +2992,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose the source"
+          }
+        }
+      }
+    },
+    "Choisir les nouvelles données": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose the new data"
           }
         }
       }
@@ -4768,6 +4814,26 @@
         }
       }
     },
+    "FC min. / max.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Min. / max. HR"
+          }
+        }
+      }
+    },
+    "FC moyenne": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Average HR"
+          }
+        }
+      }
+    },
     "Facile": {
       "localizations": {
         "en": {
@@ -5228,6 +5294,26 @@
         }
       }
     },
+    "Importer la masse grasse": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import body fat"
+          }
+        }
+      }
+    },
+    "Importer le tour de taille": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import waist circumference"
+          }
+        }
+      }
+    },
     "Importer quand même": {
       "localizations": {
         "en": {
@@ -5504,6 +5590,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The end cannot be in the future."
+          }
+        }
+      }
+    },
+    "La fréquence cardiaque et l’énergie ne sont lues que sur la durée de vos séances. Rien d’autre n’est lu : ni sommeil, ni pas, ni activité.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heart rate and energy are only read for the duration of your sessions. Nothing else is read: no sleep, no steps, no activity."
           }
         }
       }
@@ -6619,6 +6715,16 @@
         }
       }
     },
+    "Mesuré par une montre ou un capteur, via l’app Santé. Reste sur cet appareil.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Measured by a watch or a sensor, through the Health app. Stays on this device."
+          }
+        }
+      }
+    },
     "Mettre en favori": {
       "localizations": {
         "en": {
@@ -6955,7 +7061,28 @@
         }
       }
     },
+    "Muscu peut désormais lire la fréquence cardiaque et l’énergie active de vos séances, votre masse grasse et votre tour de taille, et écrire votre note d’effort. Santé vous laissera choisir, donnée par donnée.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muscu can now read the heart rate and active energy of your sessions, your body fat and your waist circumference, and write your effort rating. Health will let you choose, data type by data type."
+          }
+        }
+      }
+    },
+    "Muscu peut lire et écrire votre poids corporel, et lire votre masse grasse et votre tour de taille, si vous l’activez.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muscu can read and write your body weight, and read your body fat and waist circumference, if you turn it on."
+          }
+        }
+      }
+    },
     "Muscu peut lire et écrire votre poids corporel, si vous l’activez.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6965,7 +7092,18 @@
         }
       }
     },
+    "Muscu écrit vos séances terminées dans l’app Santé, avec votre note d’effort.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muscu writes your finished sessions to the Health app, with your effort rating."
+          }
+        }
+      }
+    },
     "Muscu écrit vos séances terminées dans l’app Santé.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7247,6 +7385,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "New workout planned"
+          }
+        }
+      }
+    },
+    "Nouvelles données": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New data"
           }
         }
       }
@@ -8526,16 +8674,16 @@
     },
     "Remplacé : %@ → %@": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Remplacé : %1$@ → %2$@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Replaced: %@ → %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Remplacé : %1$@ → %2$@"
           }
         }
       }
@@ -8918,6 +9066,7 @@
       }
     },
     "Rien d’autre n’est lu : ni fréquence cardiaque, ni sommeil, ni activité.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -9295,6 +9444,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Health is not allowed: nothing was shared."
+          }
+        }
+      }
+    },
+    "Santé · en pause": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health · paused"
           }
         }
       }
@@ -9682,6 +9841,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Over %@"
+          }
+        }
+      }
+    },
+    "Sur iOS 26 et plus, Santé suit la séance en direct : fréquence cardiaque d’une montre ou d’un capteur, énergie active.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On iOS 26 and later, Health tracks the session live: heart rate from a watch or a sensor, active energy."
           }
         }
       }
@@ -10736,11 +10905,22 @@
       }
     },
     "Une séance déjà écrite ne l’est jamais deux fois. Désactiver le partage n’efface pas ce qui a déjà été ajouté à Santé : ces données vous appartiennent, et c’est à vous de les retirer depuis l’app Santé.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "A workout already written is never written twice. Turning sharing off does not erase what was already added to Health: that data is yours, and it is up to you to remove it from the Health app."
+          }
+        }
+      }
+    },
+    "Une séance déjà écrite ne l’est jamais deux fois. La masse grasse et le tour de taille sont seulement lus : Muscu ne les écrit jamais dans Santé. Désactiver le partage n’efface pas ce qui a déjà été ajouté à Santé : ces données vous appartiennent, et c’est à vous de les retirer depuis l’app Santé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A session already written is never written twice. Body fat and waist circumference are only read: Muscu never writes them to Health. Turning sharing off does not erase what was already added to Health: this data belongs to you, and you can remove it from the Health app."
           }
         }
       }
@@ -11534,6 +11714,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Writing to Health is not possible: %@"
+          }
+        }
+      }
+    },
+    "Énergie active": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Active energy"
           }
         }
       }

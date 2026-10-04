@@ -26,7 +26,7 @@ final class HealthFlowTests: XCTestCase {
             "Ce que Muscu partagera doit être dit avant toute demande"
         )
         XCTAssertTrue(
-            app.firstDescendant(labelContains: "ni fréquence cardiaque, ni sommeil").exists,
+            app.firstDescendant(labelContains: "ni sommeil, ni pas, ni activité").exists,
             "Ce qui n’est PAS lu doit être dit aussi"
         )
         XCTAssertTrue(

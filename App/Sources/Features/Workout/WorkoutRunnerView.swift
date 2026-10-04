@@ -48,6 +48,7 @@ struct WorkoutRunnerView: View {
             updateScreenAwake()
             guard !state.isSessionComplete else { return }
             state.startLiveActivity()
+            state.startHealthWorkout()
         }
         .onChange(of: state.restTimer.isRunning) { _, _ in state.refreshLiveActivity() }
         // Ecran allume tant qu'une seance est en cours ET visible ; retabli
@@ -70,6 +71,7 @@ struct WorkoutRunnerView: View {
                 if !state.weekScaling.isNeutral {
                     WeekScalingBanner(scaling: state.weekScaling)
                 }
+                LiveHealthCard(controller: LiveHealthWorkoutController.shared, startedAt: state.startedAt)
                 if state.restTimer.isOvertime {
                     RestOvertimeBanner(timer: state.restTimer)
                 }
@@ -104,6 +106,9 @@ struct WorkoutRunnerView: View {
                     // aucune course possible.
                     .confirmationDialog("Quitter la séance ?", isPresented: $showingExitConfirm, titleVisibility: .visible) {
                         Button("Reprendre plus tard") {
+                            // La seance Sante en direct se met en pause
+                            // avec elle, et reprend a la reprise.
+                            LiveHealthWorkoutController.shared.pause()
                             dismiss()
                         }
                         Button("Abandonner", role: .destructive) {

@@ -59,10 +59,14 @@ targets:
         # affichees telles quelles dans la demande systeme.
         INFOPLIST_KEY_NSHealthShareUsageDescription: >-
           Muscu lit votre poids corporel pour rendre ses calculs de charge
-          justes, et uniquement si vous l'autorisez.
+          justes, votre masse grasse et votre tour de taille si vous les
+          importez, et la fréquence cardiaque et l'énergie active mesurées
+          pendant vos séances. Uniquement si vous l'autorisez.
         INFOPLIST_KEY_NSHealthUpdateUsageDescription: >-
-          Muscu enregistre vos séances terminées et votre poids dans l'app
-          Santé, uniquement si vous l'autorisez.
+          Muscu enregistre vos séances terminées, leur note d'effort et votre
+          poids dans l'app Santé, ainsi que la fréquence cardiaque et
+          l'énergie mesurées pendant une séance suivie en direct. Uniquement
+          si vous l'autorisez.
         # Live Activity de seance en cours. Sans cette cle, ActivityKit
         # refuse de demarrer l'activite.
         INFOPLIST_KEY_NSSupportsLiveActivities: YES

@@ -191,8 +191,21 @@ final class HealthWorkoutLink {
     /// `UUID` de l'`HKWorkout` correspondant, stocke en texte.
     var healthKitWorkoutIdentifier: String = ""
     var writtenAt: Date = Date()
-    /// Origine de l'ecriture : "iphone" ou "watch".
+    /// Origine de l'ecriture : "iphone", "iphone-live" (seance Sante en
+    /// direct) ou "watch".
     var sourceRaw: String = "iphone"
+
+    // MARK: - Champs v7 (facultatifs, lot 5)
+
+    /// Horaires de la seance tels qu'ecrits dans Sante : une correction qui
+    /// ne les change pas (la note d'effort seule) garde l'entrainement.
+    /// nil = lien anterieur, seule `editedAt` fait alors foi.
+    var writtenStartDate: Date?
+    var writtenDurationSeconds: Int?
+    /// Note d'effort ecrite dans Sante et `UUID` de son echantillon. nil =
+    /// aucune note ecrite.
+    var writtenEffortRating: Int?
+    var effortSampleIdentifier: String?
 
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
@@ -204,6 +217,10 @@ final class HealthWorkoutLink {
         healthKitWorkoutIdentifier: String,
         writtenAt: Date = Date(),
         sourceRaw: String = "iphone",
+        writtenStartDate: Date? = nil,
+        writtenDurationSeconds: Int? = nil,
+        writtenEffortRating: Int? = nil,
+        effortSampleIdentifier: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         deletedAt: Date? = nil
@@ -213,6 +230,10 @@ final class HealthWorkoutLink {
         self.healthKitWorkoutIdentifier = healthKitWorkoutIdentifier
         self.writtenAt = writtenAt
         self.sourceRaw = sourceRaw
+        self.writtenStartDate = writtenStartDate
+        self.writtenDurationSeconds = writtenDurationSeconds
+        self.writtenEffortRating = writtenEffortRating
+        self.effortSampleIdentifier = effortSampleIdentifier
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt

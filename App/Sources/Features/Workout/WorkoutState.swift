@@ -1028,6 +1028,8 @@ final class WorkoutState: Identifiable {
             // sur l'ecran verrouille apres une seance abandonnee serait un
             // defaut visible sans meme ouvrir l'application.
             Task { await WorkoutActivityController.end() }
+            // Rien n'est enregistre dans Sante pour une seance abandonnee.
+            Task { await LiveHealthWorkoutController.shared.discard() }
         }
     }
 
@@ -1066,6 +1068,9 @@ final class WorkoutState: Identifiable {
         }
         activeWorkout = nil
         Task { await WorkoutActivityController.end() }
+        // La seance Sante en direct, s'il y en a une, sera reliee a cette
+        // seance : la synchronisation ne doit plus l'ecrire apres coup.
+        LiveHealthWorkoutController.shared.markFinished(completedSessionId: completedSession.id)
         return completedSession
     }
 
@@ -1121,6 +1126,13 @@ final class WorkoutState: Identifiable {
             sessionName: sessionTitle,
             state: liveActivityState()
         )
+    }
+
+    /// Seance Sante en direct (iOS 26+, Sante active et autorisee) : demarree
+    /// avec le deroule, reprise s'il etait en pause.
+    func startHealthWorkout() {
+        guard let id = activeWorkout?.id else { return }
+        Task { await LiveHealthWorkoutController.shared.start(activeWorkoutId: id, store: AppServices.healthStore) }
     }
 
     func refreshLiveActivity() {

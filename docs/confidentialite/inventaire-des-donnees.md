@@ -4,7 +4,7 @@ Ce document décrit ce que Muscu enregistre, où, pourquoi et pour combien de
 temps. Il doit rester **fidèle au code** : toute donnée ajoutée au modèle y est
 ajoutée ici, et la fiche de confidentialité App Store en découle.
 
-Dernière vérification : 03/10/2026, modèle v7.
+Dernière vérification : 04/10/2026, modèle v7 (lot 5 : Santé).
 
 ## Principe
 
@@ -20,10 +20,10 @@ Aucun SDK publicitaire, aucun traqueur, aucun service d'analyse tiers.
 | --- | --- | --- | --- |
 | Programmes, séances types, prescriptions | Base locale (SwiftData) | Construire et exécuter les séances | Jusqu'à suppression par l'utilisateur |
 | Historique des séances et des séries | Base locale | Progression, records, analyses | Idem |
-| Note d'effort, fréquence cardiaque et énergie active d'une séance (si mesurées) | Base locale | Résumé et analyse de la séance | Idem |
+| Note d'effort, fréquence cardiaque (moyenne, min., max.) et énergie active d'une séance (si mesurées) | Base locale | Résumé et détail de la séance ; le cardio vient d'une séance Santé en direct ou d'une lecture dans Santé sur l'intervalle de la séance | Idem |
 | Records et records typés | Base locale | Suivi de performance ; recalculables depuis l'historique | Idem |
 | Profil (objectif, niveau, matériel, unités) | Base locale | Adapter le générateur et les règles de progression | Idem |
-| Mesures corporelles, poids | Base locale | Calculs de charge effective, suivi | Idem |
+| Mesures corporelles, poids, masse grasse, tour de taille (saisis ou importés de Santé, avec l'identifiant de l'échantillon Santé) | Base locale | Calculs de charge effective, suivi, import sans doublon | Idem |
 | Check-in de forme, douleurs déclarées | Base locale | Proposer une adaptation prudente | Idem |
 | Planning, récurrences, lieux et inventaire | Base locale | Organiser la semaine | Idem |
 | Journal d'adaptation | Base locale | Rendre chaque progression explicable et annulable | Idem |
@@ -31,10 +31,11 @@ Aucun SDK publicitaire, aucun traqueur, aucun service d'analyse tiers.
 | Cache d'images d'exercices | Fichiers | Affichage hors ligne | Borné à 250 Mo, vidable depuis Réglages |
 | Instantané des widgets | Groupe d'applications | Alimenter les widgets et la montre | Réécrit à chaque changement, effacé avec les données |
 | Rappels programmés | Centre de notifications + base locale | Ne pas reprogrammer un rappel supprimé | Jusqu'à désactivation |
-| Liens vers l'app Santé | Base locale | Éviter d'écrire deux fois la même séance | Jusqu'à suppression |
+| Liens vers l'app Santé (identifiant de l'entraînement, horaires et note d'effort écrits, identifiant de l'échantillon d'effort) | Base locale, non synchronisés | Éviter d'écrire deux fois la même séance ; mettre à jour la note d'effort | Jusqu'à suppression |
 | Liens vers l'app Calendrier | Base locale | Ne modifier que nos propres événements | Idem |
 | **Clé du fournisseur IA** | **Trousseau** (`WhenUnlockedThisDeviceOnly`) | Authentifier les requêtes du coach | Jusqu'à suppression par l'utilisateur |
 | Réglages (IA, Santé, chrono, unités) | `UserDefaults` | Préférences | Idem |
+| Marqueur de séance Santé en direct (identifiants de séance, aucune donnée de santé) | `UserDefaults` | Rattacher ou abandonner proprement une séance Santé après un arrêt brutal | Effacé à la fin ou à l'abandon de la séance |
 | Journal technique du coach IA | `UserDefaults`, borné à 50 lignes | Diagnostic | Effaçable ; ne contient aucune donnée métier |
 
 ## Ce qui peut sortir de l'appareil, et à quelle condition
@@ -43,11 +44,23 @@ Aucun SDK publicitaire, aucun traqueur, aucun service d'analyse tiers.
 | --- | --- | --- |
 | Fichier d'export JSON | Tout le modèle **sauf les photos** | Action explicite (Réglages → Exporter) |
 | Fichiers CSV | Séances, séries, mesures, check-in | Action explicite |
-| App Santé | Séances terminées, poids corporel | Interrupteur activé **et** autorisation système accordée |
+| App Santé (écriture) | Séances terminées (en direct sur iOS 26+, après coup sinon), note d'effort reliée à l'entraînement, poids corporel (si activé), fréquence cardiaque et énergie active mesurées par un capteur pendant une séance en direct | Interrupteur activé **et** autorisation système accordée, type par type |
 | App Calendrier | Titre et horaire des séances planifiées | Action explicite, calendrier choisi par l'utilisateur |
 | Apple Watch | Instantané (prochaine séance, compteurs de la semaine) | Montre appairée |
 | Fournisseur IA | Catégories **choisies une par une**, exclues par défaut pour les trois sensibles | Coach activé, clé saisie, consentement par catégorie |
 | iCloud | — | **Non activé** : aucun conteneur configuré |
+
+## Ce qui est lu dans l'app Santé
+
+Uniquement si le partage est activé et l'autorisation accordée, type par type :
+
+| Donnée lue | Quand | Usage |
+| --- | --- | --- |
+| Poids corporel | Si « Partager le poids corporel » est activé | Mesures, calculs de charge |
+| Masse grasse, tour de taille | Chacun si son interrupteur est activé | Mesures (lecture seule : jamais écrits dans Santé) |
+| Fréquence cardiaque, énergie active | Sur l'intervalle des séances des 7 derniers jours qui n'ont pas déjà un cardio | FC moyenne / min. / max. et kcal de la séance |
+
+Rien d'autre n'est lu : ni sommeil, ni pas, ni activité en dehors des séances.
 
 ## Ce qui ne sort jamais
 

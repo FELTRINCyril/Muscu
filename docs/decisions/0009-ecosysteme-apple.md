@@ -34,6 +34,8 @@ pas** (ni fréquence cardiaque, ni sommeil, ni activité). La demande système
 n'est déclenchée que par l'activation de l'interrupteur — jamais par la
 synchronisation, jamais au lancement. Un test vérifie que la synchronisation
 ne demande rien d'elle-même.
+*Complété par la décision 0015 : la fréquence cardiaque et l'énergie active
+sont désormais lues, uniquement sur l'intervalle des séances.*
 
 Un refus n'active rien, ne supprime rien, ne bloque rien. Un appareil sans
 Santé n'est pas traité comme un refus : c'est une indisponibilité, et elle est

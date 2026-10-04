@@ -88,6 +88,13 @@ struct MuscuApp: App {
                     // Une seance interrompue par un arret brutal peut laisser
                     // une Live Activity ouverte : on la ferme au demarrage.
                     await WorkoutActivityController.endOrphans()
+                    // Meme chose pour une seance Sante en direct : elle est
+                    // rattachee, terminee ou abandonnee selon ce qu'est
+                    // devenue la seance Muscu.
+                    await LiveHealthWorkoutController.shared.recover(
+                        in: container.mainContext,
+                        store: AppServices.healthStore
+                    )
                     WidgetSnapshotService.refresh(in: container.mainContext, catalogStore: catalogStore)
                     // La montre recoit le meme instantane que les widgets :
                     // un seul calcul, donc aucun risque de divergence.

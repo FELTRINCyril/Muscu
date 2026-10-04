@@ -56,6 +56,22 @@
 - Temps actif / temps de repos dans le résumé et l'historique.
 - Import CSV : matériel déduit d'un nom « Exercice (Matériel) », et création
   de modèles ou d'un programme à partir des titres de séance importés.
+- Santé (lot 5, toujours facultatif) : sur iOS 26 et plus, la séance est
+  suivie en direct par Santé (`HKWorkoutSession` + `HKLiveWorkoutBuilder` sur
+  iPhone) — pause avec « Reprendre plus tard », abandon sans enregistrement,
+  reprise après un arrêt brutal — et l'entraînement ainsi enregistré remplace
+  l'écriture après coup, sans doublon. Carte discrète en séance : bpm (si une
+  montre ou un capteur le fournit, jamais « 0 »), kcal, durée. Sur iOS 18-25
+  et Mac Catalyst, rien ne change.
+- FC moyenne / min. / max. et énergie active de la séance, enregistrées depuis
+  la séance en direct ou lues dans Santé sur l'intervalle de la séance (7
+  derniers jours), affichées dans le résumé et l'historique.
+- Note d'effort écrite dans Santé (score d'effort relié à l'entraînement), mise
+  à jour si elle est corrigée sans remplacer l'entraînement (décision 0015).
+- Import depuis Santé de la masse grasse et du tour de taille (interrupteur
+  par mesure, lecture seule), incrémental et dédoublonné par identifiant
+  d'échantillon, comme le poids désormais. Les nouveaux types sont présentés
+  par un bouton expliqué, jamais au lancement.
 
 ### Écosystème Apple (phase 7)
 

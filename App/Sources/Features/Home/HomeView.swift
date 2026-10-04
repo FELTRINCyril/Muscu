@@ -370,7 +370,11 @@ struct HomeView: View {
     private func abandonPendingWorkout() {
         guard let workout = pendingActiveWorkout else { return }
         modelContext.delete(workout)
-        _ = PersistenceSupport.save(modelContext, action: "Activation du programme")
+        if PersistenceSupport.save(modelContext, action: "Activation du programme") {
+            // Seance Sante rattachee apres un arret brutal : abandonnee avec
+            // la seance, rien n'est enregistre.
+            Task { await LiveHealthWorkoutController.shared.discard() }
+        }
     }
 
     // MARK: - Statistiques

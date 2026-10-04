@@ -168,8 +168,12 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   dans le Trousseau ; les catégories de données sensibles sont exclues par
   défaut et le partage se règle catégorie par catégorie.
 - **Santé** (facultatif) : vos séances terminées sont écrites dans l'app Santé
-  — une seule fois, même après plusieurs synchronisations — et votre poids peut
-  être partagé dans les deux sens. Ce que Muscu lit et n'écrit pas est annoncé
+  — une seule fois, même après plusieurs synchronisations — avec votre note
+  d'effort, et votre poids peut être partagé dans les deux sens. Sur iOS 26 et
+  plus, Santé suit la séance en direct (fréquence cardiaque d'une montre ou
+  d'un capteur, énergie active, durée) ; la FC moyenne / min. / max. et les
+  kcal rejoignent le résumé et l'historique. Masse grasse et tour de taille
+  peuvent être importés, sans doublon. Ce que Muscu lit et écrit est annoncé
   avant la demande système ; un refus ne bloque aucune fonction.
 - **Widgets et Live Activity** : la prochaine séance et la semaine écoulée sur
   l'écran d'accueil, la séance en cours sur l'écran verrouillé. Les widgets
