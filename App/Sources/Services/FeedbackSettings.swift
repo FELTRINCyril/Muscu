@@ -33,4 +33,11 @@ enum FeedbackSettings {
         guard isHapticsEnabled else { return }
         UINotificationFeedbackGenerator().notificationOccurred(type)
     }
+
+    /// Record battu en direct : vibration de reussite, sans son (la
+    /// celebration ne doit pas couvrir le chrono de repos qui demarre).
+    @MainActor
+    static func celebrateRecord() {
+        notification(.success)
+    }
 }

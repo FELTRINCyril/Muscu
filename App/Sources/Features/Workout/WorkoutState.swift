@@ -323,19 +323,146 @@ final class WorkoutState: Identifiable {
         _ = PersistenceSupport.save(modelContext, action: "Enregistrement du maximum de répétitions")
     }
 
-    // "La dernière fois : 4x8 @ 72,5 kg" depuis la CompletedSession la plus
-    // recente contenant cet exercice.
-    func lastPerformance(for exercise: WorkoutExercisePlan) -> String? {
-        guard let session = lastCompletedSession(containing: exercise.exerciseId) else { return nil }
-        let matching = session.sets
-            .filter { $0.exerciseId == exercise.exerciseId }
-            .sorted { $0.setIndex < $1.setIndex }
-        guard !matching.isEmpty, let lastSet = matching.last else { return nil }
+    // MARK: - Historique de l'exercice en direct
 
-        let repsCounts = Dictionary(grouping: matching, by: \.reps).mapValues(\.count)
-        let modeReps = repsCounts.max { $0.value < $1.value }?.key ?? lastSet.reps
+    /// Seance passee reduite a ce que le deroule affiche pour UN exercice.
+    struct ExerciseHistorySession {
+        let id: UUID
+        let date: Date
+        let programSessionId: UUID?
+        let sets: [HistoricalSet]
+    }
 
-        return "La dernière fois : \(matching.count)x\(modeReps) @ \(WeightFormatter.string(kilograms: lastSet.weight))"
+    /// Historique par exercice, lu une fois par seance : il ne change pas
+    /// pendant la seance (les series en cours ne sont rattachees a une
+    /// `CompletedSession` qu'a la fin). Ignore par l'observation : le
+    /// remplir pendant le calcul d'une vue ne doit pas la redessiner.
+    @ObservationIgnored private var historyCache: [String: [ExerciseHistorySession]] = [:]
+
+    /// Seances terminees contenant cet exercice, de la plus recente a la
+    /// plus ancienne, series de travail principales uniquement.
+    func history(forExerciseId exerciseId: String) -> [ExerciseHistorySession] {
+        if let cached = historyCache[exerciseId] { return cached }
+        let descriptor = FetchDescriptor<CompletedSet>(
+            predicate: #Predicate { $0.exerciseId == exerciseId && $0.session != nil }
+        )
+        let sets: [CompletedSet]
+        do {
+            sets = try modelContext.fetch(descriptor)
+        } catch {
+            DiagnosticsCenter.record(.store, code: "workout.history.fetchFailed", error: error)
+            return []
+        }
+        var bySession: [UUID: (session: CompletedSession, sets: [HistoricalSet])] = [:]
+        for set in sets {
+            guard let session = set.session, session.deletedAt == nil, set.deletedAt == nil else { continue }
+            let historical = HistoricalSet(
+                weightKilograms: set.weight,
+                reps: set.reps,
+                isPrescribedWorkingSet: set.role == .working,
+                orderIndex: set.orderIndex,
+                roundIndex: set.roundIndex,
+                setIndex: set.setIndex,
+                subSetIndex: set.subSetIndex,
+                sequenceIndex: set.sequenceIndex
+            )
+            bySession[session.id, default: (session, [])].sets.append(historical)
+        }
+        let result = bySession.values
+            .map { entry in
+                ExerciseHistorySession(
+                    id: entry.session.id,
+                    date: entry.session.date,
+                    programSessionId: entry.session.programSessionId,
+                    sets: PreviousPerformance.workingSets(entry.sets)
+                )
+            }
+            .filter { !$0.sets.isEmpty }
+            .sorted { $0.date > $1.date }
+        historyCache[exerciseId] = result
+        return result
+    }
+
+    /// Ce qui a ete fait a la MEME serie de travail lors de la derniere
+    /// seance comparable : la derniere de cette seance de programme si
+    /// l'exercice y figurait, sinon la derniere tout court. Rien pour un
+    /// palier de dropset ou une mini-serie : ils n'ont pas de rang propre.
+    func previousSet(for target: WorkoutSetTarget) -> HistoricalSet? {
+        guard !target.isSubSet else { return nil }
+        let sessions = history(forExerciseId: target.exercise.exerciseId)
+        let comparable = sessions.first { $0.programSessionId == programSession.id } ?? sessions.first
+        guard let comparable else { return nil }
+        let rank = PreviousPerformance.workingRank(
+            round: target.round,
+            setNumber: target.setNumber,
+            totalSets: target.totalSets
+        )
+        return PreviousPerformance.reference(atWorkingRank: rank, in: comparable.sets)
+    }
+
+    /// Bandeau des ~10 dernieres seances de l'exercice.
+    func previousSessionsStrip(for exercise: WorkoutExercisePlan, now: Date = .now) -> [PreviousSessionsStrip.Entry] {
+        let sessions = history(forExerciseId: exercise.exerciseId).prefix(PreviousSessionsStrip.defaultLimit).map { session in
+            PreviousSessionsStrip.SessionSets(
+                id: session.id,
+                date: session.date,
+                sets: session.sets.map { .init(weightKilograms: $0.weightKilograms, reps: $0.reps) }
+            )
+        }
+        return PreviousSessionsStrip.entries(from: Array(sessions), now: now)
+    }
+
+    /// Exercice a la barre : seul cas ou le calculateur de disques a un sens.
+    func usesBarbell(_ exercise: WorkoutExercisePlan) -> Bool {
+        RestDefaults.isBarbell(equipment: equipment(forExerciseId: exercise.exerciseId))
+    }
+
+    // MARK: - Record en direct
+
+    /// Record battu par la derniere serie validee, a celebrer. N'ecrit
+    /// rien : la fin de seance reste la source de verite des records.
+    struct LiveRecordCelebration: Identifiable, Equatable {
+        let id = UUID()
+        let exerciseName: String
+        let kind: LiveRecord.Kind
+    }
+
+    private(set) var liveRecordCelebration: LiveRecordCelebration?
+
+    /// Ferme la celebration, seulement si c'est encore celle-la : une
+    /// fermeture differee ne doit pas emporter une celebration plus recente.
+    func dismissLiveRecordCelebration(id: UUID? = nil) {
+        guard id == nil || liveRecordCelebration?.id == id else { return }
+        liveRecordCelebration = nil
+    }
+
+    /// Meilleures valeurs connues AVANT cette seance : record saisi (1RM),
+    /// records types non qualifies (1RM estime, charge maximale).
+    private func liveRecordBaseline(exerciseId: String) -> LiveRecord.Baseline {
+        let bests = ((try? modelContext.fetch(FetchDescriptor<PersonalBest>(
+            predicate: #Predicate { $0.exerciseId == exerciseId }
+        ))) ?? []).filter { $0.deletedAt == nil && $0.configurationKey.isEmpty }
+        let typedOneRepMax = bests.filter { $0.kind == .estimatedOneRepMax }.map(\.value).max()
+        let manualOneRepMax = fetchRecord(exerciseId: exerciseId)?.oneRepMax.flatMap { $0 > 0 ? $0 : nil }
+        let oneRepMax = [typedOneRepMax, manualOneRepMax].compactMap { $0 }.max()
+        let load = bests.filter { $0.kind == .maxWeight }.map(\.value).max()
+        return LiveRecord.Baseline(bestEstimatedOneRepMax: oneRepMax, bestLoad: load)
+    }
+
+    /// Verifie la serie qui vient d'etre enregistree.
+    private func checkLiveRecord(for newSet: CompletedSet) {
+        guard newSet.role.countsAsWorkingSet else { return }
+        let bodyweight = knownBodyweightKilograms()
+        let earlier = loggedSets
+            .filter { $0.id != newSet.id && $0.exerciseId == newSet.exerciseId }
+            .map { $0.metricsInput(bodyweightKilograms: bodyweight) }
+        guard let kind = LiveRecord.celebration(
+            for: newSet.metricsInput(bodyweightKilograms: bodyweight),
+            earlierThisSession: earlier,
+            baseline: liveRecordBaseline(exerciseId: newSet.exerciseId)
+        ) else { return }
+        liveRecordCelebration = LiveRecordCelebration(exerciseName: newSet.displayName, kind: kind)
+        FeedbackSettings.celebrateRecord()
     }
 
     // MARK: - Actions
@@ -358,7 +485,7 @@ final class WorkoutState: Identifiable {
         restTimer.endOvertime()
         let resolvedLoadKind = ExerciseClassification.resolvedLoadKind(base: exercise.loadKind, enteredWeight: weight)
 
-        insertCompletedSet(
+        let newSet = insertCompletedSet(
             target: target,
             weight: weight,
             reps: reps,
@@ -374,11 +501,16 @@ final class WorkoutState: Identifiable {
         // faire. Sans cela, ajouter une approche ferait sauter une serie de
         // travail sans que rien ne le dise.
         guard role.consumesPrescribedSet else {
-            _ = PersistenceSupport.save(modelContext, action: "Enregistrement d’une série supplémentaire")
+            if PersistenceSupport.save(modelContext, action: "Enregistrement d’une série supplémentaire") {
+                checkLiveRecord(for: newSet)
+            }
             return
         }
 
-        advance(outcome: WorkoutSetOutcome(reps: reps, weightKilograms: weight, stopsSubSets: stopsSubSets))
+        // La celebration ne suit qu'une serie REELLEMENT enregistree.
+        if advance(outcome: WorkoutSetOutcome(reps: reps, weightKilograms: weight, stopsSubSets: stopsSubSets)) {
+            checkLiveRecord(for: newSet)
+        }
     }
 
     /// Un palier de pyramide : meme cheminement que `logSet`, mais les
@@ -665,7 +797,8 @@ final class WorkoutState: Identifiable {
     /// Avance la position apres une validation, persiste, puis lance le repos
     /// decide par la machine a etats. Aucun repos n'est lance si la seance est
     /// terminee.
-    private func advance(outcome: WorkoutSetOutcome) {
+    @discardableResult
+    private func advance(outcome: WorkoutSetOutcome) -> Bool {
         let previousPosition = position
         let result = WorkoutStateMachine.advance(from: position, in: plan, outcome: outcome)
         position = result.position
@@ -678,7 +811,7 @@ final class WorkoutState: Identifiable {
         }
         guard PersistenceSupport.save(modelContext, action: "Enregistrement de la série") else {
             position = previousPosition
-            return
+            return false
         }
 
         if !isSessionComplete, let rest = result.rest, rest.seconds > 0 {
@@ -686,6 +819,7 @@ final class WorkoutState: Identifiable {
         }
 
         refreshLiveActivity()
+        return true
     }
 
     /// Etat courant publie sur la Live Activity. Rien de plus que ce que
@@ -786,6 +920,7 @@ final class WorkoutState: Identifiable {
         ((activeWorkout?.loggedSets ?? []).map(\.sequenceIndex).max() ?? -1) + 1
     }
 
+    @discardableResult
     private func insertCompletedSet(
         target: WorkoutSetTarget,
         weight: Double,
@@ -796,9 +931,9 @@ final class WorkoutState: Identifiable {
         reachedFailure: Bool = false,
         notes: String = "",
         durationSeconds: Int? = nil
-    ) {
+    ) -> CompletedSet {
         let orderIndex = exercises.firstIndex { $0.id == target.exercise.id } ?? 0
-        insertCompletedSet(
+        return insertCompletedSet(
             exerciseId: target.exercise.exerciseId,
             displayName: target.exercise.displayName,
             orderIndex: orderIndex,
@@ -825,6 +960,7 @@ final class WorkoutState: Identifiable {
     // (creee au besoin, paresseusement). Ne fait ni avancer la position ni
     // sauvegarder : cf. `advance(outcome:)` pour la suite d'une validation,
     // et `logWarmupSet` pour l'echauffement (qui sauvegarde lui-meme).
+    @discardableResult
     private func insertCompletedSet(
         exerciseId: String,
         displayName: String,
@@ -845,7 +981,7 @@ final class WorkoutState: Identifiable {
         notes: String = "",
         durationSeconds: Int? = nil,
         plannedExerciseId: String = ""
-    ) {
+    ) -> CompletedSet {
         let newSet = CompletedSet(
             exerciseId: exerciseId,
             displayName: displayName,
@@ -873,6 +1009,7 @@ final class WorkoutState: Identifiable {
         let workout = activeWorkout ?? createActiveWorkout()
         newSet.activeWorkout = workout
         workout.loggedSets.append(newSet)
+        return newSet
     }
 
     private func configureRestTimer() {

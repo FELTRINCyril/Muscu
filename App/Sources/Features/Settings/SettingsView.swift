@@ -201,6 +201,12 @@ struct SettingsView: View {
                 in: 15...300,
                 step: 15
             )
+            NavigationLink {
+                PlateInventoryView()
+            } label: {
+                Text("Disques et barre")
+            }
+            .accessibilityIdentifier("settings.plates")
         }
     }
 

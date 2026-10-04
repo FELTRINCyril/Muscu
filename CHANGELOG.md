@@ -19,6 +19,12 @@
   les haltères / machines.
 - Plafond de répétitions réglable pour le 1RM estimé, appliqué aux records,
   graphiques et suggestions.
+- Séance en direct : valeur précédente par série (tap pour recopier),
+  bandeau des dix dernières séances de l'exercice (remplace la ligne « La
+  dernière fois »), record célébré dès la série validée (sans écriture),
+  calculateur de disques avec inventaire kg / lb réglable, bips aux trois
+  dernières secondes du repos.
+- Calculateur de 1RM rapide depuis les records et la fiche exercice.
 
 ### Écosystème Apple (phase 7)
 

@@ -31,6 +31,11 @@ struct SetLoggerView: View {
     let initialReps: Int
     /// Pas des boutons +/-, en kg canonique.
     let weightStepKilograms: Double
+    /// Meme serie lors de la derniere seance comparable : affichee, et un
+    /// tap la recopie dans la saisie. `nil` = rien de comparable.
+    let previous: HistoricalSet?
+    /// Exercice a la barre : propose le calculateur de disques.
+    let showsPlateCalculator: Bool
     let onValidate: (Result) -> Void
 
     @Environment(\.massUnit) private var massUnit
@@ -43,6 +48,7 @@ struct SetLoggerView: View {
     @State private var notes = ""
     @State private var showingDetails = false
     @State private var role: SetRole = .working
+    @State private var showingPlates = false
     @FocusState private var focusedField: Field?
 
     private enum Field {
@@ -53,11 +59,15 @@ struct SetLoggerView: View {
         initialWeight: Double,
         initialReps: Int,
         weightStepKilograms: Double = MassUnit.kilograms.defaultIncrementKilograms,
+        previous: HistoricalSet? = nil,
+        showsPlateCalculator: Bool = false,
         onValidate: @escaping (Result) -> Void
     ) {
         self.initialWeight = initialWeight
         self.initialReps = initialReps
         self.weightStepKilograms = weightStepKilograms
+        self.previous = previous
+        self.showsPlateCalculator = showsPlateCalculator
         self.onValidate = onValidate
         _weight = State(initialValue: initialWeight)
         _reps = State(initialValue: initialReps)
@@ -73,6 +83,10 @@ struct SetLoggerView: View {
 
     var body: some View {
         VStack(spacing: 16) {
+            if previous != nil || showsPlateCalculator {
+                shortcutsRow
+            }
+
             editableValue(
                 label: "Poids",
                 suffix: massUnit.symbol,
@@ -135,6 +149,11 @@ struct SetLoggerView: View {
             .controlSize(.large)
             .disabled(reps <= 0 || weight < 0 || !weight.isFinite)
         }
+        .sheet(isPresented: $showingPlates) {
+            PlateCalculatorView(targetKilograms: weight) { chosen in
+                weight = chosen
+            }
+        }
         .toolbar {
             // Les claviers decimalPad/numberPad n'ont pas de touche retour :
             // sans ce bouton "OK", rien ne permet de refermer le clavier une
@@ -144,6 +163,46 @@ struct SetLoggerView: View {
                 Button("OK") { focusedField = nil }
             }
         }
+    }
+
+    /// Raccourcis au-dessus de la saisie : valeur precedente de cette serie
+    /// (un tap recopie charge et repetitions, sans valider) et calculateur
+    /// de disques pour la charge saisie.
+    private var shortcutsRow: some View {
+        HStack(spacing: 8) {
+            if let previous {
+                let label = LiveSessionText.set(weightKilograms: previous.weightKilograms, reps: previous.reps, unit: massUnit)
+                Button {
+                    weight = previous.weightKilograms
+                    reps = previous.reps
+                } label: {
+                    Label {
+                        Text("Préc. \(label)")
+                            .monospacedDigit()
+                    } icon: {
+                        Image(systemName: "clock.arrow.circlepath")
+                    }
+                    .font(.footnote)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel(Text("Série précédente : \(label)"))
+                .accessibilityHint(Text("Recopie la charge et les répétitions dans la saisie."))
+                .accessibilityIdentifier("setLogger.previous")
+            }
+            Spacer(minLength: 0)
+            if showsPlateCalculator {
+                Button {
+                    focusedField = nil
+                    showingPlates = true
+                } label: {
+                    Label("Disques", systemImage: "circle.grid.cross")
+                        .font(.footnote)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("setLogger.plates")
+            }
+        }
+        .tint(Theme.accent)
     }
 
     // Section repliee : effort ressenti, echec et commentaire. Repliee par

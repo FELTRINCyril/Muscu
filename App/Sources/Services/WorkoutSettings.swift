@@ -52,4 +52,46 @@ enum WorkoutSettings {
         }
         return OneRepMaxEstimation.clamped(defaults.integer(forKey: oneRepMaxMaximumRepsKey))
     }
+
+    // MARK: - Disques et barre
+
+    /// Un inventaire par unite : des disques en livres ne sont pas des
+    /// disques en kilos convertis, et changer d'unite ne doit pas effacer
+    /// l'inventaire de l'autre.
+    static func plateInventoryKey(for unit: MassUnit) -> String {
+        "plateInventory.\(unit.rawValue)"
+    }
+
+    /// Inventaire de disques pour cette unite ; jeu standard tant que rien
+    /// n'est regle. Une valeur illisible est signalee et remplacee par le
+    /// jeu standard plutot que de bloquer le calculateur en pleine seance.
+    @MainActor
+    static func plateInventory(for unit: MassUnit) -> PlateInventory {
+        guard let data = UserDefaults.standard.data(forKey: plateInventoryKey(for: unit)) else {
+            return .standard(for: unit)
+        }
+        do {
+            var inventory = try JSONDecoder().decode(PlateInventory.self, from: data)
+            inventory.unit = unit
+            return inventory.sanitized()
+        } catch {
+            DiagnosticsCenter.record(.store, code: "settings.plateInventory.decodeFailed", error: error)
+            return .standard(for: unit)
+        }
+    }
+
+    @MainActor
+    static func storePlateInventory(_ inventory: PlateInventory) {
+        do {
+            let data = try JSONEncoder().encode(inventory.sanitized())
+            UserDefaults.standard.set(data, forKey: plateInventoryKey(for: inventory.unit))
+        } catch {
+            DiagnosticsCenter.record(.store, code: "settings.plateInventory.encodeFailed", error: error)
+        }
+    }
+
+    /// Revient au jeu standard de cette unite.
+    static func resetPlateInventory(for unit: MassUnit) {
+        UserDefaults.standard.removeObject(forKey: plateInventoryKey(for: unit))
+    }
 }

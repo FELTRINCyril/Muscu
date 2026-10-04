@@ -38,6 +38,7 @@ struct WorkoutRunnerView: View {
             )
         ) {
             RestTimerView(timer: state.restTimer)
+                .overlay(alignment: .top) { LiveRecordBannerHost(state: state) }
         }
         // La Live Activity suit la seance : elle demarre avec le runner et
         // se met a jour a chaque changement d'etape ou de repos.
@@ -77,6 +78,7 @@ struct WorkoutRunnerView: View {
                 Spacer(minLength: 0)
             }
             .background(Theme.background)
+            .overlay(alignment: .top) { LiveRecordBannerHost(state: state) }
             .navigationTitle(state.programSession.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -455,12 +457,11 @@ private struct SetEntryCard: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    if let lastPerformance = state.lastPerformance(for: exercise) {
-                        Text(lastPerformance)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                 }
+
+                // Remplace l'ancienne ligne « La dernière fois » : la séance
+                // la plus récente y figure, avec les précédentes.
+                PreviousSessionsStripView(entries: state.previousSessionsStrip(for: exercise))
 
                 if state.needsOneRepMax(for: exercise) {
                     Button {
@@ -486,6 +487,8 @@ private struct SetEntryCard: View {
                     initialWeight: state.prefillWeight(for: target),
                     initialReps: prefillReps,
                     weightStepKilograms: state.loadStepKilograms(for: exercise),
+                    previous: state.previousSet(for: target),
+                    showsPlateCalculator: state.usesBarbell(exercise),
                     onValidate: { (result: SetLoggerView.Result) in
                         state.logSet(
                             weight: result.weight,

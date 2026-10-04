@@ -32,6 +32,7 @@ struct RecordsView: View {
     }
 
     @State private var showingPicker = false
+    @State private var showingCalculator = false
     @State private var editing: EditingTarget?
     @State private var pendingPick: (id: String, displayName: String)?
 
@@ -62,6 +63,15 @@ struct RecordsView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
+                    showingCalculator = true
+                } label: {
+                    Image(systemName: "function")
+                }
+                .accessibilityLabel("Calculateur de 1RM")
+                .accessibilityIdentifier("records.calculatorButton")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
                     showingPicker = true
                 } label: {
                     Image(systemName: "plus")
@@ -80,6 +90,9 @@ struct RecordsView: View {
         }
         .sheet(item: $editing) { target in
             RecordEditSheet(record: target.record, isNew: target.isNew)
+        }
+        .sheet(isPresented: $showingCalculator) {
+            OneRepMaxCalculatorView()
         }
     }
 

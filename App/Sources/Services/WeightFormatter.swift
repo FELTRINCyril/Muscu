@@ -41,14 +41,17 @@ enum WeightFormatter {
 
     /// Nombre seul, sans conversion ni unite : utilise quand la valeur est
     /// deja dans l'unite affichee.
-    static func number(_ value: Double) -> String {
+    ///
+    /// `maximumFractionDigits` vaut 1 par defaut ; 2 pour un disque de
+    /// 1,25 kg, qui s'afficherait sinon « 1,3 ».
+    static func number(_ value: Double, maximumFractionDigits: Int = 1) -> String {
         guard value.isFinite else { return "0" }
         let formatter = NumberFormatter()
         formatter.locale = displayLocale
         formatter.numberStyle = .decimal
         formatter.usesGroupingSeparator = false
         formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 1
+        formatter.maximumFractionDigits = max(0, maximumFractionDigits)
         return formatter.string(from: NSNumber(value: value)) ?? String(format: "%.1f", value)
     }
 }

@@ -67,6 +67,22 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   dépassement du repos s'affiche jusqu'à la série suivante, le repos par
   défaut distingue la barre des haltères / machines, et l'écran reste allumé
   pendant la séance (réglable).
+  - **Valeur précédente par série** (« Préc. 80 kg × 8 ») : la même série de
+    travail lors de la dernière séance comparable ; un tap recopie charge et
+    répétitions sans valider.
+  - **Dernières séances** de l'exercice en bandeau horizontal (« il y a
+    3 sem. — 20 kg × 15, 9 »), lisible par VoiceOver.
+  - **Record célébré en direct** (1RM estimé ou charge réellement portée),
+    une fois par exercice et par séance, avec vibration ; respecte « Réduire
+    les animations ». La fin de séance reste seule à enregistrer les records.
+  - **Calculateur de disques** pour les exercices à la barre : disques par
+    côté, dessin de la barre, charges voisines si la cible est impossible.
+    Barre et disques possédés réglables (jeux standards kg et lb).
+  - **Bips de fin de repos** : trois bips courts aux trois dernières secondes
+    (si les sons sont activés), avec une vibration légère.
+- **Calculateur de 1RM** (Records, fiche exercice) : charge × répétitions →
+  1RM estimé et tableau 95-50 % arrondi au palier chargeable. Rien n'est
+  enregistré ; le test de 1RM guidé reste la mesure.
 - **Formats d'exercices** — tous pilotés par une machine à états unique
   (`MuscuEngine.WorkoutStateMachine`), reprenable à n'importe quelle transition :
   - **Classique** : séries/répétitions standard, avec suggestion de charge

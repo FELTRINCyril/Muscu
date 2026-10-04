@@ -7,6 +7,7 @@ struct ExerciseDetailView: View {
     let exercise: CatalogExercise
 
     @State private var currentImageIndex = 0
+    @State private var showingCalculator = false
     @Environment(NetworkStatus.self) private var networkStatus
     @Environment(CatalogStore.self) private var catalogStore
     @Environment(\.modelContext) private var modelContext
@@ -52,7 +53,19 @@ struct ExerciseDetailView: View {
         .background(Theme.background)
         .navigationTitle("Fiche exercice")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingCalculator) {
+            OneRepMaxCalculatorView(title: exercise.nameFr)
+        }
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    showingCalculator = true
+                } label: {
+                    Image(systemName: "function")
+                }
+                .accessibilityLabel("Calculateur de 1RM")
+                .accessibilityIdentifier("exercise.oneRepMaxCalculator")
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     LibraryStore.toggleFavorite(exercise.id, in: modelContext)

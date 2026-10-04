@@ -1,5 +1,6 @@
 import Foundation
 import UserNotifications
+import AudioToolbox
 import MuscuEngine
 
 // Chrono de repos fiable, base sur une date de fin absolue (jamais un compteur
@@ -24,6 +25,9 @@ final class RestTimer {
     var onStateChange: ((Date?, Int) -> Void)?
 
     private var expiryTask: Task<Void, Never>?
+    /// Bips des trois dernieres secondes (premier plan uniquement : la
+    /// notification de fin prend le relais en arriere-plan).
+    private var beepTask: Task<Void, Never>?
 
     var isRunning: Bool {
         endDate != nil && !isOvertime
@@ -72,6 +76,8 @@ final class RestTimer {
         cancelNotification()
         expiryTask?.cancel()
         expiryTask = nil
+        beepTask?.cancel()
+        beepTask = nil
         endDate = nil
         totalSeconds = 0
         isOvertime = false
@@ -113,6 +119,7 @@ final class RestTimer {
 
     private func scheduleExpiryDetection() {
         expiryTask?.cancel()
+        scheduleBeeps()
         guard let endDate else { return }
         let delay = max(0, endDate.timeIntervalSinceNow)
         expiryTask = Task { [weak self] in
@@ -121,6 +128,31 @@ final class RestTimer {
             self?.handleExpiry()
         }
     }
+
+    /// Trois bips courts aux trois dernieres secondes, avec une vibration
+    /// legere, quand les sons sont actives. Recalcules a chaque changement
+    /// de fin (+30 s, reprise) : un bip deja passe n'est jamais rejoue.
+    private func scheduleBeeps() {
+        beepTask?.cancel()
+        beepTask = nil
+        guard let endDate, FeedbackSettings.isSoundEnabled else { return }
+        let times = RestBeeps.times(endDate: endDate, now: .now)
+        guard !times.isEmpty else { return }
+        beepTask = Task { [weak self] in
+            for time in times {
+                let delay = time.timeIntervalSinceNow
+                if delay > 0 {
+                    try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                }
+                guard !Task.isCancelled, let self, self.isRunning else { return }
+                FeedbackSettings.playSound(Self.beepSoundID)
+                FeedbackSettings.impact(.light)
+            }
+        }
+    }
+
+    /// Son systeme court (« Tink »), distinct du son de fin.
+    private static let beepSoundID: SystemSoundID = 1103
 
     private func handleExpiry() {
         guard endDate != nil, !isOvertime else { return }

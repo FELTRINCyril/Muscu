@@ -101,16 +101,16 @@
     },
     "%@ -> %@": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ -> %2$@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ -> %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ -> %2$@"
           }
         }
       }
@@ -213,18 +213,28 @@
         }
       }
     },
+    "%@ répétitions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ reps"
+          }
+        }
+      }
+    },
     "%@ x %lld": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ x %2$lld"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ x %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ x %2$lld"
           }
         }
       }
@@ -279,16 +289,16 @@
     },
     "%@ × %lld": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ × %2$lld"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ × %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ × %2$lld"
           }
         }
       }
@@ -305,6 +315,38 @@
           "stringUnit": {
             "state": "new",
             "value": "%1$@ – %2$@"
+          }
+        }
+      }
+    },
+    "%@ — 1RM estimé %@ (avant %@)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ — 1RM estimé %2$@ (avant %3$@)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ — estimated 1RM %@ (was %@)"
+          }
+        }
+      }
+    },
+    "%@ — charge %@ (avant %@)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ — charge %2$@ (avant %3$@)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ — load %@ (was %@)"
           }
         }
       }
@@ -337,6 +379,22 @@
           "stringUnit": {
             "state": "new",
             "value": "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@, %@ répétitions": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@, %2$@ répétitions"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, %@ reps"
           }
         }
       }
@@ -561,6 +619,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld min"
+          }
+        }
+      }
+    },
+    "%lld paires": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld pairs"
           }
         }
       }
@@ -1599,6 +1667,22 @@
         }
       }
     },
+    "Arrondis au palier chargeable le plus proche (%@ %@).": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Arrondis au palier chargeable le plus proche (%1$@ %2$@)."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rounded to the nearest loadable step (%@ %@)."
+          }
+        }
+      }
+    },
     "Assisté": {
       "localizations": {
         "en": {
@@ -1609,12 +1693,32 @@
         }
       }
     },
+    "Au-delà de %lld répétitions, l’estimation n’est plus fiable (réglage du plafond).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beyond %lld reps the estimate is no longer reliable (cap setting)."
+          }
+        }
+      }
+    },
     "Aucun": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "None"
+          }
+        }
+      }
+    },
+    "Aucun disque disponible : seule la barre est chargeable.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No plates available: only the bar can be loaded."
           }
         }
       }
@@ -2149,6 +2253,16 @@
         }
       }
     },
+    "Autre disque (%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other plate (%@)"
+          }
+        }
+      }
+    },
     "Avancement": {
       "localizations": {
         "en": {
@@ -2209,6 +2323,36 @@
         }
       }
     },
+    "Barre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bar"
+          }
+        }
+      }
+    },
+    "Barre par défaut": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default bar"
+          }
+        }
+      }
+    },
+    "Barre seule": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bar only"
+          }
+        }
+      }
+    },
     "Bilatéral": {
       "localizations": {
         "en": {
@@ -2245,6 +2389,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cache used"
+          }
+        }
+      }
+    },
+    "Calculateur de 1RM": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1RM calculator"
           }
         }
       }
@@ -2465,12 +2619,32 @@
         }
       }
     },
+    "Charge impossible avec vos disques": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Load not possible with your plates"
+          }
+        }
+      }
+    },
     "Charge maximale": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Maximum load"
+          }
+        }
+      }
+    },
+    "Charge visée": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target load"
           }
         }
       }
@@ -2864,16 +3038,16 @@
     },
     "Construit à partir de votre référence de %@, arrondi à vos paliers de %@. Arrêtez-vous dès qu’une tentative échoue : la suivante ne serait pas plus sûre.": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Construit à partir de votre référence de %1$@, arrondi à vos paliers de %2$@. Arrêtez-vous dès qu’une tentative échoue : la suivante ne serait pas plus sûre."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Built from your reference of %@, rounded to your %@ steps. Stop as soon as an attempt fails: the next one would not be any safer."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Construit à partir de votre référence de %1$@, arrondi à vos paliers de %2$@. Arrêtez-vous dès qu’une tentative échoue : la suivante ne serait pas plus sûre."
           }
         }
       }
@@ -3088,6 +3262,16 @@
         }
       }
     },
+    "Dernières séances": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent sessions"
+          }
+        }
+      }
+    },
     "Diagnostic": {
       "localizations": {
         "en": {
@@ -3134,6 +3318,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Availability"
+          }
+        }
+      }
+    },
+    "Disques": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plates"
+          }
+        }
+      }
+    },
+    "Disques et barre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plates and bar"
+          }
+        }
+      }
+    },
+    "Disques possédés": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plates owned"
           }
         }
       }
@@ -3406,16 +3620,16 @@
     },
     "Décharge proposée : %@ → %@": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Décharge proposée : %1$@ → %2$@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Suggested deload: %@ → %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Décharge proposée : %1$@ → %2$@"
           }
         }
       }
@@ -3843,6 +4057,16 @@
         }
       }
     },
+    "Estimation (formule d’Epley), pas une mesure. Pour un vrai maximum, utilisez le test de 1RM guidé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An estimate (Epley formula), not a measurement. For a true max, use the guided 1RM test."
+          }
+        }
+      }
+    },
     "Estimer depuis une perf": {
       "localizations": {
         "en": {
@@ -3869,6 +4093,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "E.g. 20"
+          }
+        }
+      }
+    },
+    "Ex : 80": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E.g. 80"
           }
         }
       }
@@ -4353,6 +4587,16 @@
         }
       }
     },
+    "Hier": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yesterday"
+          }
+        }
+      }
+    },
     "Historique des séances": {
       "localizations": {
         "en": {
@@ -4683,6 +4927,16 @@
         }
       }
     },
+    "La charge visée est inférieure au poids de la barre (%@).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The target load is lighter than the bar (%@)."
+          }
+        }
+      }
+    },
     "La première semaine à venir démarrera cette semaine-là ; les suivantes s’enchaînent de sept jours en sept jours.": {
       "localizations": {
         "en": {
@@ -4987,6 +5241,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The journal only keeps error codes, versions and counters."
+          }
+        }
+      }
+    },
+    "Le plus petit disque impose des pas de %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your smallest plate means steps of %@."
           }
         }
       }
@@ -5614,6 +5878,16 @@
         }
       }
     },
+    "Mes disques": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My plates"
+          }
+        }
+      }
+    },
     "Mes données": {
       "localizations": {
         "en": {
@@ -5760,6 +6034,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mode"
+          }
+        }
+      }
+    },
+    "Modifiable aussi depuis le calculateur, pendant la séance.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also editable from the calculator during a workout."
           }
         }
       }
@@ -6086,6 +6370,16 @@
         }
       }
     },
+    "Nombre de paires : les disques se chargent des deux côtés. Zéro paire = disque absent de votre salle.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Number of pairs: plates are loaded on both sides. Zero pairs = plate not available at your gym."
+          }
+        }
+      }
+    },
     "Non précisé": {
       "localizations": {
         "en": {
@@ -6152,6 +6446,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "New record!"
+          }
+        }
+      }
+    },
+    "Nouveau record : %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New record: %@"
           }
         }
       }
@@ -6368,16 +6672,16 @@
     },
     "Palier %lld : -%@": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Palier %1$lld : -%2$@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Step %lld: -%@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Palier %1$lld : -%2$@"
           }
         }
       }
@@ -6550,6 +6854,16 @@
         }
       }
     },
+    "Performance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Performance"
+          }
+        }
+      }
+    },
     "Performance récente": {
       "localizations": {
         "en": {
@@ -6712,16 +7026,16 @@
     },
     "Poids : %@ %@": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Poids : %1$@ %2$@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Weight: %@ %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Poids : %1$@ %2$@"
           }
         }
       }
@@ -6809,6 +7123,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Percentage"
+          }
+        }
+      }
+    },
+    "Pourcentages": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Percentages"
           }
         }
       }
@@ -6979,6 +7303,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Protocol unavailable"
+          }
+        }
+      }
+    },
+    "Préc. %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prev. %@"
           }
         }
       }
@@ -7235,6 +7569,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Search for an exercise"
+          }
+        }
+      }
+    },
+    "Recopie la charge et les répétitions dans la saisie.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copies the load and reps into the entry."
           }
         }
       }
@@ -7927,6 +8271,16 @@
         }
       }
     },
+    "Rétablir le jeu standard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore standard set"
+          }
+        }
+      }
+    },
     "Réussie": {
       "localizations": {
         "en": {
@@ -7943,6 +8297,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "One side at a time"
+          }
+        }
+      }
+    },
+    "Saisissez une charge et un nombre de répétitions.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter a load and a number of reps."
           }
         }
       }
@@ -8639,6 +9003,16 @@
         }
       }
     },
+    "Série précédente : %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previous set: %@"
+          }
+        }
+      }
+    },
     "Séries": {
       "localizations": {
         "en": {
@@ -8891,6 +9265,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Workout tonnage"
+          }
+        }
+      }
+    },
+    "Total": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
           }
         }
       }
@@ -9363,6 +9747,16 @@
         }
       }
     },
+    "Utiliser %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use %@"
+          }
+        }
+      }
+    },
     "Valeur": {
       "localizations": {
         "en": {
@@ -9681,6 +10075,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "iCloud"
+          }
+        }
+      }
+    },
+    "il y a %lld j": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld d ago"
+          }
+        }
+      }
+    },
+    "il y a %lld mois": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld mo ago"
+          }
+        }
+      }
+    },
+    "il y a %lld sem.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld wk ago"
           }
         }
       }
