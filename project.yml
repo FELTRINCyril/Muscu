@@ -30,6 +30,12 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: com.cyril.Muscu
             CFBundleURLSchemes: [muscu]
+        # Dossier Documents visible dans l'app Fichiers : c'est la que les
+        # sauvegardes automatiques (desactivees par defaut) sont ecrites.
+        # Rien d'autre n'y est stocke — base, photos et cache d'images vivent
+        # dans Application Support, hors de portee de Fichiers.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
     dependencies:
       - package: MuscuEngine
       # `platformFilter: iOS` exclut ces deux dependances de la variante

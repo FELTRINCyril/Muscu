@@ -73,6 +73,9 @@ extension WorkoutState {
         // Les widgets affichent la semaine et la derniere seance (records
         // compris) : ils doivent refleter cette seance immediatement.
         WidgetSnapshotService.refresh(in: modelContext)
+        // Sauvegarde automatique (si activee, au plus une par jour) : une
+        // seance qui vient d'etre terminee est la donnee la plus precieuse.
+        AutoBackupService.runIfDue(context: modelContext)
         return Completion(session: completedSession, recordSuggestions: suggestions, structureChanges: changes)
     }
 

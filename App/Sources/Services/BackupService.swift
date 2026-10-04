@@ -122,13 +122,17 @@ extension ExportImport {
 
         switch mode {
         case .merge:
-            return (try importAll(data: data, context: context), nil)
+            let summary = try importAll(data: data, context: context)
+            applyMergeRedirects(context: context)
+            return (summary, nil)
 
         case .replace:
             let backup = try BackupService.createSafetyBackup(context: context, now: now)
             _ = try DataDeletion.deleteEverything(context: context)
             do {
-                return (try importAll(data: data, context: context), backup)
+                let summary = try importAll(data: data, context: context)
+                applyMergeRedirects(context: context)
+                return (summary, backup)
             } catch {
                 // L'import a échoué après la suppression : on restaure
                 // immédiatement la sauvegarde de sécurité.
@@ -138,5 +142,15 @@ extension ExportImport {
                 throw error
             }
         }
+    }
+
+    /// Une archive peut porter des fusions d'exercices (redirections), ou
+    /// des seances qui designent encore un exercice fusionne ailleurs : les
+    /// references sont reecrites vers l'exercice conserve. Sans effet si rien
+    /// n'est a rediriger ; un echec d'ecriture est deja signale par
+    /// `PersistenceSupport` et sera retente au lancement suivant.
+    @MainActor
+    private static func applyMergeRedirects(context: ModelContext) {
+        ExerciseMergeService.applyPendingRedirects(in: context)
     }
 }

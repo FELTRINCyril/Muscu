@@ -99,6 +99,22 @@
         }
       }
     },
+    "%@ (%lld série(s))": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ (%lld set(s))"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ (%2$lld série(s))"
+          }
+        }
+      }
+    },
     "%@ -> %@": {
       "localizations": {
         "en": {
@@ -261,6 +277,22 @@
         }
       }
     },
+    "%@ le %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ on %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ le %2$@"
+          }
+        }
+      }
+    },
     "%@ reps par tour": {
       "localizations": {
         "en": {
@@ -373,6 +405,22 @@
           "stringUnit": {
             "state": "new",
             "value": "%1$@ × %2$lld"
+          }
+        }
+      }
+    },
+    "%@ × le poids de corps (%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ × body weight (%@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ × le poids de corps (%2$@)"
           }
         }
       }
@@ -573,6 +621,22 @@
         }
       }
     },
+    "%lld %% du 1RM estimé (%lld série(s))": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %% of estimated 1RM (%lld set(s))"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld %% du 1RM estimé (%2$lld série(s))"
+          }
+        }
+      }
+    },
     "%lld %@": {
       "localizations": {
         "en": {
@@ -750,6 +814,26 @@
         }
       }
     },
+    "%lld modèle(s)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld template(s)"
+          }
+        }
+      }
+    },
+    "%lld objectif(s)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld goal(s)"
+          }
+        }
+      }
+    },
     "%lld paires": {
       "localizations": {
         "en": {
@@ -792,12 +876,48 @@
         }
       }
     },
+    "%lld prescription(s) de programme": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld program prescription(s)"
+          }
+        }
+      }
+    },
     "%lld record(s)": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%lld record(s)"
+          }
+        }
+      }
+    },
+    "%lld record(s) battu(s) en %@ : %@. %lld exercice(s) chargé(s) pratiqué(s).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld record(s) beaten in %@: %@. %lld loaded exercise(s) trained."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld record(s) battu(s) en %2$@ : %3$@. %4$lld exercice(s) chargé(s) pratiqué(s)."
+          }
+        }
+      }
+    },
+    "%lld record(s) repris du doublon, car meilleurs.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld record(s) taken from the duplicate because they were better."
           }
         }
       }
@@ -952,6 +1072,38 @@
         }
       }
     },
+    "%lld séance(s), %lld programme(s) et %lld record(s) restaurés. Une sauvegarde de sécurité de l’état précédent a été créée sur cet appareil.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld workout(s), %lld program(s) and %lld record(s) restored. A safety backup of the previous state was created on this device."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld séance(s), %2$lld programme(s) et %3$lld record(s) restaurés. Une sauvegarde de sécurité de l’état précédent a été créée sur cet appareil."
+          }
+        }
+      }
+    },
+    "%lld séance(s), %lld série(s)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld workout(s), %lld set(s)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld séance(s), %2$lld série(s)"
+          }
+        }
+      }
+    },
     "%lld séance(s), %lld série(s) de travail, %@.": {
       "localizations": {
         "en": {
@@ -1018,12 +1170,38 @@
         }
       }
     },
+    "%lld série(s) sans poids de corps connu : exclue(s) des moyennes plutôt que comptée(s) à zéro.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld set(s) without a known body weight: left out of the averages rather than counted as zero."
+          }
+        }
+      }
+    },
     "%lld série(s) sans poids de corps connu : leur tonnage n'est pas comptabilisé. Renseignez votre poids dans le profil pour les inclure.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%lld set(s) with no known bodyweight: their tonnage is not counted. Enter your weight in the profile to include them."
+          }
+        }
+      }
+    },
+    "%lld série(s) sur %lld séance(s)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld set(s) across %lld workout(s)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld série(s) sur %2$lld séance(s)"
           }
         }
       }
@@ -1250,6 +1428,16 @@
         }
       }
     },
+    "12 semaines": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "12 weeks"
+          }
+        }
+      }
+    },
     "1RM": {
       "localizations": {
         "en": {
@@ -1438,6 +1626,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "30-30"
+          }
+        }
+      }
+    },
+    "4 semaines": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "4 weeks"
           }
         }
       }
@@ -1638,6 +1836,16 @@
         }
       }
     },
+    "Activées": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On"
+          }
+        }
+      }
+    },
     "Adaptations": {
       "localizations": {
         "en": {
@@ -1800,6 +2008,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add to favourites"
+          }
+        }
+      }
+    },
+    "Ajouter mon lien de démonstration": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add my demo link"
           }
         }
       }
@@ -2076,6 +2294,16 @@
         }
       }
     },
+    "Au plus une fois par jour, au passage en arrière-plan ou après une séance terminée, l’export complet de vos données est écrit dans l’app Fichiers (Sur mon iPhone › Muscu › Sauvegardes). Les %lld plus récentes sont conservées. Les photos de progression n’y figurent pas, comme dans l’export.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "At most once a day, when the app goes to the background or after a finished workout, the full export of your data is written to the Files app (On My iPhone › Muscu › Sauvegardes). The %lld most recent are kept. Progress photos are not included, as in the export."
+          }
+        }
+      }
+    },
     "Au-delà de %lld répétitions, l’estimation n’est plus fiable (réglage du plafond).": {
       "localizations": {
         "en": {
@@ -2126,6 +2354,16 @@
         }
       }
     },
+    "Aucun doublon détecté": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No duplicates found"
+          }
+        }
+      }
+    },
     "Aucun exercice compatible trouvé pour cette séance.": {
       "localizations": {
         "en": {
@@ -2162,6 +2400,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No exercise matches “%@”. The search ignores accents and tolerates a single typo."
+          }
+        }
+      }
+    },
+    "Aucun historique": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No history"
           }
         }
       }
@@ -2282,6 +2530,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "No record"
+          }
+        }
+      }
+    },
+    "Aucun record battu en %@, %lld exercice(s) chargé(s) pratiqué(s).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No record beaten in %@, %lld loaded exercise(s) trained."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Aucun record battu en %1$@, %2$lld exercice(s) chargé(s) pratiqué(s)."
           }
         }
       }
@@ -2486,6 +2750,16 @@
         }
       }
     },
+    "Aucune sauvegarde pour l’instant.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No backup yet."
+          }
+        }
+      }
+    },
     "Aucune semaine sur la période.": {
       "localizations": {
         "en": {
@@ -2586,6 +2860,26 @@
         }
       }
     },
+    "Aucune série chargée ce mois-ci.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No loaded set this month."
+          }
+        }
+      }
+    },
+    "Aucune série chargée en %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No loaded set in %@."
+          }
+        }
+      }
+    },
     "Aucune série enregistrée pour l’instant.": {
       "localizations": {
         "en": {
@@ -2602,6 +2896,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "No set has been logged, so there is nothing to finish. You can discard the workout instead."
+          }
+        }
+      }
+    },
+    "Aucune série éligible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No eligible set"
+          }
+        }
+      }
+    },
+    "Aucune tendance sur tout l’historique : il n’y a pas de période précédente à comparer.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No trend over the whole history: there is no previous period to compare with."
           }
         }
       }
@@ -2806,6 +3120,16 @@
         }
       }
     },
+    "Barre : meilleure charge effective du mois ÷ record historique de l’exercice, séries de travail à charge réellement portée. Un record dépasse tout l’historique antérieur ; un premier essai n’en est pas un.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bar: best effective load of the month ÷ all-time record for the exercise, working sets with an actually lifted load. A record beats all earlier history; a first attempt is not one."
+          }
+        }
+      }
+    },
     "Barre par défaut": {
       "localizations": {
         "en": {
@@ -2922,6 +3246,16 @@
         }
       }
     },
+    "Ce ne sont pas des doublons": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These are not duplicates"
+          }
+        }
+      }
+    },
     "Ce plan ne conserve pas son style de périodisation : les volumes et intensités des semaines à venir sont laissés tels quels, seules les dates sont réalignées.": {
       "localizations": {
         "en": {
@@ -3008,6 +3342,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This goal cannot be used on this device."
+          }
+        }
+      }
+    },
+    "Cette fusion créerait une boucle : l’exercice conservé est lui-même redirigé vers le doublon.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This merge would create a loop: the kept exercise is itself redirected to the duplicate."
           }
         }
       }
@@ -3118,6 +3462,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Maximum load"
+          }
+        }
+      }
+    },
+    "Charge maximale · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maximum load · %@"
+          }
+        }
+      }
+    },
+    "Charge moyenne": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Average load"
           }
         }
       }
@@ -3322,6 +3686,16 @@
         }
       }
     },
+    "Classés selon la fréquence et la récence de vos séances : une séance d’il y a 30 jours compte pour moitié.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ranked by how often and how recently you trained them: a workout from 30 days ago counts for half."
+          }
+        }
+      }
+    },
     "Clé personnelle": {
       "localizations": {
         "en": {
@@ -3518,6 +3892,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Internet connection required"
+          }
+        }
+      }
+    },
+    "Conservé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kept"
           }
         }
       }
@@ -4384,6 +4768,32 @@
         }
       }
     },
+    "Déplacé vers « %@ » : %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moved to “%@”: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Déplacé vers « %1$@ » : %2$@."
+          }
+        }
+      }
+    },
+    "Désactivées": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        }
+      }
+    },
     "Désarchiver": {
       "localizations": {
         "en": {
@@ -4574,12 +4984,32 @@
         }
       }
     },
+    "En baisse de %@ %% sur la période précédente.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Down %@ %% from the previous period."
+          }
+        }
+      }
+    },
     "En cours": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "In progress"
+          }
+        }
+      }
+    },
+    "En hausse de %@ %% sur la période précédente.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up %@ %% from the previous period."
           }
         }
       }
@@ -4850,6 +5280,16 @@
         }
       }
     },
+    "Exclu(s) faute de 1RM estimable sur la période : %@. Ils ne comptent pas pour zéro.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Left out for lack of an estimable 1RM in the period: %@. They do not count as zero."
+          }
+        }
+      }
+    },
     "Exclure un exercice": {
       "localizations": {
         "en": {
@@ -4916,6 +5356,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Favourite exercises, personal tags and collections."
+          }
+        }
+      }
+    },
+    "Exercices fusionnés": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exercises merged"
           }
         }
       }
@@ -5240,6 +5690,16 @@
         }
       }
     },
+    "Force relative": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Relative strength"
+          }
+        }
+      }
+    },
     "Format": {
       "localizations": {
         "en": {
@@ -5300,12 +5760,52 @@
         }
       }
     },
+    "Fusion impossible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge failed"
+          }
+        }
+      }
+    },
     "Fusionner": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Merge"
+          }
+        }
+      }
+    },
+    "Fusionner ces exercices ?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge these exercises?"
+          }
+        }
+      }
+    },
+    "Fusionner…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge…"
+          }
+        }
+      }
+    },
+    "Fusionné puis redirigé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merged, then redirected"
           }
         }
       }
@@ -5336,6 +5836,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep the program"
+          }
+        }
+      }
+    },
+    "Garder plutôt « %@ »": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep “%@” instead"
           }
         }
       }
@@ -5396,6 +5906,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Generation not possible"
+          }
+        }
+      }
+    },
+    "Habituels": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usual"
           }
         }
       }
@@ -5610,6 +6130,42 @@
         }
       }
     },
+    "Indice de force": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strength index"
+          }
+        }
+      }
+    },
+    "Indice de force de %@ sur %@, %lld exercice(s).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strength index of %@ over %@, %lld exercise(s)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Indice de force de %1$@ sur %2$@, %3$lld exercice(s)."
+          }
+        }
+      }
+    },
+    "Indice de force non calculable : aucun exercice principal n’a de 1RM estimable sur %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strength index unavailable: no main exercise has an estimable 1RM over %@."
+          }
+        }
+      }
+    },
     "Instructions": {
       "localizations": {
         "en": {
@@ -5626,6 +6182,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Intensification"
+          }
+        }
+      }
+    },
+    "Intensité moyenne": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Average intensity"
           }
         }
       }
@@ -5836,6 +6402,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Heart rate and energy are only read for the duration of your sessions. Nothing else is read: no sleep, no steps, no activity."
+          }
+        }
+      }
+    },
+    "La fusion déplace tout l’historique du doublon (séries, records, programmes, modèles, objectifs, favoris et tags) vers l’exercice conservé. Le doublon n’est pas supprimé : il est masqué et redirigé, pour qu’une ancienne référence retrouve l’exercice conservé. Un exercice du catalogue est toujours conservé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merging moves the duplicate’s whole history (sets, records, programs, templates, goals, favorites and tags) to the kept exercise. The duplicate is not deleted: it is hidden and redirected, so that an old reference finds the kept exercise. A catalog exercise is always kept."
+          }
+        }
+      }
+    },
+    "La fusion n’a pas pu être enregistrée. Rien n’a été modifié.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The merge could not be saved. Nothing was changed."
           }
         }
       }
@@ -6369,12 +6955,38 @@
         }
       }
     },
+    "Les deux noms sont identiques une fois les accents, majuscules et ponctuation ignorés, et le matériel est compatible.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Both names are identical once accents, capitals and punctuation are ignored, and the equipment is compatible."
+          }
+        }
+      }
+    },
     "Les deux versions ont été conservées. Rien n'a été supprimé : choisissez celle à garder.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Both versions have been kept. Nothing was deleted: choose the one to keep."
+          }
+        }
+      }
+    },
+    "Les données actuelles seront remplacées par celles du %@. %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current data will be replaced by the data from %@. %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Les données actuelles seront remplacées par celles du %1$@. %2$@"
           }
         }
       }
@@ -6505,6 +7117,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Free"
+          }
+        }
+      }
+    },
+    "Lien de démonstration": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo link"
+          }
+        }
+      }
+    },
+    "Lien refusé : seule une adresse web complète, commençant par http:// ou https://, est acceptée.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Link refused: only a full web address starting with http:// or https:// is accepted."
           }
         }
       }
@@ -6771,6 +7403,16 @@
         }
       }
     },
+    "L’exercice à fusionner n’existe plus ou a déjà été fusionné.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The exercise to merge no longer exists or has already been merged."
+          }
+        }
+      }
+    },
     "L’heure reste l’heure locale : un changement de fuseau ou d’heure d’été ne décale pas vos séances.": {
       "localizations": {
         "en": {
@@ -6807,6 +7449,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The image is empty or over the 10 MB limit."
+          }
+        }
+      }
+    },
+    "Ma démonstration": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My demo"
           }
         }
       }
@@ -6887,6 +7539,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Maximal"
+          }
+        }
+      }
+    },
+    "Meilleur 1RM estimé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Best estimated 1RM"
           }
         }
       }
@@ -7157,6 +7819,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Edit the record"
+          }
+        }
+      }
+    },
+    "Modifier mon lien": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit my link"
           }
         }
       }
@@ -7445,6 +8117,26 @@
         }
       }
     },
+    "Même nom": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Same name"
+          }
+        }
+      }
+    },
+    "Même nom d’import": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Same import name"
+          }
+        }
+      }
+    },
     "Nettement moins travaillé(s) que la médiane sur la période : %@. C'est un écart de volume observé, pas un jugement sur votre programme.": {
       "localizations": {
         "en": {
@@ -7531,6 +8223,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Number of pairs: plates are loaded on both sides. Zero pairs = plate not available at your gym."
+          }
+        }
+      }
+    },
+    "Noms proches (%lld %% de similarité ou mots inclus). Vérifiez qu’il s’agit bien du même mouvement avant de fusionner.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Similar names (%lld %% similarity or contained words). Check that this is really the same movement before merging."
+          }
+        }
+      }
+    },
+    "Noms proches — à vérifier": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Similar names — please check"
+          }
+        }
+      }
+    },
+    "Non calculable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not computable"
           }
         }
       }
@@ -8296,6 +9018,16 @@
         }
       }
     },
+    "Poids de corps inconnu à la date du meilleur 1RM : ajoutez une pesée dans Mesures.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Body weight unknown on the date of the best 1RM: add a weigh-in in Measurements."
+          }
+        }
+      }
+    },
     "Poids du corps": {
       "localizations": {
         "en": {
@@ -8638,6 +9370,22 @@
         }
       }
     },
+    "Période : %@. 1RM estimé (Epley : charge × (1 + répétitions ⁄ 30)) sur les séries de travail de 1 à %lld répétitions à charge réelle. Force relative = meilleur 1RM estimé ÷ poids de corps connu à cette date. Intensité = charge de chaque série ÷ meilleur 1RM estimé connu jusqu’à sa séance, en moyenne. Charge moyenne = moyenne des charges effectives des séries de travail chargées. Aucun niveau (débutant, avancé…) n’est attribué : il faudrait une table de référence sourcée.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Period: %@. Estimated 1RM (Epley: load × (1 + reps ⁄ 30)) on working sets of 1 to %lld reps with an actual load. Relative strength = best estimated 1RM ÷ body weight known on that date. Intensity = load of each set ÷ best estimated 1RM known up to its workout, averaged. Average load = mean effective load of loaded working sets. No level (beginner, advanced…) is assigned: that would require a sourced reference table."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Période : %1$@. 1RM estimé (Epley : charge × (1 + répétitions ⁄ 30)) sur les séries de travail de 1 à %2$lld répétitions à charge réelle. Force relative = meilleur 1RM estimé ÷ poids de corps connu à cette date. Intensité = charge de chaque série ÷ meilleur 1RM estimé connu jusqu’à sa séance, en moyenne. Charge moyenne = moyenne des charges effectives des séries de travail chargées. Aucun niveau (débutant, avancé…) n’est attribué : il faudrait une table de référence sourcée."
+          }
+        }
+      }
+    },
     "Période précédente": {
       "localizations": {
         "en": {
@@ -8848,6 +9596,16 @@
         }
       }
     },
+    "Rechercher une autre vidéo": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search for another video"
+          }
+        }
+      }
+    },
     "Recopie la charge et les répétitions dans la saisie.": {
       "localizations": {
         "en": {
@@ -8874,6 +9632,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Session records"
+          }
+        }
+      }
+    },
+    "Records du mois": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records this month"
           }
         }
       }
@@ -9337,6 +10105,46 @@
           "stringUnit": {
             "state": "new",
             "value": "Rest-pause %1$lld x — %2$lld mini-séries, %3$lld s"
+          }
+        }
+      }
+    },
+    "Restauration impossible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore failed"
+          }
+        }
+      }
+    },
+    "Restaurer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore"
+          }
+        }
+      }
+    },
+    "Restaurer cette sauvegarde ?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore this backup?"
+          }
+        }
+      }
+    },
+    "Restaurer remplace toutes les données de l’appareil par celles de la sauvegarde. Une sauvegarde de sécurité de l’état actuel est créée avant, et rétablie si la restauration échoue.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restoring replaces all data on this device with the backup’s. A safety backup of the current state is created first, and brought back if the restore fails."
           }
         }
       }
@@ -9824,6 +10632,66 @@
         }
       }
     },
+    "Sauvegarde automatique": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic backup"
+          }
+        }
+      }
+    },
+    "Sauvegarde impossible": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup failed"
+          }
+        }
+      }
+    },
+    "Sauvegarde restaurée": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup restored"
+          }
+        }
+      }
+    },
+    "Sauvegarder maintenant": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Back up now"
+          }
+        }
+      }
+    },
+    "Sauvegardes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backups"
+          }
+        }
+      }
+    },
+    "Sauvegardes automatiques": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic backups"
+          }
+        }
+      }
+    },
     "Schéma": {
       "localizations": {
         "en": {
@@ -9971,6 +10839,32 @@
         }
       }
     },
+    "Somme de 1RM estimés · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sum of estimated 1RMs · %@"
+          }
+        }
+      }
+    },
+    "Somme des meilleurs 1RM estimés (Epley : charge × (1 + répétitions ⁄ 30), séries de 1 à %lld répétitions à charge réelle) de vos %lld exercices principaux, les plus pratiqués avec une charge.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sum of the best estimated 1RMs (Epley: load × (1 + reps ⁄ 30), sets of 1 to %lld reps with an actual load) of your %lld main exercises, the ones you train most with a load."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Somme des meilleurs 1RM estimés (Epley : charge × (1 + répétitions ⁄ 30), séries de 1 à %1$lld répétitions à charge réelle) de vos %2$lld exercices principaux, les plus pratiqués avec une charge."
+          }
+        }
+      }
+    },
     "Son": {
       "localizations": {
         "en": {
@@ -10021,12 +10915,32 @@
         }
       }
     },
+    "Stable par rapport à la période précédente.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stable compared with the previous period."
+          }
+        }
+      }
+    },
     "Stagnation": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Stagnation"
+          }
+        }
+      }
+    },
+    "Statistiques": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Statistics"
           }
         }
       }
@@ -10177,6 +11091,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete the key"
+          }
+        }
+      }
+    },
+    "Supprimer le lien": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove the link"
           }
         }
       }
@@ -10728,6 +11652,16 @@
         }
       }
     },
+    "Tendance : comparaison avec les %@ précédentes, sur les exercices présents dans les deux périodes ; « = » en deçà de ±1 %%.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trend: compared with the previous %@, on exercises present in both periods; “=” within ±1 %%."
+          }
+        }
+      }
+    },
     "Tentative": {
       "localizations": {
         "en": {
@@ -11020,6 +11954,16 @@
         }
       }
     },
+    "Tout": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        }
+      }
+    },
     "Tout effacer": {
       "localizations": {
         "en": {
@@ -11216,12 +12160,32 @@
         }
       }
     },
+    "Un exercice ne peut pas être fusionné avec lui-même.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An exercise cannot be merged with itself."
+          }
+        }
+      }
+    },
     "Un import restaure des séances, pas les programmes dont elles viennent. Chaque titre peut devenir une séance : exercices reconnus et nombre de séries usuel, sans aucune charge importée. Rien n’est créé sans confirmation.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "An import restores sessions, not the programs they came from. Each title can become a session: recognized exercises and usual set count, without any imported load. Nothing is created without confirmation."
+          }
+        }
+      }
+    },
+    "Un import écrit le matériel entre parenthèses (« Deadlift (Barbell) ») : le nom et le matériel désignent l’autre exercice.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An import writes the equipment in parentheses (“Deadlift (Barbell)”): the name and equipment point to the other exercise."
           }
         }
       }
@@ -11373,6 +12337,16 @@
         }
       }
     },
+    "Une séance est en cours : terminez-la ou abandonnez-la avant de fusionner des exercices.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A workout is in progress: finish or discard it before merging exercises."
+          }
+        }
+      }
+    },
     "Une séance ne peut pas dépasser 24 heures.": {
       "localizations": {
         "en": {
@@ -11429,6 +12403,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "A set of “%@” has no valid value."
+          }
+        }
+      }
+    },
+    "Une vidéo ou un article qui montre le mouvement comme vous le pratiquez. Le lien s’ouvre dans le navigateur.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A video or article showing the movement the way you do it. The link opens in the browser."
           }
         }
       }
@@ -11685,12 +12669,32 @@
         }
       }
     },
+    "Vos données n’ont pas pu être ouvertes au lancement : aucune sauvegarde n’est écrite tant que l’application fonctionne sur une base temporaire.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your data could not be opened at launch: no backup is written while the app runs on a temporary database."
+          }
+        }
+      }
+    },
     "Vos données restent utilisables hors ligne en permanence. La synchronisation ne fait que les recopier entre vos appareils.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Your data stays usable offline at all times. Syncing only copies it between your devices."
+          }
+        }
+      }
+    },
+    "Vos exercices personnalisés ne recoupent ni le catalogue ni un autre exercice personnalisé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your custom exercises overlap neither the catalog nor another custom exercise."
           }
         }
       }
@@ -11821,6 +12825,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "about %lld min"
+          }
+        }
+      }
+    },
+    "https://…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "https://…"
           }
         }
       }
@@ -12062,6 +13076,32 @@
           "stringUnit": {
             "state": "translated",
             "value": "the whole history"
+          }
+        }
+      }
+    },
+    "tout l’historique": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "the whole history"
+          }
+        }
+      }
+    },
+    "« %@ » (%lld séance(s), %lld série(s)) sera fusionné dans « %@ ». Pour chaque record, le meilleur des deux est conservé. Le doublon sera masqué et redirigé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” (%lld workout(s), %lld set(s)) will be merged into “%@”. For each record, the better of the two is kept. The duplicate will be hidden and redirected."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "« %1$@ » (%2$lld séance(s), %3$lld série(s)) sera fusionné dans « %4$@ ». Pour chaque record, le meilleur des deux est conservé. Le doublon sera masqué et redirigé."
           }
         }
       }

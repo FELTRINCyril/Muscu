@@ -28,7 +28,8 @@
         <dict>
             <!-- Dates de fichiers, lues UNIQUEMENT dans le conteneur de
                  l'application : classer les sauvegardes automatiques de la
-                 plus récente à la plus ancienne (BackupService), dater la
+                 plus récente à la plus ancienne (BackupService,
+                 AutoBackupService — dossier Documents de l'app), dater la
                  dernière sauvegarde dans le diagnostic (DiagnosticsHealth),
                  et inspecter le store local avant une récupération
                  (StoreRecovery, PhotoStore). C617.1 = fichiers du conteneur. -->

@@ -29,6 +29,9 @@ struct MuscuApp: App {
             #endif
             try SchemaUpgrade.run(context: container.mainContext)
             try DataIntegrityRepair.run(context: container.mainContext)
+            // Fusions d'exercices recues (synchronisation, archive) dont les
+            // references n'ont pas encore ete reecrites sur cet appareil.
+            ExerciseMergeService.applyPendingRedirects(in: container.mainContext)
             // Purge differee des suppressions logiques : un tombstone garde
             // sa raison d'etre 90 jours, le temps qu'un appareil hors ligne
             // recoive la suppression. Au-dela il ne sert plus a rien.
@@ -54,6 +57,9 @@ struct MuscuApp: App {
             // temporaire permet d'ouvrir l'app et d'expliquer le probleme;
             // les donnees originales restent intactes sur disque.
             DiagnosticsCenter.record(.store, code: "store.open.failed", error: error)
+            // Conteneur de secours vide : surtout pas de sauvegarde
+            // automatique, dont la rotation effacerait les bonnes.
+            AutoBackupService.isStoreReliable = false
             do {
                 let fallback = ModelConfiguration(isStoredInMemoryOnly: true)
                 let schema = Schema(versionedSchema: MuscuCurrentSchema.self)
@@ -122,8 +128,16 @@ struct MuscuApp: App {
         }
         .modelContainer(container)
         .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            Task { await refreshReminders() }
+            switch phase {
+            case .active:
+                Task { await refreshReminders() }
+            case .background:
+                // Sauvegarde automatique, si l'utilisateur l'a activee : au
+                // plus une par jour (`AutoBackupPolicy`).
+                AutoBackupService.runIfDue(context: container.mainContext)
+            default:
+                break
+            }
         }
     }
 

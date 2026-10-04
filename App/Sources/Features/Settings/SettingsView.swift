@@ -19,6 +19,7 @@ struct SettingsView: View {
     @AppStorage(WorkoutSettings.barbellRestKey) private var storedBarbellRestSeconds: Int?
     @AppStorage(WorkoutSettings.keepsScreenAwakeKey) private var keepsScreenAwake = true
     @AppStorage(WorkoutSettings.oneRepMaxMaximumRepsKey) private var oneRepMaxMaximumReps = OneRepMaxEstimation.defaultMaximumReps
+    @AppStorage(AutoBackupService.enabledKey) private var autoBackupEnabled = false
 
     @State private var cacheSizeBytes: Int64 = 0
     @State private var isDownloadingImages = false
@@ -288,6 +289,13 @@ struct SettingsView: View {
             Button("Exporter mes données") {
                 exportData()
             }
+
+            NavigationLink {
+                BackupsView()
+            } label: {
+                LabeledContent("Sauvegardes automatiques", value: autoBackupEnabled ? String(localized: "Activées") : String(localized: "Désactivées"))
+            }
+            .accessibilityIdentifier("settings.backups")
 
             Button("Importer des données") {
                 isImporting = true
