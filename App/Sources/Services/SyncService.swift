@@ -172,6 +172,11 @@ final class SyncService {
         guard PersistenceSupport.save(modelContext, action: "Application des changements iCloud") else {
             throw SyncTransportError(kind: .unknown)
         }
+        // Une fusion d'exercices faite sur l'autre appareil arrive comme une
+        // redirection : les references locales sont reecrites ici.
+        if result.records.contains(where: { $0.kind == .customExercise }) {
+            ExerciseMergeService.applyPendingRedirects(in: modelContext, now: now)
+        }
     }
 
     /// Envoie les modifications locales en attente.

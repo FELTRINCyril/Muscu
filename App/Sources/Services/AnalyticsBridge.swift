@@ -86,6 +86,24 @@ enum AnalyticsBridge {
         return result
     }
 
+    /// Poids de corps dates : pesees (manuelles ou Sante) et poids fige sur
+    /// une seance. Sert a la force relative, qui doit utiliser le poids
+    /// connu A LA DATE de la performance, jamais le dernier.
+    static func bodyweightPoints(context: ModelContext) -> [AnalyticsPoint] {
+        let measurements = (try? context.fetch(FetchDescriptor<BodyMeasurement>(
+            predicate: #Predicate { $0.kindRaw == "bodyweight" && $0.deletedAt == nil }
+        ))) ?? []
+        var points = measurements
+            .filter { $0.value > 0 }
+            .map { AnalyticsPoint(date: $0.measuredAt, value: $0.value) }
+        let sessions = (try? context.fetch(FetchDescriptor<CompletedSession>())) ?? []
+        for session in sessions {
+            guard let bodyweight = session.bodyweightKilograms, bodyweight > 0 else { continue }
+            points.append(AnalyticsPoint(date: session.date, value: bodyweight))
+        }
+        return points.sorted { $0.date < $1.date }
+    }
+
     /// Seances planifiees et realisees sur une periode, pour l'adherence.
     static func adherence(context: ModelContext, from start: Date, to end: Date) -> AdherenceSummary {
         let descriptor = FetchDescriptor<ScheduledWorkout>(

@@ -29,10 +29,26 @@ struct ExercisesView: View {
     @State private var deletionBlockedMessage: String?
     @State private var taggingExerciseId: String?
     @State private var path = NavigationPath()
+    @State private var habitualIds: [String] = []
 
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                // Exercices habituels en tete, l'ordre alphabetique reste
+                // intact en dessous. Masques pendant une recherche ou un
+                // filtre : la liste filtree est alors la reponse attendue.
+                if showsHabitualSection {
+                    Section {
+                        ForEach(habitualIds, id: \.self) { id in
+                            habitualRow(id)
+                        }
+                    } header: {
+                        Text("Habituels")
+                    } footer: {
+                        Text("Classés selon la fréquence et la récence de vos séances : une séance d’il y a 30 jours compte pour moitié.")
+                    }
+                }
+
                 if !filteredCustomExercises.isEmpty {
                     Section("Exercices perso") {
                         ForEach(filteredCustomExercises) { exercise in
@@ -85,7 +101,10 @@ struct ExercisesView: View {
                     ExerciseDetailView(exercise: exercise)
                 }
             }
-            .onAppear(perform: openRequestedExercise)
+            .onAppear {
+                openRequestedExercise()
+                refreshHabitual()
+            }
             .onChange(of: IntentRouter.shared.pending) { _, _ in openRequestedExercise() }
             .searchable(text: $searchText, prompt: "Rechercher un exercice")
             .toolbar {
@@ -100,6 +119,14 @@ struct ExercisesView: View {
                     }
                     .accessibilityLabel("Collections")
                     .accessibilityIdentifier("exercises.collections")
+
+                    NavigationLink {
+                        MergeDuplicatesView()
+                    } label: {
+                        Image(systemName: "arrow.triangle.merge")
+                    }
+                    .accessibilityLabel("Doublons")
+                    .accessibilityIdentifier("exercises.duplicates")
 
                     filterMenu
                     Button {
@@ -200,6 +227,46 @@ struct ExercisesView: View {
         path.append(CatalogExerciseRoute(id: id))
     }
 
+    // MARK: - Habituels
+
+    private var showsHabitualSection: Bool {
+        !habitualIds.isEmpty && searchText.isEmpty && !hasActiveFilters
+    }
+
+    /// Exercices personnalises proposables : un exercice fusionne est
+    /// redirige vers celui qu'il a rejoint, un exercice supprime n'existe plus.
+    private var activeCustomExercises: [CustomExercise] {
+        customExercises.filter { $0.deletedAt == nil && $0.mergedIntoExerciseId == nil }
+    }
+
+    private func refreshHabitual() {
+        var names: [String: String] = [:]
+        for exercise in catalogStore.all { names[exercise.id] = exercise.nameFr }
+        for exercise in activeCustomExercises { names[exercise.id.uuidString] = exercise.name }
+        habitualIds = HabitualExercises.identifiers(in: modelContext, among: Set(names.keys), names: names)
+    }
+
+    @ViewBuilder
+    private func habitualRow(_ id: String) -> some View {
+        if let exercise = catalogStore.exercise(id: id) {
+            NavigationLink {
+                ExerciseDetailView(exercise: exercise)
+            } label: {
+                CatalogExerciseRow(
+                    exercise: exercise,
+                    isFavorite: metadata.isFavorite(exercise.id),
+                    tags: metadata.tags(for: exercise.id).sorted()
+                )
+            }
+        } else if let custom = activeCustomExercises.first(where: { $0.id.uuidString == id }) {
+            NavigationLink {
+                CustomExerciseDetailView(exercise: custom)
+            } label: {
+                CustomExerciseRow(exercise: custom)
+            }
+        }
+    }
+
     private func favoriteButton(for exerciseId: String) -> some View {
         Button {
             LibraryStore.toggleFavorite(exerciseId, in: modelContext)
@@ -285,7 +352,7 @@ struct ExercisesView: View {
     /// convertis en entrée de catalogue le temps du classement, puis
     /// retrouvés par identifiant pour garder leur écran dédié.
     private var filteredCustomExercises: [CustomExercise] {
-        let converted = customExercises.map { exercise in
+        let converted = activeCustomExercises.map { exercise in
             CatalogExercise(
                 id: exercise.id.uuidString,
                 name: exercise.name,
@@ -308,7 +375,7 @@ struct ExercisesView: View {
             catalog: converted,
             metadata: metadata
         )
-        let byId = Dictionary(customExercises.map { ($0.id.uuidString, $0) }, uniquingKeysWith: { first, _ in first })
+        let byId = Dictionary(activeCustomExercises.map { ($0.id.uuidString, $0) }, uniquingKeysWith: { first, _ in first })
         return ranked.compactMap { byId[$0.exercise.id] }
     }
 

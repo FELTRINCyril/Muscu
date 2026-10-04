@@ -64,6 +64,26 @@ enum LibraryStore {
         _ = PersistenceSupport.save(context, action: "Mise à jour des tags")
     }
 
+    /// Lien de demonstration personnel. Seul un lien `http`/`https` absolu
+    /// est accepte (`DemoLink`) ; `nil` ou un texte vide retire le lien.
+    /// Renvoie faux si le lien est refuse ou si l'enregistrement echoue.
+    @discardableResult
+    static func setDemoURL(_ text: String?, for exerciseId: String, in context: ModelContext, now: Date = .now) -> Bool {
+        let trimmed = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let link: String?
+        if trimmed.isEmpty {
+            link = nil
+        } else {
+            guard let normalized = DemoLink.normalized(trimmed) else { return false }
+            link = normalized
+        }
+        let entry = ensureEntry(exerciseId, in: context, now: now)
+        entry.demoURL = link
+        entry.updatedAt = now
+        pruneIfEmpty(entry, in: context)
+        return PersistenceSupport.save(context, action: "Lien de démonstration")
+    }
+
     static func markUsed(_ exerciseId: String, in context: ModelContext, now: Date = .now) {
         let entry = ensureEntry(exerciseId, in: context, now: now)
         entry.lastUsedAt = now

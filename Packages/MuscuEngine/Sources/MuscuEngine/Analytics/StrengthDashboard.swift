@@ -53,6 +53,9 @@ public struct StrengthIndex: Equatable, Sendable {
     /// Variation relative (0,05 = +5 %). `nil` si non comparable.
     public var relativeChange: Double?
     public var trend: StrengthTrend?
+
+    /// Indice sans periode analysable (aucune seance).
+    public static let unavailable = StrengthIndex(value: nil, contributions: [], excluded: [])
 }
 
 /// Une ligne de la carte « Records du mois » : meilleure charge de la

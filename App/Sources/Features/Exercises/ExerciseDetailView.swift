@@ -8,7 +8,6 @@ struct ExerciseDetailView: View {
 
     @State private var currentImageIndex = 0
     @State private var showingCalculator = false
-    @Environment(NetworkStatus.self) private var networkStatus
     @Environment(CatalogStore.self) private var catalogStore
     @Environment(\.modelContext) private var modelContext
     @Query private var libraryEntries: [ExerciseLibraryEntry]
@@ -42,11 +41,14 @@ struct ExerciseDetailView: View {
                     instructionsSection
                 }
 
+                ExerciseStatsSection(exerciseId: exercise.id)
+
                 variantsSection
 
                 sourceSection
 
-                videoButton
+                // Lien personnel d'abord, recherche video en repli.
+                DemoLinkSection(exerciseId: exercise.id, fallbackSearchQuery: exercise.name)
             }
             .padding()
         }
@@ -174,42 +176,6 @@ struct ExerciseDetailView: View {
             }
         }
     }
-
-    private var videoButton: some View {
-        VStack(spacing: 4) {
-            if networkStatus.isOnline {
-                Link(destination: videoSearchURL) {
-                    videoButtonLabel
-                }
-            } else {
-                videoButtonLabel
-                    .opacity(0.4)
-            }
-
-            if !networkStatus.isOnline {
-                Text("Connexion internet requise")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var videoButtonLabel: some View {
-        Label("Voir en vidéo", systemImage: "play.rectangle.fill")
-            .font(.subheadline.weight(.semibold))
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Theme.card)
-            .foregroundStyle(Theme.accent)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-    }
-
-    private var videoSearchURL: URL {
-        let query = "\(exercise.name) form"
-        var components = URLComponents(string: "https://www.youtube.com/results")!
-        components.queryItems = [URLQueryItem(name: "search_query", value: query)]
-        return components.url!
-    }
 }
 
 private struct ChipsSection: View {
@@ -278,6 +244,10 @@ struct CustomExerciseDetailView: View {
                             .font(.subheadline)
                     }
                 }
+
+                ExerciseStatsSection(exerciseId: exercise.id.uuidString)
+
+                DemoLinkSection(exerciseId: exercise.id.uuidString, fallbackSearchQuery: exercise.name)
             }
             .padding()
         }

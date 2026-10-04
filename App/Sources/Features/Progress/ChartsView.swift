@@ -52,6 +52,8 @@ struct ChartsView: View {
                     .padding(.top, 60)
                 } else {
                     windowPicker
+                    strengthIndexCard
+                    monthRecordsCard
                     volumeCard
                     muscleDistributionCard
                     frequencyCard
@@ -191,6 +193,193 @@ struct ChartsView: View {
         formatter.setLocalizedDateFormatFromTemplate("dMMMM")
         return formatter
     }()
+
+    // MARK: - Indice de force
+
+    private var strengthIndexCard: some View {
+        let index = strengthIndex
+        return ChartCard(
+            title: String(localized: "Indice de force"),
+            subtitle: String(localized: "Somme de 1RM estimés · \(periodLabel)"),
+            footnote: strengthIndexFormula(index),
+            missingDataNote: strengthIndexMissingNote(index),
+            textAlternative: strengthIndexAlternative(index)
+        ) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    if let value = index.value {
+                        Text(WeightFormatter.string(kilograms: value, unit: massUnit))
+                            .font(.title.weight(.bold))
+                            .monospacedDigit()
+                    } else {
+                        Text("Non calculable")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                    }
+                    if let trend = index.trend {
+                        Text(trendLabel(trend, change: index.relativeChange))
+                            .font(.headline)
+                            .foregroundStyle(trendColor(trend))
+                    }
+                }
+                ForEach(index.contributions, id: \.exerciseId) { contribution in
+                    HStack {
+                        Text(contribution.displayName)
+                            .font(.caption)
+                            .lineLimit(1)
+                        Spacer()
+                        Text(WeightFormatter.string(kilograms: contribution.bestEstimatedOneRepMax, unit: massUnit))
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("charts.strengthIndex")
+    }
+
+    /// Periode analysee et periode precedente de meme duree. « Tout » n'a
+    /// pas de periode precedente : aucune tendance n'est alors affichee.
+    private var strengthPeriods: (current: DateInterval, previous: DateInterval?)? {
+        let end = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: .now)) ?? .now
+        guard let weeksBack = window.weeks else {
+            guard let first = sessions.first?.date, first < end else { return nil }
+            return (DateInterval(start: first, end: end), nil)
+        }
+        let weekStart = TrainingAnalytics.startOfWeek(for: .now, calendar: calendar)
+        guard let start = calendar.date(byAdding: .weekOfYear, value: -weeksBack, to: weekStart),
+              let previousStart = calendar.date(byAdding: .weekOfYear, value: -weeksBack, to: start) else { return nil }
+        return (DateInterval(start: start, end: end), DateInterval(start: previousStart, end: start))
+    }
+
+    private var strengthIndex: StrengthIndex {
+        guard let periods = strengthPeriods else {
+            return .unavailable
+        }
+        let earliest = periods.previous?.start ?? periods.current.start
+        let considered = sessions.filter { $0.date >= earliest }
+        return StrengthDashboard.strengthIndex(
+            main: StrengthDashboard.mainExercises(sessions: considered),
+            sessions: sessions,
+            period: periods.current,
+            previousPeriod: periods.previous
+        )
+    }
+
+    private func trendLabel(_ trend: StrengthTrend, change: Double?) -> String {
+        guard let change else { return trend.symbol }
+        let percent = WeightFormatter.number(change * 100)
+        return change > 0 ? "\(trend.symbol) +\(percent) %" : "\(trend.symbol) \(percent) %"
+    }
+
+    private func trendColor(_ trend: StrengthTrend) -> Color {
+        switch trend {
+        case .up: return .green
+        case .down: return .orange
+        case .stable: return .secondary
+        }
+    }
+
+    private func strengthIndexFormula(_ index: StrengthIndex) -> String {
+        let maximum = OneRepMaxEstimation.clamped(WorkoutSettings.maximumRepsForOneRepMax)
+        var text = String(localized: "Somme des meilleurs 1RM estimés (Epley : charge × (1 + répétitions ⁄ 30), séries de 1 à \(maximum) répétitions à charge réelle) de vos \(StrengthDashboard.mainExerciseCount) exercices principaux, les plus pratiqués avec une charge.")
+        if window.weeks != nil {
+            text += " " + String(localized: "Tendance : comparaison avec les \(periodLabel) précédentes, sur les exercices présents dans les deux périodes ; « = » en deçà de ±1 %.")
+        } else {
+            text += " " + String(localized: "Aucune tendance sur tout l’historique : il n’y a pas de période précédente à comparer.")
+        }
+        return text
+    }
+
+    private func strengthIndexMissingNote(_ index: StrengthIndex) -> String? {
+        guard !index.excluded.isEmpty else { return nil }
+        let names = index.excluded.map(\.displayName).joined(separator: ", ")
+        return String(localized: "Exclu(s) faute de 1RM estimable sur la période : \(names). Ils ne comptent pas pour zéro.")
+    }
+
+    private func strengthIndexAlternative(_ index: StrengthIndex) -> String {
+        guard let value = index.value else {
+            return String(localized: "Indice de force non calculable : aucun exercice principal n’a de 1RM estimable sur \(periodLabel).")
+        }
+        var text = String(localized: "Indice de force de \(WeightFormatter.string(kilograms: value, unit: massUnit)) sur \(periodLabel), \(index.contributions.count) exercice(s).")
+        if let trend = index.trend, let change = index.relativeChange {
+            let percent = WeightFormatter.number(abs(change) * 100)
+            switch trend {
+            case .up: text += " " + String(localized: "En hausse de \(percent) % sur la période précédente.")
+            case .down: text += " " + String(localized: "En baisse de \(percent) % sur la période précédente.")
+            case .stable: text += " " + String(localized: "Stable par rapport à la période précédente.")
+            }
+        }
+        return text
+    }
+
+    // MARK: - Records du mois
+
+    private var currentMonth: DateInterval {
+        StrengthDashboard.month(containing: .now, calendar: calendar)
+    }
+
+    private var monthLabel: String {
+        currentMonth.start.formatted(.dateTime.month(.wide).year())
+    }
+
+    private var monthRecords: [PeriodRecordEntry] {
+        StrengthDashboard.periodRecords(sessions: sessions, period: currentMonth)
+    }
+
+    private var monthRecordsCard: some View {
+        let entries = monthRecords
+        return ChartCard(
+            title: String(localized: "Records du mois"),
+            subtitle: String(localized: "Charge maximale · \(monthLabel)"),
+            footnote: String(localized: "Barre : meilleure charge effective du mois ÷ record historique de l’exercice, séries de travail à charge réellement portée. Un record dépasse tout l’historique antérieur ; un premier essai n’en est pas un."),
+            missingDataNote: nil,
+            textAlternative: monthRecordsAlternative(entries)
+        ) {
+            if entries.isEmpty {
+                Text("Aucune série chargée ce mois-ci.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(entries.prefix(8), id: \.exerciseId) { entry in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                if entry.isNewRecord {
+                                    Image(systemName: "trophy.fill")
+                                        .foregroundStyle(.yellow)
+                                }
+                                Text(entry.displayName)
+                                    .font(.subheadline)
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(WeightFormatter.number(kilograms: entry.periodBest, unit: massUnit) + " / " + WeightFormatter.string(kilograms: entry.allTimeBest, unit: massUnit))
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+                            ProgressView(value: entry.ratioToRecord)
+                                .tint(entry.isNewRecord ? .yellow : Theme.accent)
+                        }
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("charts.monthRecords")
+    }
+
+    private func monthRecordsAlternative(_ entries: [PeriodRecordEntry]) -> String {
+        guard !entries.isEmpty else {
+            return String(localized: "Aucune série chargée en \(monthLabel).")
+        }
+        let records = entries.filter(\.isNewRecord)
+        let detail = records.prefix(5)
+            .map { "\($0.displayName) \(WeightFormatter.string(kilograms: $0.periodBest, unit: massUnit))" }
+            .joined(separator: ", ")
+        if records.isEmpty {
+            return String(localized: "Aucun record battu en \(monthLabel), \(entries.count) exercice(s) chargé(s) pratiqué(s).")
+        }
+        return String(localized: "\(records.count) record(s) battu(s) en \(monthLabel) : \(detail). \(entries.count) exercice(s) chargé(s) pratiqué(s).")
+    }
 
     // MARK: - Volume hebdomadaire
 
