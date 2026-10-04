@@ -72,6 +72,26 @@
   par mesure, lecture seule), incrémental et dédoublonné par identifiant
   d'échantillon, comme le poids désormais. Les nouveaux types sont présentés
   par un bouton expliqué, jamais au lancement.
+- Live Activity interactive (lot 6, iOS 17+, hors Mac Catalyst) : boutons
+  « Valider la série », « Passer » (le repos) et « +30 s » sur l'écran
+  verrouillé et dans la Dynamic Island étendue. Ils agissent sur la séance en
+  cours par le même chemin que les boutons de l'application (persistance pour
+  la reprise, même chrono de repos), même application relancée en
+  arrière-plan. « Valider » n'est proposé que pour une série classique
+  poids × répétitions dont les valeurs proposées sont connues ; une série
+  qui n'est plus celle affichée n'est jamais validée. Contenu enrichi :
+  charge × répétitions prévues, série suivante, repos en décompte puis en
+  dépassement « +0:12 » (décision 0016).
+- Widget « Dernière séance » (petit / moyen) : date, durée, séries, tonnage
+  (absent plutôt que « 0 kg » s'il n'est pas mesurable), record éventuel ; un
+  tap ouvre l'application sur « Refaire » cette séance, après confirmation.
+  Lien direct « Démarrer la prochaine séance » sur le widget Prochaine séance.
+  Schéma d'URL `muscu://`, qui ne fait que naviguer.
+- Siri et Raccourcis : « Quel est mon 1RM ? » (réponse parlée et petite vue :
+  1RM estimé et de référence, avec leur date), « Mes records récents »,
+  « Terminer la séance » et « Abandonner la séance » (confirmation, refus
+  propre sans séance en cours ou sans série enregistrée). « Démarrer la
+  prochaine séance » ouvre désormais l'écran de préparation.
 
 ### Écosystème Apple (phase 7)
 

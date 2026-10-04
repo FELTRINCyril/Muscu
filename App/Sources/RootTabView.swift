@@ -111,6 +111,14 @@ struct RootTabView: View {
             // ouverte : on reagit aussi au depot d'une demande.
             .onChange(of: IntentRouter.shared.pending) { _, _ in applyIntentRequests() }
             .onChange(of: RestTimerLauncher.shared.pendingSeconds) { _, _ in applyIntentRequests() }
+            // Liens directs des widgets et de la Live Activity. Un lien
+            // inconnu est ignore : il peut venir de n'importe quelle
+            // application, et ne doit rien declencher d'autre que la
+            // navigation prevue.
+            .onOpenURL { url in
+                guard let link = MuscuDeepLink(url: url) else { return }
+                IntentRouter.shared.request(IntentDestination(link))
+            }
             .fullScreenCover(item: $standaloneTimer) { entry in
                 RestTimerView(timer: entry.timer)
             }
@@ -231,6 +239,9 @@ struct RootTabView: View {
             case .weeklySummary:
                 selectedTab = Destination.progress.rawValue
                 _ = IntentRouter.shared.consume()
+            case .resumeWorkout, .startNextSession, .replaySession:
+                // Consommees par `HomeView`, qui seule presente une seance.
+                selectedTab = Destination.home.rawValue
             }
         }
 

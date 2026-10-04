@@ -68,6 +68,8 @@ disparaître. Elle porte une date de péremption de quatre heures, et
 l'application ferme au démarrage toute activité restée ouverte après un arrêt
 brutal. Une Live Activity affichée toute la nuit après une séance abandonnée
 serait un défaut visible sans même ouvrir l'application.
+*Complété par la décision 0016 : l'activité devient interactive, et elle
+n'est fermée au démarrage que s'il ne reste aucune séance à reprendre.*
 
 Détail d'implémentation qui a demandé un détour : `Activity` est manipulé par
 ActivityKit hors de l'acteur principal. Le contrôleur ne retient donc que

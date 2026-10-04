@@ -43,7 +43,7 @@ enum WorkoutActivityController {
         }
 
         let attributes = WorkoutActivityAttributes(sessionName: sessionName, startedAt: now)
-        let content = ActivityContent(state: state, staleDate: staleDate(from: now))
+        let content = ActivityContent(state: state, staleDate: staleDate(for: state, now: now))
 
         do {
             let activity = try Activity.request(attributes: attributes, content: content, pushType: nil)
@@ -59,7 +59,15 @@ enum WorkoutActivityController {
 
     static func update(_ state: WorkoutActivityState, now: Date = .now) async {
         guard let identifier = currentIdentifier else { return }
-        await Self.updateActivity(identifier: identifier, state: state, staleDate: staleDate(from: now))
+        await Self.updateActivity(identifier: identifier, state: state, staleDate: staleDate(for: state, now: now))
+    }
+
+    /// Reprend la main sur une activite deja affichee, apres une relance de
+    /// l'application (bouton de la Live Activity, reprise d'une seance) :
+    /// l'identifiant ne vit qu'en memoire.
+    static func adoptRunningActivity() {
+        guard currentIdentifier == nil else { return }
+        currentIdentifier = Self.runningActivityIdentifiers().first
     }
 
     /// Termine l'activité. Appelée à la fin ET à l'abandon d'une séance :
@@ -77,11 +85,22 @@ enum WorkoutActivityController {
         await Self.endAllActivities()
     }
 
-    private static func staleDate(from now: Date) -> Date? {
-        Calendar.current.date(byAdding: .hour, value: staleAfterHours, to: now)
+    /// Pendant un repos, l'activite devient « perimee » a la fin prevue :
+    /// le systeme la redessine alors, et elle passe du decompte au
+    /// depassement (« +0:12 ») meme si l'application est suspendue. Hors
+    /// repos, la peremption de quatre heures s'applique.
+    static func staleDate(for state: WorkoutActivityState, now: Date) -> Date? {
+        if let restEndsAt = state.restEndsAt, restEndsAt > now {
+            return restEndsAt
+        }
+        return Calendar.current.date(byAdding: .hour, value: staleAfterHours, to: now)
     }
 
     // MARK: - Accès hors de l'acteur principal
+
+    private nonisolated static func runningActivityIdentifiers() -> [String] {
+        Activity<WorkoutActivityAttributes>.activities.map(\.id)
+    }
 
     private nonisolated static func updateActivity(
         identifier: String,
@@ -128,6 +147,10 @@ enum WorkoutActivityController {
     static func endOrphans() async {
         currentIdentifier = nil
     }
+
+    static func adoptRunningActivity() {}
+
+    static func staleDate(for state: WorkoutActivityState, now: Date) -> Date? { nil }
 
 #endif
 }

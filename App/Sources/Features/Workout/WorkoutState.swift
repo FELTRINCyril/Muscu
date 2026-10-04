@@ -49,6 +49,14 @@ final class WorkoutState: Identifiable {
     /// reprise, la seance libre attend de nouveau un exercice ou la fin.
     private(set) var endRequested = false
 
+    /// Seance terminee ou abandonnee : plus aucune serie ne peut s'y
+    /// ajouter (une saisie tardive recreerait une seance fantome).
+    private(set) var isClosed = false
+
+    /// Terminee ou abandonnee HORS du deroule (Siri, Raccourcis) : le
+    /// deroule affiche, s'il l'est, doit se fermer.
+    private(set) var endedOutsideRunner = false
+
     /// Mise a l'echelle de la semaine de plan appliquee au demarrage. Elle
     /// est conservee pour que l'ecran de preparation et le runner puissent la
     /// DIRE : alleger une seance sans le signaler serait une modification
@@ -99,6 +107,7 @@ final class WorkoutState: Identifiable {
             activeWorkout = nil
         }
         configureRestTimer()
+        LiveWorkoutRegistry.shared.register(self)
     }
 
     /// Seance libre : aucun programme, un deroule vide auquel les exercices
@@ -135,6 +144,7 @@ final class WorkoutState: Identifiable {
             activeWorkout = nil
         }
         configureRestTimer()
+        LiveWorkoutRegistry.shared.register(self)
     }
 
     private init(
@@ -218,6 +228,7 @@ final class WorkoutState: Identifiable {
         if let endDate = runtimeState.restEndDate, runtimeState.restTotalSeconds > 0 {
             restTimer.restore(endDate: endDate, totalSeconds: runtimeState.restTotalSeconds)
         }
+        LiveWorkoutRegistry.shared.register(self)
     }
 
     /// Deroule d'une seance libre reconstruit depuis ses series : un
@@ -248,6 +259,23 @@ final class WorkoutState: Identifiable {
     static func pendingActiveWorkout(modelContext: ModelContext) -> ActiveWorkout? {
         let descriptor = FetchDescriptor<ActiveWorkout>(sortBy: [SortDescriptor(\.startedAt, order: .reverse)])
         return (try? modelContext.fetch(descriptor))?.first
+    }
+
+    /// Reprise depuis l'interface ou depuis un bouton de la Live Activity :
+    /// la meme seance est peut-etre deja en memoire (reprise en
+    /// arriere-plan par un bouton, ou « Reprendre plus tard »). La
+    /// reconstruire ferait coexister deux coordinateurs — et deux chronos —
+    /// pour une seule seance ; on reprend donc celui qui existe.
+    static func resumeOrAdopt(
+        from activeWorkout: ActiveWorkout,
+        modelContext: ModelContext,
+        catalogStore: CatalogStore,
+        restTimer: RestTimer
+    ) -> WorkoutState? {
+        if let live = LiveWorkoutRegistry.shared.state(for: activeWorkout, in: modelContext) {
+            return live
+        }
+        return resume(from: activeWorkout, modelContext: modelContext, catalogStore: catalogStore, restTimer: restTimer)
     }
 
     // Reconstruit l'etat depuis une ActiveWorkout persistee. Si la ProgramSession
@@ -395,6 +423,24 @@ final class WorkoutState: Identifiable {
         let loads = dropset.loads(startingFrom: startingWeight, increment: availableIncrement())
         let index = target.subSetIndex - 1
         return index < loads.count ? loads[index] : base
+    }
+
+    /// Repetitions proposees pour la serie : objectif en % du maximum de
+    /// repetitions, sinon haut puis bas de la fourchette. `nil` si aucune
+    /// n'est connue — jamais un 1 invente.
+    func proposedReps(for target: WorkoutSetTarget) -> Int? {
+        if let targetReps = suggestedReps(for: target.exercise) {
+            return targetReps > 0 ? targetReps : nil
+        }
+        if target.targetRepsUpper > 0 { return target.targetRepsUpper }
+        return target.targetRepsLower > 0 ? target.targetRepsLower : nil
+    }
+
+    /// Repetitions pre-remplies dans la saisie. Le champ doit partir d'une
+    /// valeur valide : a defaut de mieux, 1, que l'utilisateur corrige.
+    func prefillReps(for target: WorkoutSetTarget) -> Int {
+        if let targetReps = suggestedReps(for: target.exercise) { return targetReps }
+        return proposedReps(for: target) ?? 1
     }
 
     func needsOneRepMax(for exercise: WorkoutExercisePlan) -> Bool {
@@ -603,7 +649,7 @@ final class WorkoutState: Identifiable {
         stopsSubSets: Bool = false,
         role: SetRole = .working
     ) {
-        guard let target = currentTarget, weight >= 0, weight.isFinite, reps > 0 else { return }
+        guard !isClosed, let target = currentTarget, weight >= 0, weight.isFinite, reps > 0 else { return }
         let exercise = target.exercise
         // La serie suivante est saisie : le depassement de repos s'arrete.
         restTimer.endOvertime()
@@ -646,7 +692,7 @@ final class WorkoutState: Identifiable {
 
     // Un bloc d'intervalles / EMOM / AMRAP / For Time = une seule saisie.
     func logTimedBlock(totalReps: Int, durationSeconds: Int? = nil) {
-        guard case .timedBlock(let exercise) = currentStep else { return }
+        guard !isClosed, case .timedBlock(let exercise) = currentStep else { return }
         restTimer.endOvertime()
         let clamped = WorkoutStateMachine.clamp(position, in: plan)
         let target = WorkoutSetTarget(
@@ -698,7 +744,7 @@ final class WorkoutState: Identifiable {
 
     // Loggee avec le role "warmup", sur l'index reel du futur exercice cible.
     func logWarmupSet(_ warmupSet: WarmupSet, rampIndex: Int) {
-        guard let target = warmupTargetExercise(),
+        guard !isClosed, let target = warmupTargetExercise(),
               let targetIndex = exercises.firstIndex(where: { $0.id == target.id }) else { return }
         // Idempotent : un kill+resume en pleine echauffement restaure
         // checkedRamps depuis loggedSets (cf. WarmupView.onAppear), mais on
@@ -971,7 +1017,7 @@ final class WorkoutState: Identifiable {
         notes: String = "",
         role: SetRole = .working
     ) {
-        guard let target = currentTarget,
+        guard !isClosed, let target = currentTarget,
               result.isValid(for: target.exercise.effectiveMeasure),
               weight >= 0, weight.isFinite else { return }
         restTimer.endOvertime()
@@ -1018,24 +1064,32 @@ final class WorkoutState: Identifiable {
 
     // "Abandonner" : supprime la seance en cours et les series deja loggees
     // (cascade sur ActiveWorkout.loggedSets). Rien n'est ecrit a l'historique.
-    func discard() {
-        guard let workout = activeWorkout else { return }
+    @discardableResult
+    func discard(outsideRunner: Bool = false) -> Bool {
+        guard let workout = activeWorkout else { return false }
         restTimer.endOvertime()
         modelContext.delete(workout)
-        if PersistenceSupport.save(modelContext, action: "Abandon de la séance") {
-            activeWorkout = nil
-            // Abandonner doit faire disparaitre la Live Activity : la laisser
-            // sur l'ecran verrouille apres une seance abandonnee serait un
-            // defaut visible sans meme ouvrir l'application.
-            Task { await WorkoutActivityController.end() }
-            // Rien n'est enregistre dans Sante pour une seance abandonnee.
-            Task { await LiveHealthWorkoutController.shared.discard() }
-        }
+        guard PersistenceSupport.save(modelContext, action: "Abandon de la séance") else { return false }
+        activeWorkout = nil
+        isClosed = true
+        endedOutsideRunner = outsideRunner
+        // Un repos en cours n'a plus de raison d'etre : sa notification de
+        // fin ne doit pas sonner apres l'abandon.
+        restTimer.skip()
+        LiveWorkoutRegistry.shared.unregister(self)
+        // Abandonner doit faire disparaitre la Live Activity : la laisser
+        // sur l'ecran verrouille apres une seance abandonnee serait un
+        // defaut visible sans meme ouvrir l'application.
+        Task { await WorkoutActivityController.end() }
+        // Rien n'est enregistre dans Sante pour une seance abandonnee.
+        Task { await LiveHealthWorkoutController.shared.discard() }
+        return true
     }
 
     // Fin de seance : bascule les series loggees vers une CompletedSession
     // (historique), supprime l'ActiveWorkout, sauvegarde.
-    func finish(effortRating: Int? = nil) -> CompletedSession? {
+    func finish(effortRating: Int? = nil, outsideRunner: Bool = false) -> CompletedSession? {
+        guard !isClosed else { return nil }
         restTimer.endOvertime()
         let duration = Int(Date.now.timeIntervalSince(startedAt))
         // Une seance libre rejoint l'historique comme une autre, sans
@@ -1067,6 +1121,13 @@ final class WorkoutState: Identifiable {
             return nil
         }
         activeWorkout = nil
+        isClosed = true
+        endedOutsideRunner = outsideRunner
+        if outsideRunner {
+            // Terminee depuis Siri : aucun repos ne doit sonner ensuite.
+            restTimer.skip()
+        }
+        LiveWorkoutRegistry.shared.unregister(self)
         Task { await WorkoutActivityController.end() }
         // La seance Sante en direct, s'il y en a une, sera reliee a cette
         // seance : la synchronisation ne doit plus l'ecrire apres coup.
@@ -1108,17 +1169,110 @@ final class WorkoutState: Identifiable {
         return true
     }
 
+    // MARK: - Live Activity
+
+    /// Serie validable d'un tap depuis la Live Activity, avec les valeurs
+    /// que l'ecran de saisie pre-remplit. `nil` des qu'une saisie est
+    /// necessaire (echauffement, palier, serie au temps, charge inconnue).
+    func quickLogProposal() -> LiveActivityPlanning.SetProposal? {
+        guard !isClosed, phase == .running, !isSessionComplete, let target = currentTarget else { return nil }
+        let exercise = target.exercise
+        return LiveActivityPlanning.quickLogProposal(
+            for: target,
+            proposedWeightKilograms: exercise.targetWeight ?? suggestedWeight(for: exercise),
+            proposedReps: proposedReps(for: target),
+            needsReferenceValue: needsOneRepMax(for: exercise) || needsMaxReps(for: exercise)
+        )
+    }
+
+    /// Identite de la serie affichee : seance, position, nombre de series
+    /// deja enregistrees. Elle change des que quoi que ce soit avance.
+    var liveActivitySlotKey: String {
+        let clamped = WorkoutStateMachine.clamp(position, in: plan)
+        return [
+            activeWorkout?.id.uuidString ?? "-",
+            phase.rawValue,
+            "\(clamped.nodeIndex).\(clamped.round).\(clamped.memberIndex).\(clamped.setIndex).\(clamped.subSetIndex)",
+            "\(activeWorkout?.loggedSets.count ?? 0)",
+        ].joined(separator: "|")
+    }
+
+    /// Valide la serie affichee par la Live Activity, par le MEME chemin que
+    /// le bouton « Valider la série » de l'ecran de saisie (`logSet`) :
+    /// persistance d'abord, repos ensuite, record celebre. Rien n'est fait si
+    /// la serie affichee n'est plus la serie courante.
+    @discardableResult
+    func logProposedSet(slotKey: String) -> Bool {
+        guard slotKey == liveActivitySlotKey, let proposal = quickLogProposal() else { return false }
+        let before = position
+        logSet(weight: proposal.weightKilograms, reps: proposal.reps)
+        // Un echec d'ecriture laisse la position en place : rien n'a ete
+        // valide, et la Live Activity continue d'afficher la meme serie.
+        return position != before
+    }
+
     /// Etat courant publie sur la Live Activity. Rien de plus que ce que
-    /// l'ecran affiche deja.
+    /// l'ecran de saisie affiche deja.
     func liveActivityState() -> WorkoutActivityState {
         let target = currentTarget
+        let unit = ProfileStore.massUnit(in: modelContext)
+        let proposal = quickLogProposal()
+        let restEnd = restTimer.endDate
+
+        var plannedSetText: String?
+        var nextStepText: String?
+        if let target, phase == .running {
+            let exercise = target.exercise
+            let reps = proposedReps(for: target)
+            if exercise.effectiveMeasure == .weightReps, let reps {
+                let weight = exercise.targetWeight ?? suggestedWeight(for: exercise)
+                if let weight, weight > 0 || exercise.loadKind == .bodyweight {
+                    plannedSetText = LiveSessionText.set(weightKilograms: weight, reps: reps, unit: unit)
+                } else {
+                    plannedSetText = String(localized: "\(reps) reps")
+                }
+            }
+            let outcome = WorkoutSetOutcome(
+                reps: proposal?.reps ?? reps ?? 0,
+                weightKilograms: proposal?.weightKilograms ?? 0
+            )
+            nextStepText = Self.nextStepText(
+                LiveActivityPlanning.nextStep(after: position, in: plan, outcome: outcome),
+                isFreeSession: isFreeSession
+            )
+        }
+
         return WorkoutActivityState(
             exerciseName: target?.exercise.displayName ?? currentExercise?.displayName ?? sessionTitle,
             setNumber: target?.setNumber ?? 0,
             totalSets: target?.totalSets ?? 0,
-            restEndsAt: restTimer.isRunning ? restTimer.endDate : nil,
-            completedSets: loggedSets.filter { $0.role.countsAsWorkingSet }.count
+            // Conservee pendant le depassement : la Live Activity affiche
+            // alors « +0:12 », comme le bandeau de l'application.
+            restEndsAt: restEnd,
+            completedSets: loggedSets.filter { $0.role.countsAsWorkingSet }.count,
+            restStartedAt: restEnd.flatMap { end in
+                restTimer.totalSeconds > 0 ? end.addingTimeInterval(-Double(restTimer.totalSeconds)) : nil
+            },
+            plannedSetText: plannedSetText,
+            nextStepText: nextStepText,
+            canQuickLog: proposal != nil,
+            slotKey: liveActivitySlotKey
         )
+    }
+
+    static func nextStepText(_ step: LiveActivityPlanning.NextStep, isFreeSession: Bool) -> String? {
+        switch step {
+        case .set(let name, let setNumber, let totalSets, let isSameExercise):
+            return isSameExercise
+                ? String(localized: "Série \(setNumber)/\(totalSets)")
+                : String(localized: "\(name) · série \(setNumber)/\(totalSets)")
+        case .timedBlock(let name):
+            return name
+        case .finished:
+            // Une seance libre attend l'exercice suivant : elle ne finit
+            // que sur demande.
+            return isFreeSession ? nil : String(localized: "Fin de la séance")
+        }
     }
 
     func startLiveActivity() {
@@ -1136,9 +1290,16 @@ final class WorkoutState: Identifiable {
     }
 
     func refreshLiveActivity() {
-        guard WorkoutActivityController.isRunning else { return }
+        guard WorkoutActivityController.isRunning, !isClosed else { return }
         let state = liveActivityState()
         Task { await WorkoutActivityController.update(state) }
+    }
+
+    /// Meme mise a jour, attendue jusqu'au bout : un bouton de la Live
+    /// Activity ne rend la main qu'une fois l'ecran verrouille a jour.
+    func refreshLiveActivityNow() async {
+        guard WorkoutActivityController.isRunning, !isClosed else { return }
+        await WorkoutActivityController.update(liveActivityState())
     }
 
     @discardableResult

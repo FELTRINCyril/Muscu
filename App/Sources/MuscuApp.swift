@@ -47,6 +47,7 @@ struct MuscuApp: App {
             self._phoneConnectivity = State(initialValue: PhoneConnectivityService(modelContainer: container))
             self.notificationResponder = NotificationResponder(container: container)
             UNUserNotificationCenter.current().delegate = self.notificationResponder
+            Self.installOutsideActions(container: container)
             return
         } catch {
             // Ne jamais effacer le store automatiquement. Un conteneur
@@ -62,6 +63,7 @@ struct MuscuApp: App {
                 self._phoneConnectivity = State(initialValue: PhoneConnectivityService(modelContainer: container))
                 self.notificationResponder = NotificationResponder(container: container)
                 UNUserNotificationCenter.current().delegate = self.notificationResponder
+                Self.installOutsideActions(container: container)
             } catch {
                 fatalError("Impossible d'ouvrir même le conteneur de secours: \(error)")
             }
@@ -86,8 +88,15 @@ struct MuscuApp: App {
                 .task {
                     await refreshReminders()
                     // Une seance interrompue par un arret brutal peut laisser
-                    // une Live Activity ouverte : on la ferme au demarrage.
-                    await WorkoutActivityController.endOrphans()
+                    // une Live Activity ouverte : on la ferme au demarrage,
+                    // SAUF si la seance est toujours a reprendre. Ses boutons
+                    // ont pu relancer l'application en arriere-plan : elle
+                    // decrit alors la seance en cours, et on la reprend.
+                    if WorkoutState.pendingActiveWorkout(modelContext: container.mainContext) != nil {
+                        WorkoutActivityController.adoptRunningActivity()
+                    } else {
+                        await WorkoutActivityController.endOrphans()
+                    }
                     // Meme chose pour une seance Sante en direct : elle est
                     // rattachee, terminee ou abandonnee selon ce qu'est
                     // devenue la seance Muscu.
@@ -112,6 +121,15 @@ struct MuscuApp: App {
             guard phase == .active else { return }
             Task { await refreshReminders() }
         }
+    }
+
+    /// Intents et boutons de la Live Activity s'executent dans ce processus,
+    /// parfois avant toute interface : ils recoivent le conteneur ici, au
+    /// tout debut du lancement.
+    @MainActor
+    private static func installOutsideActions(container: ModelContainer) {
+        IntentStore.register(container)
+        LiveWorkoutActions.install(container: container)
     }
 
     @MainActor

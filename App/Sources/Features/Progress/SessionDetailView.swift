@@ -474,13 +474,12 @@ struct SessionDetailView: View {
             showingActiveWorkoutAlert = true
             return
         }
-        let plan = SessionReplayBuilder.plan(for: session, mode: mode, catalogStore: catalogStore, context: modelContext)
-        workoutState = WorkoutState(
-            freeSessionWith: modelContext,
+        workoutState = WorkoutState.replaying(
+            session,
+            mode: mode,
+            modelContext: modelContext,
             catalogStore: catalogStore,
-            restTimer: restTimer,
-            replaying: plan,
-            title: session.sessionName
+            restTimer: restTimer
         )
     }
 }

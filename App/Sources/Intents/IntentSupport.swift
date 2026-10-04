@@ -9,6 +9,29 @@ enum IntentDestination: Equatable, Sendable {
     case program(UUID)
     case exercise(String)
     case weeklySummary
+    /// Lien direct : reprendre la seance en cours.
+    case resumeWorkout
+    /// Lien direct : preparer la prochaine seance du programme actif.
+    case startNextSession
+    /// Lien direct : proposer de refaire une seance de l'historique.
+    case replaySession(UUID)
+
+    init(_ link: MuscuDeepLink) {
+        switch link {
+        case .resumeWorkout: self = .resumeWorkout
+        case .startNextSession: self = .startNextSession
+        case .replaySession(let id): self = .replaySession(id)
+        }
+    }
+
+    /// Destinations consommees par l'accueil, qui seul peut presenter une
+    /// seance.
+    var isHandledByHome: Bool {
+        switch self {
+        case .resumeWorkout, .startNextSession, .replaySession: return true
+        case .home, .program, .exercise, .weeklySummary: return false
+        }
+    }
 }
 
 /// Point de rendez-vous entre les App Intents et l'interface.
@@ -43,6 +66,13 @@ final class IntentRouter {
 @MainActor
 enum IntentStore {
     private static var cached: ModelContainer?
+
+    /// Conteneur de l'application, enregistre au lancement. Un intent
+    /// execute dans le processus de l'application ecrit ainsi dans le MEME
+    /// conteneur que l'interface : ce qu'il modifie s'affiche aussitot.
+    static func register(_ container: ModelContainer) {
+        cached = container
+    }
 
     static func container() throws -> ModelContainer {
         if let cached { return cached }

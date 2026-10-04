@@ -117,16 +117,16 @@
     },
     "%@ / %@ bpm": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ / %2$@ bpm"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ / %@ bpm"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ / %2$@ bpm"
           }
         }
       }
@@ -345,6 +345,22 @@
         }
       }
     },
+    "%@ · série %lld/%lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · série %2$lld/%3$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · set %lld/%lld"
+          }
+        }
+      }
+    },
     "%@ × %lld": {
       "localizations": {
         "en": {
@@ -437,6 +453,22 @@
           "stringUnit": {
             "state": "new",
             "value": "%1$@, %2$@"
+          }
+        }
+      }
+    },
+    "%@, %@ : %@ (%@)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@, %2$@ : %3$@ (%4$@)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@, %@: %@ (%@)"
           }
         }
       }
@@ -966,6 +998,16 @@
         }
       }
     },
+    "%lld série(s) prévue(s) ne seront pas faites.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld planned set(s) will not be done."
+          }
+        }
+      }
+    },
     "%lld série(s) sans charge effective connue ne sont pas comptées.": {
       "localizations": {
         "en": {
@@ -1270,6 +1312,32 @@
         }
       }
     },
+    "1RM de référence": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reference 1RM"
+          }
+        }
+      }
+    },
+    "1RM de référence pour %@ : %@, enregistré le %@. Aucune estimation dans l’historique.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "1RM de référence pour %1$@ : %2$@, enregistré le %3$@. Aucune estimation dans l’historique."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reference 1RM for %@: %@, recorded on %@. No estimate in your history."
+          }
+        }
+      }
+    },
     "1RM estimé": {
       "localizations": {
         "en": {
@@ -1328,6 +1396,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Estimated 1RM up to %lld reps"
+          }
+        }
+      }
+    },
+    "1RM estimé pour %@ : %@, le %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "1RM estimé pour %1$@ : %2$@, le %3$@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimated 1RM for %@: %@, on %@."
+          }
+        }
+      }
+    },
+    "1RM estimé pour %@ : %@, le %@. 1RM de référence : %@, enregistré le %@.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "1RM estimé pour %1$@ : %2$@, le %3$@. 1RM de référence : %4$@, enregistré le %5$@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimated 1RM for %@: %@, on %@. Reference 1RM: %@, recorded on %@."
           }
         }
       }
@@ -1392,12 +1492,38 @@
         }
       }
     },
+    "Abandonner la séance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard workout"
+          }
+        }
+      }
+    },
     "Abandonner les corrections ?": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Discard corrections?"
+          }
+        }
+      }
+    },
+    "Abandonner « %@ » ? Les %lld série(s) enregistrée(s) seront supprimées et rien ne sera ajouté à l’historique.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Abandonner « %1$@ » ? Les %2$lld série(s) enregistrée(s) seront supprimées et rien ne sera ajouté à l’historique."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard “%@”? The %lld logged set(s) will be deleted and nothing will be added to your history."
           }
         }
       }
@@ -1614,6 +1740,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add your first exercise: sets are logged as usual."
+          }
+        }
+      }
+    },
+    "Ajoute trente secondes au repos en cours.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adds thirty seconds to the current rest."
           }
         }
       }
@@ -1960,6 +2096,26 @@
         }
       }
     },
+    "Aucun 1RM connu": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No known 1RM"
+          }
+        }
+      }
+    },
+    "Aucun 1RM connu pour %@ : ni estimation dans l’historique, ni valeur de référence.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No known 1RM for %@: no estimate in your history and no reference value."
+          }
+        }
+      }
+    },
     "Aucun disque disponible : seule la barre est chargeable.": {
       "localizations": {
         "en": {
@@ -2126,6 +2282,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "No record"
+          }
+        }
+      }
+    },
+    "Aucun record récent": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No recent records"
+          }
+        }
+      }
+    },
+    "Aucun record sur les %lld derniers jours.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No records in the last %lld days."
           }
         }
       }
@@ -2360,6 +2536,16 @@
         }
       }
     },
+    "Aucune séance n’est en cours.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No workout is in progress."
+          }
+        }
+      }
+    },
     "Aucune séance planifiée sur la période : l'adhérence n'est pas calculable.": {
       "localizations": {
         "en": {
@@ -2406,6 +2592,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No sets logged yet."
+          }
+        }
+      }
+    },
+    "Aucune série n’est enregistrée : il n’y a rien à terminer. Vous pouvez abandonner la séance.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No set has been logged, so there is nothing to finish. You can discard the workout instead."
           }
         }
       }
@@ -3819,6 +4015,16 @@
         }
       }
     },
+    "Donne le 1RM estimé d’un exercice et, s’il existe, le 1RM de référence saisi ou testé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gives the estimated 1RM of an exercise and, if there is one, the reference 1RM you entered or tested."
+          }
+        }
+      }
+    },
     "Données": {
       "localizations": {
         "en": {
@@ -4394,6 +4600,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quarantined"
+          }
+        }
+      }
+    },
+    "Enregistre la séance en cours dans l’historique, comme le bouton « Terminer ».": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saves the current workout to your history, like the “Finish” button."
           }
         }
       }
@@ -4974,6 +5190,16 @@
         }
       }
     },
+    "Fin de la séance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End of workout"
+          }
+        }
+      }
+    },
     "Fixe": {
       "localizations": {
         "en": {
@@ -5090,6 +5316,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep this device"
+          }
+        }
+      }
+    },
+    "Garder la séance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep workout"
           }
         }
       }
@@ -5671,6 +5907,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The workout changed in the meantime. Reopen the list to try again."
+          }
+        }
+      }
+    },
+    "La séance n’a pas pu être enregistrée. Elle reste en cours.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The workout could not be saved. It is still in progress."
           }
         }
       }
@@ -6405,12 +6651,32 @@
         }
       }
     },
+    "Liste les derniers records établis, du plus récent au plus ancien.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lists your latest records, newest first."
+          }
+        }
+      }
+    },
     "Livres": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Pounds"
+          }
+        }
+      }
+    },
+    "L’abandon n’a pas pu être enregistré. La séance reste en cours.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The workout could not be discarded. It is still in progress."
           }
         }
       }
@@ -6661,6 +6927,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "My data"
+          }
+        }
+      }
+    },
+    "Mes records récents": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My recent records"
           }
         }
       }
@@ -6977,6 +7253,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Months"
+          }
+        }
+      }
+    },
+    "Mon 1RM": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My 1RM"
           }
         }
       }
@@ -7773,6 +8059,16 @@
         }
       }
     },
+    "Passer le repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip rest"
+          }
+        }
+      }
+    },
     "Pause": {
       "localizations": {
         "en": {
@@ -8056,6 +8352,16 @@
         }
       }
     },
+    "Pour quel exercice ?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For which exercise?"
+          }
+        }
+      }
+    },
     "Pourcentage": {
       "localizations": {
         "en": {
@@ -8216,6 +8522,16 @@
         }
       }
     },
+    "Prolonger le repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extend rest"
+          }
+        }
+      }
+    },
     "Proposition": {
       "localizations": {
         "en": {
@@ -8358,6 +8674,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quarantine"
+          }
+        }
+      }
+    },
+    "Quel est mon 1RM ?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What is my 1RM?"
           }
         }
       }
@@ -8572,12 +8898,42 @@
         }
       }
     },
+    "Records récents": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent records"
+          }
+        }
+      }
+    },
+    "Records récents : %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recent records: %@."
+          }
+        }
+      }
+    },
     "Refaire": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Repeat"
+          }
+        }
+      }
+    },
+    "Refaire cette séance ?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeat this workout?"
           }
         }
       }
@@ -9725,6 +10081,16 @@
         }
       }
     },
+    "Supprime la séance en cours et ses séries, sans rien ajouter à l’historique.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deletes the current workout and its sets without adding anything to your history."
+          }
+        }
+      }
+    },
     "Supprimer": {
       "localizations": {
         "en": {
@@ -9925,6 +10291,16 @@
         }
       }
     },
+    "Séance abandonnée. Rien n’a été ajouté à l’historique.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workout discarded. Nothing was added to your history."
+          }
+        }
+      }
+    },
     "Séance allégée : volume %lld %%, intensité %lld %%": {
       "localizations": {
         "en": {
@@ -9993,6 +10369,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Workout in progress"
+          }
+        }
+      }
+    },
+    "Séance enregistrée : %lld série(s) de travail en %lld min.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Séance enregistrée : %1$lld série(s) de travail en %2$lld min."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workout saved: %lld working set(s) in %lld min."
           }
         }
       }
@@ -10113,6 +10505,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Selected"
+          }
+        }
+      }
+    },
+    "Série": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set"
           }
         }
       }
@@ -10326,6 +10728,16 @@
         }
       }
     },
+    "Termine le repos en cours.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ends the current rest."
+          }
+        }
+      }
+    },
     "Terminer": {
       "localizations": {
         "en": {
@@ -10362,6 +10774,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Finish the cardio"
+          }
+        }
+      }
+    },
+    "Terminer « %@ » ? %lld série(s) de travail enregistrée(s).": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Terminer « %1$@ » ? %2$lld série(s) de travail enregistrée(s)."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish “%@”? %lld working set(s) logged."
           }
         }
       }
@@ -11085,6 +11513,16 @@
         }
       }
     },
+    "Valide la série affichée avec la charge et les répétitions proposées.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logs the displayed set with the suggested load and reps."
+          }
+        }
+      }
+    },
     "Valider": {
       "localizations": {
         "en": {
@@ -11614,6 +12052,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "the whole history"
+          }
+        }
+      }
+    },
+    "« %@ » du %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "« %1$@ » du %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” from %@"
           }
         }
       }

@@ -33,6 +33,14 @@ share-as-text-or-card / update-the-routine prompts. Used in
 `App/Sources/Services/SessionShareSummary.swift` and
 `App/Sources/Features/Workout/ProgramUpdateCard.swift`.
 
+Inspired by Ischys (`frontend/modules/live-activity/ios/WorkoutIntents.swift`,
+`WorkoutAttributes.swift`, `targets/ischys-widget/WorkoutLiveActivity.swift`):
+interactive Live Activity buttons as `LiveActivityIntent`s compiled into both
+the app and the widget extension, guarded by the identifier of the set on
+screen. Rewritten for Muscu (no code copied) in `Shared/LiveActivityIntents.swift`,
+`Widgets/WorkoutLiveActivity.swift` and
+`Packages/MuscuEngine/Sources/MuscuEngine/Runner/LiveActivityPlanning.swift`.
+
 ```
 MIT License
 

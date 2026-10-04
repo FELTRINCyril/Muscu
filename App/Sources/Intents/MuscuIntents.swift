@@ -104,10 +104,13 @@ struct StartNextWorkoutIntent: AppIntent {
         ))
         let next = HomeView.nextSession(for: active, completedSessions: completed)
 
-        IntentRouter.shared.request(.home)
         guard let next else {
+            IntentRouter.shared.request(.home)
             return .result(dialog: "Le programme « \(active.name) » ne contient aucune séance.")
         }
+        // Meme chemin que le bouton de l'accueil et que le widget : l'ecran
+        // de preparation s'ouvre (ou la seance en cours reprend).
+        IntentRouter.shared.request(.startNextSession)
         return .result(dialog: "Prochaine séance : \(next.name).")
     }
 }
@@ -305,6 +308,50 @@ struct MuscuShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Minuteur de repos",
             systemImageName: "timer"
+        )
+        AppShortcut(
+            intent: OneRepMaxIntent(),
+            phrases: [
+                "Quel est mon 1RM dans \(.applicationName)",
+                "Mon 1RM dans \(.applicationName)",
+                "What is my one rep max in \(.applicationName)",
+                "My 1RM in \(.applicationName)",
+            ],
+            shortTitle: "Mon 1RM",
+            systemImageName: "scalemass"
+        )
+        AppShortcut(
+            intent: RecentRecordsIntent(),
+            phrases: [
+                "Mes records récents dans \(.applicationName)",
+                "Mes derniers records \(.applicationName)",
+                "My recent records in \(.applicationName)",
+                "My personal records in \(.applicationName)",
+            ],
+            shortTitle: "Records récents",
+            systemImageName: "trophy"
+        )
+        AppShortcut(
+            intent: FinishWorkoutIntent(),
+            phrases: [
+                "Terminer la séance dans \(.applicationName)",
+                "Terminer ma séance \(.applicationName)",
+                "Finish my workout in \(.applicationName)",
+                "End my workout in \(.applicationName)",
+            ],
+            shortTitle: "Terminer la séance",
+            systemImageName: "flag.checkered"
+        )
+        AppShortcut(
+            intent: DiscardWorkoutIntent(),
+            phrases: [
+                "Abandonner la séance dans \(.applicationName)",
+                "Annuler ma séance \(.applicationName)",
+                "Discard my workout in \(.applicationName)",
+                "Cancel my workout in \(.applicationName)",
+            ],
+            shortTitle: "Abandonner la séance",
+            systemImageName: "xmark.circle"
         )
     }
 }

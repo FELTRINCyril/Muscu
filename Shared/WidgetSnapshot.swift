@@ -33,6 +33,9 @@ struct WidgetSnapshot: Codable, Equatable, Sendable {
     /// affiche et saisisse dans la meme unite que l'iPhone. Facultative : un
     /// instantane plus ancien la laisse absente, et la montre reste en kg.
     var massUnitSymbol: String?
+    /// Derniere seance terminee, pour le widget « Dernière séance ».
+    /// Facultative : absente d'un instantane plus ancien.
+    var lastSession: LastSessionSummary?
 
     init(
         version: Int = WidgetSnapshot.currentVersion,
@@ -43,7 +46,8 @@ struct WidgetSnapshot: Codable, Equatable, Sendable {
         sessionsThisWeek: Int = 0,
         workingSetsThisWeek: Int = 0,
         weeklyStreak: Int = 0,
-        massUnitSymbol: String? = nil
+        massUnitSymbol: String? = nil,
+        lastSession: LastSessionSummary? = nil
     ) {
         self.version = version
         self.generatedAt = generatedAt
@@ -54,13 +58,60 @@ struct WidgetSnapshot: Codable, Equatable, Sendable {
         self.workingSetsThisWeek = workingSetsThisWeek
         self.weeklyStreak = weeklyStreak
         self.massUnitSymbol = massUnitSymbol
+        self.lastSession = lastSession
     }
 
     /// Instantane vide, affiche tant que rien n'a ete enregistre.
     static let empty = WidgetSnapshot()
 
     var hasContent: Bool {
-        nextSessionName != nil || sessionsThisWeek > 0 || workingSetsThisWeek > 0
+        nextSessionName != nil || sessionsThisWeek > 0 || workingSetsThisWeek > 0 || lastSession != nil
+    }
+}
+
+/// Derniere seance terminee, reduite a ce que le widget affiche.
+///
+/// Les valeurs chiffrees arrivent deja MISES EN FORME dans l'unite du
+/// profil : l'extension n'a pas le moteur, et refaire une conversion ici
+/// serait une seconde regle qui finirait par diverger. Une valeur absente
+/// reste absente (`nil`), elle n'est jamais affichee comme un zero.
+struct LastSessionSummary: Codable, Equatable, Sendable {
+    /// Identifiant de la seance : le widget ouvre « Refaire » sur elle.
+    var sessionId: UUID
+    var name: String
+    var date: Date
+    var durationSeconds: Int
+    var workingSets: Int
+    /// « 4 520 kg », ou `nil` si aucune serie n'a de tonnage mesurable.
+    var tonnageText: String?
+    /// Une partie des series n'a pas pu etre comptee (poids de corps
+    /// inconnu) : le tonnage affiche est un minimum.
+    var tonnageIsPartial: Bool
+    /// Exercice d'un record etabli pendant la seance, s'il y en a un.
+    var recordExerciseName: String?
+    /// Nombre de records etablis pendant la seance.
+    var recordCount: Int
+
+    init(
+        sessionId: UUID,
+        name: String,
+        date: Date,
+        durationSeconds: Int,
+        workingSets: Int,
+        tonnageText: String? = nil,
+        tonnageIsPartial: Bool = false,
+        recordExerciseName: String? = nil,
+        recordCount: Int = 0
+    ) {
+        self.sessionId = sessionId
+        self.name = name
+        self.date = date
+        self.durationSeconds = durationSeconds
+        self.workingSets = workingSets
+        self.tonnageText = tonnageText
+        self.tonnageIsPartial = tonnageIsPartial
+        self.recordExerciseName = recordExerciseName
+        self.recordCount = recordCount
     }
 }
 

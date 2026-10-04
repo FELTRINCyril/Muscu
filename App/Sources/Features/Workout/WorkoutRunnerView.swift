@@ -51,6 +51,15 @@ struct WorkoutRunnerView: View {
             state.startHealthWorkout()
         }
         .onChange(of: state.restTimer.isRunning) { _, _ in state.refreshLiveActivity() }
+        // +30 s et nouveau repos changent la fin sans changer `isRunning`.
+        .onChange(of: state.restTimer.endDate) { _, _ in state.refreshLiveActivity() }
+        // Seance terminee ou abandonnee depuis Siri / Raccourcis : le
+        // deroule n'a plus rien a montrer.
+        .onChange(of: state.endedOutsideRunner) { _, ended in
+            if ended { dismiss() }
+        }
+        .onAppear { LiveWorkoutRegistry.shared.runnerDidAppear(state) }
+        .onDisappear { LiveWorkoutRegistry.shared.runnerDidDisappear(state) }
         // Ecran allume tant qu'une seance est en cours ET visible ; retabli
         // a la fin, a la sortie du deroule et en arriere-plan.
         .onChange(of: state.isSessionComplete) { _, _ in updateScreenAwake() }
@@ -683,12 +692,9 @@ private struct SetEntryCard: View {
         return parts.joined(separator: " · ")
     }
 
+    /// Meme regle que la Live Activity : elle vit dans `WorkoutState`.
     private var prefillReps: Int {
-        if let targetReps = state.suggestedReps(for: exercise) {
-            return targetReps
-        }
-        if target.targetRepsUpper > 0 { return target.targetRepsUpper }
-        return target.targetRepsLower > 0 ? target.targetRepsLower : 1
+        state.prefillReps(for: target)
     }
 }
 

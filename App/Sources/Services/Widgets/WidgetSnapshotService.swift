@@ -47,7 +47,47 @@ enum WidgetSnapshotService {
             sessionsThisWeek: recent.count,
             workingSetsThisWeek: recent.reduce(0) { $0 + $1.sets.filter(\.isWorkingSet).count },
             weeklyStreak: TrainingAnalytics.currentWeeklyStreak(sessions: all, now: now),
-            massUnitSymbol: ProfileStore.massUnit(in: context).symbol
+            massUnitSymbol: ProfileStore.massUnit(in: context).symbol,
+            lastSession: lastSession(in: context)
+        )
+    }
+
+    /// Derniere seance terminee, avec les MEMES valeurs que la ligne de
+    /// l'historique : nombre de series de travail, tonnage du moteur, et
+    /// records etablis pendant la seance. Rien de plus ne sort du conteneur
+    /// prive : ni notes, ni poids de corps, ni detail des series.
+    static func lastSession(in context: ModelContext) -> LastSessionSummary? {
+        var descriptor = FetchDescriptor<CompletedSession>(
+            predicate: #Predicate { $0.deletedAt == nil },
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        guard let session = (try? context.fetch(descriptor))?.first else { return nil }
+
+        let tonnage = CompletedSetPresentation.tonnage(for: session)
+        let unit = ProfileStore.massUnit(in: context)
+        // Zero mesure n'est pas un zero : sans aucune serie comptable, le
+        // tonnage est absent, pas nul.
+        let tonnageText = tonnage.total > 0 ? WeightFormatter.string(kilograms: tonnage.total, unit: unit) : nil
+
+        let sessionId = session.id
+        let records = ((try? context.fetch(FetchDescriptor<PersonalBest>(
+            predicate: #Predicate { $0.sourceSessionId == sessionId }
+        ))) ?? []).filter { $0.deletedAt == nil }
+        let recordExercise = records
+            .sorted { ($0.displayName, $0.kindRaw) < ($1.displayName, $1.kindRaw) }
+            .first?.displayName
+
+        return LastSessionSummary(
+            sessionId: session.id,
+            name: session.sessionName.isEmpty ? String(localized: "Séance") : session.sessionName,
+            date: session.date,
+            durationSeconds: max(0, session.durationSeconds),
+            workingSets: session.workingSets.count,
+            tonnageText: tonnageText,
+            tonnageIsPartial: tonnageText != nil && tonnage.unknownSets > 0,
+            recordExerciseName: recordExercise,
+            recordCount: Set(records.map(\.exerciseId)).count
         )
     }
 

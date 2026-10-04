@@ -35,6 +35,11 @@ struct HomeView: View {
     @State private var pendingActiveWorkout: ActiveWorkout?
     @State private var showingResumeAlert = false
 
+    /// Seance de l'historique a refaire, demandee par le widget « Dernière
+    /// séance ». Toujours confirmee : un lien ne demarre rien seul.
+    @State private var sessionToReplay: CompletedSession?
+    @State private var showingActiveWorkoutAlert = false
+
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
@@ -54,6 +59,31 @@ struct HomeView: View {
         }
         .task {
             checkForResumableWorkout()
+        }
+        // Liens directs (widgets, Live Activity), consommes une fois.
+        .onAppear { handleLinkRequest() }
+        .onChange(of: IntentRouter.shared.pending) { _, _ in handleLinkRequest() }
+        .confirmationDialog(
+            "Refaire cette séance ?",
+            isPresented: Binding(
+                get: { sessionToReplay != nil },
+                set: { if !$0 { sessionToReplay = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: sessionToReplay
+        ) { session in
+            Button("Refaire") { replay(session, mode: .withTargets) }
+                .accessibilityIdentifier("home.replay")
+            Button("Refaire à vide") { replay(session, mode: .empty) }
+                .accessibilityIdentifier("home.replayEmpty")
+            Button("Annuler", role: .cancel) {}
+        } message: { session in
+            Text("« \(session.sessionName.isEmpty ? String(localized: "Séance") : session.sessionName) » du \(session.date.formatted(date: .abbreviated, time: .omitted))")
+        }
+        .alert("Une séance est déjà en cours", isPresented: $showingActiveWorkoutAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Terminez ou abandonnez la séance en cours avant d’en refaire une.")
         }
         .alert("Reprendre la séance en cours ?", isPresented: $showingResumeAlert) {
             Button("Reprendre") { resumeWorkout() }
@@ -327,7 +357,7 @@ struct HomeView: View {
 
     private func resumeCurrentWorkout() {
         guard let workout = currentActiveWorkout,
-              let state = WorkoutState.resume(
+              let state = WorkoutState.resumeOrAdopt(
                 from: workout,
                 modelContext: modelContext,
                 catalogStore: catalogStore,
@@ -339,6 +369,9 @@ struct HomeView: View {
     // MARK: - Alerte de reprise (identique a la Task 18)
 
     private func checkForResumableWorkout() {
+        // Seance deja affichee (lien direct traite avant cette tache) : rien
+        // a proposer.
+        guard workoutState == nil, !LiveWorkoutRegistry.shared.isRunnerVisible else { return }
         guard let workout = WorkoutState.pendingActiveWorkout(modelContext: modelContext) else { return }
         pendingActiveWorkout = workout
         showingResumeAlert = true
@@ -356,7 +389,7 @@ struct HomeView: View {
     // presenter le runner.
     private func resumeWorkout() {
         guard let workout = pendingActiveWorkout,
-              let state = WorkoutState.resume(
+              let state = WorkoutState.resumeOrAdopt(
                 from: workout,
                 modelContext: modelContext,
                 catalogStore: catalogStore,
@@ -367,8 +400,79 @@ struct HomeView: View {
         }
     }
 
+    // MARK: - Liens directs
+
+    /// Applique la demande deposee par un lien (widget, Live Activity) :
+    /// exactement ce que feraient les boutons de cet ecran.
+    private func handleLinkRequest() {
+        guard let pending = IntentRouter.shared.pending, pending.isHandledByHome else { return }
+        _ = IntentRouter.shared.consume()
+        // Une seance deja a l'ecran reste a l'ecran : un lien ne la remplace
+        // jamais.
+        guard workoutState == nil, !LiveWorkoutRegistry.shared.isRunnerVisible else { return }
+
+        switch pending {
+        case .resumeWorkout:
+            presentPendingWorkout()
+        case .startNextSession:
+            // Meme bouton que la carte « Séance du jour » : reprendre la
+            // seance en cours, sinon preparer la suivante.
+            if WorkoutState.pendingActiveWorkout(modelContext: modelContext) != nil {
+                presentPendingWorkout()
+            } else if let program = activeProgram {
+                startSession(program: program)
+            }
+        case .replaySession(let id):
+            let descriptor = FetchDescriptor<CompletedSession>(predicate: #Predicate { $0.id == id })
+            guard let session = (try? modelContext.fetch(descriptor))?.first, session.deletedAt == nil else { return }
+            sessionToReplay = session
+        case .home, .program, .exercise, .weeklySummary:
+            break
+        }
+    }
+
+    /// Reprend la seance en cours sans passer par l'alerte de reprise : le
+    /// lien est deja une demande explicite.
+    private func presentPendingWorkout() {
+        showingResumeAlert = false
+        guard let workout = WorkoutState.pendingActiveWorkout(modelContext: modelContext),
+              let state = WorkoutState.resumeOrAdopt(
+                from: workout,
+                modelContext: modelContext,
+                catalogStore: catalogStore,
+                restTimer: restTimer
+              ) else { return }
+        PresentationSync.afterCurrentPresentationDismissed {
+            workoutState = state
+        }
+    }
+
+    /// Meme regle que « Refaire » dans l'historique : une seule seance active.
+    private func replay(_ session: CompletedSession, mode: SessionReplay.Mode) {
+        guard WorkoutState.pendingActiveWorkout(modelContext: modelContext) == nil else {
+            showingActiveWorkoutAlert = true
+            return
+        }
+        let state = WorkoutState.replaying(
+            session,
+            mode: mode,
+            modelContext: modelContext,
+            catalogStore: catalogStore,
+            restTimer: restTimer
+        )
+        PresentationSync.afterCurrentPresentationDismissed {
+            workoutState = state
+        }
+    }
+
     private func abandonPendingWorkout() {
         guard let workout = pendingActiveWorkout else { return }
+        // Seance deja reprise en memoire (bouton de la Live Activity) : on
+        // l'abandonne par son coordinateur, qui ferme aussi l'activite.
+        if let live = LiveWorkoutRegistry.shared.state(for: workout, in: modelContext) {
+            live.discard()
+            return
+        }
         modelContext.delete(workout)
         if PersistenceSupport.save(modelContext, action: "Activation du programme") {
             // Seance Sante rattachee apres un arret brutal : abandonnee avec

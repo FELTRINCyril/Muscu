@@ -151,56 +151,17 @@ struct WorkoutSummaryView: View {
 
     private func finishSession() {
         isFinishing = true
-        guard let completedSession = state.finish(effortRating: effortRating) else {
+        // Meme chemin que la fin demandee a Siri : historique, widgets,
+        // Sante et records types (cf. `WorkoutState.complete`).
+        guard let completion = state.complete(effortRating: effortRating) else {
             isFinishing = false
             return
         }
-        finishedSets = completedSession.sets
-        finishedSession = completedSession
-        finishedDurationSeconds = completedSession.durationSeconds
-        // La structure se compare au deroule FINAL de la seance, toujours en
-        // memoire apres la fin ; rien n'est propose si rien n'a change.
-        structureChanges = state.structureChanges
-
-        // Les widgets affichent la semaine écoulée : ils doivent refléter
-        // cette séance immédiatement.
-        WidgetSnapshotService.refresh(in: state.modelContext)
-
-        // Écriture dans Santé, si et seulement si l'utilisateur l'a activée.
-        // Un échec n'affecte pas la séance : elle est déjà enregistrée.
-        // Une seance Sante en direct est d'abord terminee et reliee : la
-        // synchronisation la reconnait alors comme deja ecrite.
-        Task {
-            await LiveHealthWorkoutController.shared.finishRecording(
-                in: state.modelContext,
-                store: AppServices.healthStore
-            )
-            await HealthSyncService.synchronize(
-                in: state.modelContext,
-                store: AppServices.healthStore
-            )
-        }
-        let records = (try? state.modelContext.fetch(FetchDescriptor<ExerciseRecord>())) ?? []
-        // Le poids de corps fige sur la seance prime ; a defaut on retombe
-        // sur la derniere mesure connue, sans jamais supposer une valeur.
-        let bodyweight = ProfileStore.latestBodyweightKilograms(in: state.modelContext)
-        pendingSuggestions = RecordDetection.check(
-            session: completedSession,
-            records: records,
-            bodyweightKilograms: bodyweight
-        )
-        // Les records TYPES (charge, tonnage, temps, tours) sont recalcules
-        // depuis l'historique et n'ont pas besoin d'etre confirmes un par un :
-        // ils decrivent ce qui vient d'etre fait, sans modifier de programme.
-        let candidates = PersonalBestUpdater.candidates(for: completedSession, bodyweightKilograms: bodyweight)
-        if !PersonalBestUpdater.apply(
-            candidates: candidates,
-            context: state.modelContext,
-            sourceSessionId: completedSession.id,
-            achievedAt: completedSession.date
-        ).isEmpty {
-            _ = PersistenceSupport.save(state.modelContext, action: "Enregistrement des records")
-        }
+        finishedSets = completion.session.sets
+        finishedSession = completion.session
+        finishedDurationSeconds = completion.session.durationSeconds
+        structureChanges = completion.structureChanges
+        pendingSuggestions = completion.recordSuggestions
         hasFinished = true
         isFinishing = false
     }

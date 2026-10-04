@@ -181,7 +181,11 @@ final class WidgetSnapshotTests: XCTestCase {
         session.notes = "Douleur à l’épaule droite"
         try context.save()
 
-        let snapshot = WidgetSnapshotService.makeSnapshot(in: context, now: reference)
+        var snapshot = WidgetSnapshotService.makeSnapshot(in: context, now: reference)
+        // L'identifiant de la derniere seance est aleatoire : il pourrait
+        // contenir « 78 » par hasard. Il est verifie, puis neutralise.
+        XCTAssertEqual(snapshot.lastSession?.sessionId, session.id)
+        snapshot.lastSession?.sessionId = UUID(uuidString: "00000000-0000-0000-0000-000000000000")!
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let text = try XCTUnwrap(String(data: try encoder.encode(snapshot), encoding: .utf8))

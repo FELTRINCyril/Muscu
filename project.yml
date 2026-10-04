@@ -15,6 +15,21 @@ targets:
     type: application
     platform: iOS
     sources: [App/Sources, App/Resources, Shared]
+    # Info.plist complementaire, fusionne avec celui que genere Xcode
+    # (GENERATE_INFOPLIST_FILE) : il ne porte que ce que les reglages
+    # INFOPLIST_KEY_* ne savent pas exprimer. Ici, le schema d'URL `muscu://`
+    # des liens directs des widgets et de la Live Activity. Un lien ne fait
+    # que naviguer : rien n'est ecrit sans confirmation dans l'application.
+    info:
+      path: App/Info.plist
+      properties:
+        # Versions reprises des reglages, sinon le fichier imposerait les
+        # valeurs par defaut de XcodeGen (1.0 / 1).
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleURLTypes:
+          - CFBundleURLName: com.cyril.Muscu
+            CFBundleURLSchemes: [muscu]
     dependencies:
       - package: MuscuEngine
       # `platformFilter: iOS` exclut ces deux dependances de la variante

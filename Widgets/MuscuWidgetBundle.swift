@@ -6,6 +6,7 @@ struct MuscuWidgetBundle: WidgetBundle {
     var body: some Widget {
         NextSessionWidget()
         WeeklyVolumeWidget()
+        LastSessionWidget()
         WorkoutLiveActivity()
     }
 }

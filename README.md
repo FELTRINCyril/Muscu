@@ -175,14 +175,25 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   kcal rejoignent le résumé et l'historique. Masse grasse et tour de taille
   peuvent être importés, sans doublon. Ce que Muscu lit et écrit est annoncé
   avant la demande système ; un refus ne bloque aucune fonction.
-- **Widgets et Live Activity** : la prochaine séance et la semaine écoulée sur
-  l'écran d'accueil, la séance en cours sur l'écran verrouillé. Les widgets
-  lisent un instantané qui ne contient que ce qu'ils affichent.
+- **Widgets et Live Activity** : la prochaine séance (avec un lien direct
+  « Démarrer la prochaine séance »), la semaine écoulée et la dernière séance
+  (date, durée, séries, tonnage, record ; un tap propose de la refaire) sur
+  l'écran d'accueil. Sur l'écran verrouillé et dans la Dynamic Island, la
+  séance en cours est interactive : exercice, série n/N, charge × répétitions
+  prévues, série suivante, repos en décompte puis en dépassement (« +0:12 »),
+  et les boutons « Valider la série », « Passer » et « +30 s ». « Valider »
+  n'apparaît que pour une série classique dont la charge et les répétitions
+  sont connues ; sinon le bouton ouvre l'application. Les widgets lisent un
+  instantané qui ne contient que ce qu'ils affichent.
 - **Apple Watch** : enregistrez vos séries au poignet ; la séance part vers
   l'iPhone dès qu'il est joignable et rejoint l'historique **une seule fois**.
 - **Raccourcis et Siri** : démarrer la prochaine séance, ouvrir un programme ou
   un exercice, enregistrer le poids corporel (avec confirmation), lancer un
-  minuteur de repos, afficher le résumé de la semaine.
+  minuteur de repos, afficher le résumé de la semaine, « Quel est mon 1RM ? »
+  (estimé et de référence, avec leur date), « Mes records récents »,
+  « Terminer la séance » et « Abandonner la séance » (toujours confirmés, par
+  le même chemin que les boutons de l'application). Phrases en français et en
+  anglais.
 - **Saisie détaillée d'une série** (facultative, repliée par défaut) : effort
   ressenti (RIR), échec musculaire, commentaire, tempo et type de charge
   (externe, poids du corps, lesté, assisté) avec convention unilatérale.

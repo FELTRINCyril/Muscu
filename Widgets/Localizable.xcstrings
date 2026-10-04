@@ -1,6 +1,22 @@
 {
   "sourceLanguage": "fr",
   "strings": {
+    "%@ · %lld séries": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · %2$lld séries"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %lld sets"
+          }
+        }
+      }
+    },
     "%lld semaines d’affilée": {
       "localizations": {
         "en": {
@@ -43,7 +59,18 @@
         }
       }
     },
+    "%lld série(s)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld set(s)"
+          }
+        }
+      }
+    },
     "%lld série(s) enregistrée(s)": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -54,6 +81,7 @@
       }
     },
     "%lld/%lld": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -69,6 +97,16 @@
         }
       }
     },
+    "+30 s": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+30 s"
+          }
+        }
+      }
+    },
     "7 derniers jours": {
       "localizations": {
         "en": {
@@ -79,12 +117,82 @@
         }
       }
     },
+    "Ajoute trente secondes au repos en cours.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adds thirty seconds to the current rest."
+          }
+        }
+      }
+    },
     "Aucune séance planifiée": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No workout planned"
+          }
+        }
+      }
+    },
+    "Aucune séance terminée": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No finished workout"
+          }
+        }
+      }
+    },
+    "Dernière séance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last workout"
+          }
+        }
+      }
+    },
+    "Durée": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duration"
+          }
+        }
+      }
+    },
+    "Démarrer la prochaine séance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start next workout"
+          }
+        }
+      }
+    },
+    "Elle apparaîtra ici après votre première séance.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It will appear here after your first workout."
+          }
+        }
+      }
+    },
+    "Ensuite : %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next: %@"
           }
         }
       }
@@ -109,6 +217,36 @@
         }
       }
     },
+    "Ouvrir": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
+          }
+        }
+      }
+    },
+    "Passer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
+          }
+        }
+      }
+    },
+    "Passer le repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip rest"
+          }
+        }
+      }
+    },
     "Prochaine séance": {
       "localizations": {
         "en": {
@@ -119,7 +257,74 @@
         }
       }
     },
+    "Prolonger le repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extend rest"
+          }
+        }
+      }
+    },
+    "Prolonger le repos de 30 secondes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extend rest by 30 seconds"
+          }
+        }
+      }
+    },
+    "Record : %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Record: %@"
+          }
+        }
+      }
+    },
+    "Records : %@ +%lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Records : %1$@ +%2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records: %@ +%lld"
+          }
+        }
+      }
+    },
+    "Repos dépassé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest overrun"
+          }
+        }
+      }
+    },
+    "Repos en cours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resting"
+          }
+        }
+      }
+    },
     "Repos jusqu’à %@": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -149,6 +354,16 @@
         }
       }
     },
+    "Série": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set"
+          }
+        }
+      }
+    },
     "Série %lld/%lld": {
       "localizations": {
         "en": {
@@ -161,6 +376,66 @@
           "stringUnit": {
             "state": "new",
             "value": "Série %1$lld/%2$lld"
+          }
+        }
+      }
+    },
+    "Séries": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sets"
+          }
+        }
+      }
+    },
+    "Termine le repos en cours.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ends the current rest."
+          }
+        }
+      }
+    },
+    "Tonnage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Volume"
+          }
+        }
+      }
+    },
+    "Valide la série affichée avec la charge et les répétitions proposées.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logs the displayed set with the suggested load and reps."
+          }
+        }
+      }
+    },
+    "Valider la série": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log set"
+          }
+        }
+      }
+    },
+    "Votre dernière séance, à refaire d’un tap.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your last workout, one tap to repeat it."
           }
         }
       }
