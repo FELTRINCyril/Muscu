@@ -183,6 +183,8 @@ struct HomeView: View {
                     }
                     .accessibilityIdentifier("home.chooseSessionMenu")
                 }
+
+                freeSessionButton
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Aucun programme actif")
@@ -193,15 +195,34 @@ struct HomeView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Button {
-                    selectedTab = 1
-                } label: {
-                    Text("Créer un programme")
-                        .frame(maxWidth: .infinity)
+                // Une seance en cours (libre, ou d'un programme desactive
+                // depuis) doit rester reprenable sans programme actif.
+                if currentActiveWorkout != nil {
+                    Button {
+                        resumeCurrentWorkout()
+                    } label: {
+                        Text("Reprendre la séance")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.accent)
+                    .controlSize(.large)
+                    .accessibilityIdentifier("home.resumeWorkout")
+                } else {
+                    Button {
+                        selectedTab = 1
+                    } label: {
+                        Text("Créer un programme")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.accent)
+                    .controlSize(.large)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
-                .controlSize(.large)
+
+                freeSessionButton
             }
         }
         .padding(20)
@@ -211,6 +232,31 @@ struct HomeView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(activeProgram != nil ? Theme.accent.opacity(0.35) : Color.clear, lineWidth: 1.5)
+        )
+    }
+
+    /// Seance libre : demarree sans programme, les exercices s'ajoutent au
+    /// fil de l'eau. Proposee seulement quand aucune seance n'est en cours :
+    /// une seule seance active a la fois.
+    @ViewBuilder
+    private var freeSessionButton: some View {
+        if currentActiveWorkout == nil {
+            Button {
+                startFreeSession()
+            } label: {
+                Label("Séance libre", systemImage: "plus.circle")
+                    .font(.footnote)
+            }
+            .accessibilityIdentifier("home.freeSession")
+        }
+    }
+
+    private func startFreeSession() {
+        guard currentActiveWorkout == nil else { return }
+        workoutState = WorkoutState(
+            freeSessionWith: modelContext,
+            catalogStore: catalogStore,
+            restTimer: restTimer
         )
     }
 

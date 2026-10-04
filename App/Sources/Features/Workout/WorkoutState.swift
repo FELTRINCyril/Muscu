@@ -26,7 +26,13 @@ final class WorkoutState: Identifiable {
     // contenu avant que le @State optionnel soit visible et presenter un
     // cover vide (ecran noir constate le 20/07).
     let id = UUID()
-    let programSession: ProgramSession
+    /// Seance de programme a l'origine de la seance. `nil` pour une seance
+    /// libre, demarree sans programme.
+    let programSession: ProgramSession?
+    /// Seance libre : les exercices sont ajoutes au fil de l'eau, et c'est
+    /// l'utilisateur qui decide de la fin (un deroule epuise n'est pas une
+    /// seance terminee : il attend l'exercice suivant).
+    let isFreeSession: Bool
     let modelContext: ModelContext
     let catalogStore: CatalogStore
     let restTimer: RestTimer
@@ -38,6 +44,10 @@ final class WorkoutState: Identifiable {
     private(set) var runtimeState: WorkoutRuntimeState
 
     private(set) var activeWorkout: ActiveWorkout?
+
+    /// Fin demandee explicitement (seance libre). Volatile : apres une
+    /// reprise, la seance libre attend de nouveau un exercice ou la fin.
+    private(set) var endRequested = false
 
     /// Mise a l'echelle de la semaine de plan appliquee au demarrage. Elle
     /// est conservee pour que l'ecran de preparation et le runner puissent la
@@ -53,6 +63,7 @@ final class WorkoutState: Identifiable {
         weekScaling: WeekScaling? = nil
     ) {
         self.programSession = programSession
+        self.isFreeSession = false
         self.modelContext = modelContext
         self.catalogStore = catalogStore
         self.restTimer = restTimer
@@ -87,8 +98,35 @@ final class WorkoutState: Identifiable {
         configureRestTimer()
     }
 
+    /// Seance libre : aucun programme, un deroule vide auquel les exercices
+    /// s'ajoutent au fil de l'eau. Pas d'echauffement guide : il n'y a pas
+    /// encore d'exercice sur lequel le calculer.
+    init(
+        freeSessionWith modelContext: ModelContext,
+        catalogStore: CatalogStore,
+        restTimer: RestTimer
+    ) {
+        self.programSession = nil
+        self.isFreeSession = true
+        self.modelContext = modelContext
+        self.catalogStore = catalogStore
+        self.restTimer = restTimer
+        self.weekScaling = .neutral
+        self.plan = WorkoutPlan(nodes: [])
+        self.startedAt = .now
+        self.position = .start
+        self.activeWorkout = nil
+        self.runtimeState = WorkoutRuntimeState()
+        self.phase = .running
+        _ = createActiveWorkout()
+        if !PersistenceSupport.save(modelContext, action: "Démarrage de la séance libre") {
+            activeWorkout = nil
+        }
+        configureRestTimer()
+    }
+
     private init(
-        programSession: ProgramSession,
+        programSession: ProgramSession?,
         modelContext: ModelContext,
         catalogStore: CatalogStore,
         restTimer: RestTimer,
@@ -102,26 +140,34 @@ final class WorkoutState: Identifiable {
         let restoredPlan: WorkoutPlan
         if let data = activeWorkout.planData,
            let decoded = try? JSONDecoder().decode(WorkoutPlan.self, from: data),
-           !decoded.isEmpty {
+           !decoded.isEmpty || programSession == nil {
+            // Une seance libre peut legitimement avoir un deroule vide.
             restoredPlan = decoded
-        } else if let legacyData = activeWorkout.runExercisesData,
-                  let legacy = LegacyRunExercise.plan(from: legacyData) {
-            // Seance commencee avant le deroule unifie.
-            restoredPlan = legacy
-        } else {
-            // Dernier recours : le deroule est reconstruit depuis la seance
-            // source. Il faut donc RE-appliquer la mise a l'echelle, sinon
-            // une seance de decharge reprise apres perte du snapshot
-            // reviendrait silencieusement au volume plein.
-            restoredPlan = WeekScalingResolver
-                .scaling(for: programSession, context: modelContext)
-                .applied(
-                    to: WorkoutPlanBuilder.plan(
-                        for: programSession,
-                        catalogStore: catalogStore,
-                        customExercises: (try? modelContext.fetch(FetchDescriptor<CustomExercise>())) ?? []
+        } else if let programSession {
+            if let legacyData = activeWorkout.runExercisesData,
+               let legacy = LegacyRunExercise.plan(from: legacyData) {
+                // Seance commencee avant le deroule unifie.
+                restoredPlan = legacy
+            } else {
+                // Dernier recours : le deroule est reconstruit depuis la
+                // seance source. Il faut donc RE-appliquer la mise a
+                // l'echelle, sinon une seance de decharge reprise apres perte
+                // du snapshot reviendrait silencieusement au volume plein.
+                restoredPlan = WeekScalingResolver
+                    .scaling(for: programSession, context: modelContext)
+                    .applied(
+                        to: WorkoutPlanBuilder.plan(
+                            for: programSession,
+                            catalogStore: catalogStore,
+                            customExercises: (try? modelContext.fetch(FetchDescriptor<CustomExercise>())) ?? []
+                        )
                     )
-                )
+            }
+        } else {
+            // Seance libre sans instantane lisible (archive, synchronisation) :
+            // le deroule est reconstruit depuis les series deja enregistrees,
+            // les exercices restants sont a rajouter.
+            restoredPlan = Self.freeSessionPlan(rebuiltFrom: activeWorkout.loggedSets)
         }
 
         // La position est reclampee par la machine a etats : elle reste
@@ -141,6 +187,7 @@ final class WorkoutState: Identifiable {
         }
 
         self.programSession = programSession
+        self.isFreeSession = programSession == nil
         self.modelContext = modelContext
         self.catalogStore = catalogStore
         self.restTimer = restTimer
@@ -148,7 +195,9 @@ final class WorkoutState: Identifiable {
         self.activeWorkout = activeWorkout
         // Le deroule restaure porte DEJA la mise a l'echelle : on ne la
         // reapplique pas, on la retient seulement pour pouvoir la dire.
-        self.weekScaling = WeekScalingResolver.scaling(for: programSession, context: modelContext)
+        self.weekScaling = programSession.map {
+            WeekScalingResolver.scaling(for: $0, context: modelContext)
+        } ?? .neutral
         self.plan = restoredPlan
         self.position = WorkoutStateMachine.clamp(restoredPosition, in: restoredPlan)
         self.phase = RunnerPhase(rawValue: activeWorkout.phaseRaw) ?? .running
@@ -157,6 +206,28 @@ final class WorkoutState: Identifiable {
         if let endDate = runtimeState.restEndDate, runtimeState.restTotalSeconds > 0 {
             restTimer.restore(endDate: endDate, totalSeconds: runtimeState.restTotalSeconds)
         }
+    }
+
+    /// Deroule d'une seance libre reconstruit depuis ses series : un
+    /// exercice seul par exercice rencontre, dans l'ordre des series. Les
+    /// index d'ordre des series sont renumerotes sur ce deroule, sinon un
+    /// exercice ajoute ensuite partagerait l'index d'un exercice deja fait.
+    private static func freeSessionPlan(rebuiltFrom sets: [CompletedSet]) -> WorkoutPlan {
+        let byOrder = Dictionary(grouping: sets, by: \.orderIndex)
+        var nodes: [WorkoutNode] = []
+        for (newIndex, orderIndex) in byOrder.keys.sorted().enumerated() {
+            let group = byOrder[orderIndex] ?? []
+            guard let first = group.first else { continue }
+            let working = group.filter { $0.role.consumesPrescribedSet }
+            nodes.append(.single(WorkoutExercisePlan(
+                exerciseId: first.exerciseId,
+                displayName: first.displayName,
+                loadKind: first.loadType.loadKind,
+                setCount: max(1, (working.map(\.setIndex).max() ?? 0) + 1)
+            )))
+            for set in group { set.orderIndex = newIndex }
+        }
+        return WorkoutPlan(nodes: nodes)
     }
 
     // MARK: - Reprise
@@ -176,6 +247,15 @@ final class WorkoutState: Identifiable {
         catalogStore: CatalogStore,
         restTimer: RestTimer
     ) -> WorkoutState? {
+        if activeWorkout.isFreeSession {
+            return WorkoutState(
+                programSession: nil,
+                modelContext: modelContext,
+                catalogStore: catalogStore,
+                restTimer: restTimer,
+                restoring: activeWorkout
+            )
+        }
         let programs = (try? modelContext.fetch(FetchDescriptor<Program>())) ?? []
         guard let session = programs.flatMap(\.sessions).first(where: { $0.id == activeWorkout.programSessionId }) else {
             modelContext.delete(activeWorkout)
@@ -212,9 +292,25 @@ final class WorkoutState: Identifiable {
         }
     }
 
+    /// Seance terminee, prete pour le recapitulatif. Pour une seance libre,
+    /// seule la demande explicite de l'utilisateur la termine.
     var isSessionComplete: Bool {
+        isFreeSession ? endRequested : isPlanExhausted
+    }
+
+    /// Plus aucun exercice a derouler. Une seance libre dans cet etat attend
+    /// le prochain exercice.
+    var isPlanExhausted: Bool {
         WorkoutStateMachine.isFinished(position, in: plan)
     }
+
+    /// Titre de la seance : nom de la seance de programme, ou « Séance
+    /// libre ».
+    var sessionTitle: String {
+        programSession?.name ?? Self.freeSessionTitle
+    }
+
+    static var freeSessionTitle: String { String(localized: "Séance libre") }
 
     var exercises: [WorkoutExercisePlan] { plan.allExercises }
 
@@ -390,7 +486,9 @@ final class WorkoutState: Identifiable {
     func previousSet(for target: WorkoutSetTarget) -> HistoricalSet? {
         guard !target.isSubSet else { return nil }
         let sessions = history(forExerciseId: target.exercise.exerciseId)
-        let comparable = sessions.first { $0.programSessionId == programSession.id } ?? sessions.first
+        let comparable = programSession.flatMap { current in
+            sessions.first { $0.programSessionId == current.id }
+        } ?? sessions.first
         guard let comparable else { return nil }
         let rank = PreviousPerformance.workingRank(
             round: target.round,
@@ -738,6 +836,160 @@ final class WorkoutState: Identifiable {
         }
     }
 
+    // MARK: - Ajout et ordre des exercices
+
+    /// Ajoute un exercice en fin de seance, pour cette seance uniquement :
+    /// le programme n'est jamais modifie. Series classiques, repos par
+    /// defaut de son materiel. Dans une seance libre dont le deroule etait
+    /// epuise, il devient aussitot l'exercice courant.
+    func addExercise(exerciseId: String, displayName: String) {
+        let equipment = equipment(forExerciseId: exerciseId)
+        let exercise = WorkoutExercisePlan(
+            exerciseId: exerciseId,
+            displayName: displayName,
+            loadKind: resolvedLoadKind(forExerciseId: exerciseId),
+            setCount: 3,
+            repsLower: 8,
+            repsUpper: 12,
+            restSeconds: WorkoutSettings.restDefaults.seconds(forEquipment: equipment)
+        )
+        let previous = plan
+        plan = WorkoutPlanEditing.appending(exercise, to: plan)
+        if !persistPlan(action: "Ajout d’un exercice") { plan = previous }
+        refreshLiveActivity()
+    }
+
+    /// Exercices deja commences : au moins une serie enregistree, quel que
+    /// soit son role. Une serie dont l'index ne designe plus rien verrouille
+    /// par prudence tous les exercices du meme identifiant.
+    private var startedExerciseIDs: Set<UUID> {
+        let all = exercises
+        var started: Set<UUID> = []
+        for set in loggedSets {
+            if all.indices.contains(set.orderIndex) {
+                started.insert(all[set.orderIndex].id)
+            } else {
+                for exercise in all where exercise.exerciseId == set.exerciseId {
+                    started.insert(exercise.id)
+                }
+            }
+        }
+        return started
+    }
+
+    /// Noeuds restants que l'utilisateur peut reordonner, dans l'ordre.
+    var reorderableNodes: [WorkoutNode] {
+        WorkoutPlanEditing
+            .reorderableNodeIndices(in: plan, position: position, startedExerciseIDs: startedExerciseIDs)
+            .map { plan.nodes[$0] }
+    }
+
+    /// Reordonne les exercices restants. Les series deja enregistrees sont
+    /// renumerotees avec le deroule, dans la meme sauvegarde : un exercice
+    /// commence ne bouge pas, mais son index « a plat » peut changer si un
+    /// groupe de taille differente passe devant lui.
+    @discardableResult
+    func reorderRemaining(_ newOrder: [UUID]) -> Bool {
+        guard let result = WorkoutPlanEditing.reordering(
+            plan,
+            position: position,
+            startedExerciseIDs: startedExerciseIDs,
+            newOrder: newOrder
+        ) else { return false }
+        let previousPlan = plan
+        let previousPosition = position
+        let mapping = WorkoutPlanEditing.flatIndexMapping(from: plan, to: result.plan)
+        let sets = activeWorkout?.loggedSets ?? []
+        let previousIndices = sets.map(\.orderIndex)
+        for set in sets {
+            if let newIndex = mapping[set.orderIndex] { set.orderIndex = newIndex }
+        }
+        plan = result.plan
+        position = result.position
+        guard persistPlan(action: "Ordre des exercices") else {
+            plan = previousPlan
+            position = previousPosition
+            for (set, index) in zip(sets, previousIndices) { set.orderIndex = index }
+            return false
+        }
+        refreshLiveActivity()
+        return true
+    }
+
+    /// Change ce que mesure l'exercice courant (poids x repetitions, temps,
+    /// distance), pour cette seance uniquement. Seul le format classique
+    /// porte une mesure.
+    func setMeasure(_ measure: SetMeasure) {
+        let clamped = WorkoutStateMachine.clamp(position, in: plan)
+        guard clamped.nodeIndex < plan.nodes.count,
+              clamped.memberIndex < plan.nodes[clamped.nodeIndex].exercises.count,
+              plan.nodes[clamped.nodeIndex].exercises[clamped.memberIndex].format == .classic else { return }
+        let previous = plan
+        var exercise = plan.nodes[clamped.nodeIndex].exercises[clamped.memberIndex]
+        exercise.measure = measure == .weightReps ? nil : measure
+        if !measure.measuresDuration { exercise.targetDurationSeconds = nil }
+        if !measure.measuresDistance { exercise.targetDistanceMeters = nil }
+        plan.nodes[clamped.nodeIndex].exercises[clamped.memberIndex] = exercise
+        if !persistPlan(action: "Modification de la séance") { plan = previous }
+    }
+
+    /// Valide une serie mesuree en temps et / ou en distance. Meme
+    /// cheminement que `logSet` : persistance d'abord, avancement ensuite.
+    /// La charge eventuelle (lest d'un gainage, charge d'un portage) est
+    /// enregistree mais ne produit aucun tonnage : il n'y a pas de
+    /// repetitions.
+    func logMeasuredSet(
+        _ result: MeasuredSetResult,
+        weight: Double = 0,
+        effort: EffortRating? = nil,
+        notes: String = "",
+        role: SetRole = .working
+    ) {
+        guard let target = currentTarget,
+              result.isValid(for: target.exercise.effectiveMeasure),
+              weight >= 0, weight.isFinite else { return }
+        restTimer.endOvertime()
+        let exercise = target.exercise
+        let loadKind = ExerciseClassification.resolvedLoadKind(base: exercise.loadKind, enteredWeight: weight)
+        let newSet = insertCompletedSet(
+            target: target,
+            weight: weight,
+            reps: 0,
+            loadKind: loadKind,
+            role: role,
+            effort: effort ?? exercise.targetEffort,
+            notes: notes,
+            durationSeconds: result.durationSeconds,
+            distanceMeters: result.distanceMeters
+        )
+        guard role.consumesPrescribedSet else {
+            if PersistenceSupport.save(modelContext, action: "Enregistrement d’une série supplémentaire") {
+                checkLiveRecord(for: newSet)
+            }
+            return
+        }
+        if advance(outcome: WorkoutSetOutcome(reps: 0, weightKilograms: weight)) {
+            checkLiveRecord(for: newSet)
+        }
+    }
+
+    // MARK: - Fin d'une seance libre
+
+    /// Une seance libre ne se termine que sur demande : son deroule epuise
+    /// attend l'exercice suivant.
+    func requestEnd() {
+        guard isFreeSession else { return }
+        restTimer.endOvertime()
+        restTimer.skip()
+        endRequested = true
+    }
+
+    /// Annule la demande de fin (retour depuis le recapitulatif, avant
+    /// d'avoir termine).
+    func cancelEndRequest() {
+        endRequested = false
+    }
+
     // "Abandonner" : supprime la seance en cours et les series deja loggees
     // (cascade sur ActiveWorkout.loggedSets). Rien n'est ecrit a l'historique.
     func discard() {
@@ -755,17 +1007,20 @@ final class WorkoutState: Identifiable {
 
     // Fin de seance : bascule les series loggees vers une CompletedSession
     // (historique), supprime l'ActiveWorkout, sauvegarde.
-    func finish() -> CompletedSession? {
+    func finish(effortRating: Int? = nil) -> CompletedSession? {
         restTimer.endOvertime()
         let duration = Int(Date.now.timeIntervalSince(startedAt))
+        // Une seance libre rejoint l'historique comme une autre, sans
+        // programme : elle ne fait donc pas avancer la rotation.
         let completedSession = CompletedSession(
             date: .now,
-            programId: programSession.program?.id,
-            programSessionId: programSession.id,
-            programName: programSession.program?.name ?? "",
-            sessionName: programSession.name,
+            programId: programSession?.program?.id,
+            programSessionId: programSession?.id,
+            programName: programSession?.program?.name ?? "",
+            sessionName: sessionTitle,
             durationSeconds: duration,
-            bodyweightKilograms: knownBodyweightKilograms()
+            bodyweightKilograms: knownBodyweightKilograms(),
+            effortRating: effortRating.flatMap { SessionEffort.isValid($0) ? $0 : nil }
         )
         modelContext.insert(completedSession)
 
@@ -827,7 +1082,7 @@ final class WorkoutState: Identifiable {
     func liveActivityState() -> WorkoutActivityState {
         let target = currentTarget
         return WorkoutActivityState(
-            exerciseName: target?.exercise.displayName ?? currentExercise?.displayName ?? programSession.name,
+            exerciseName: target?.exercise.displayName ?? currentExercise?.displayName ?? sessionTitle,
             setNumber: target?.setNumber ?? 0,
             totalSets: target?.totalSets ?? 0,
             restEndsAt: restTimer.isRunning ? restTimer.endDate : nil,
@@ -837,7 +1092,7 @@ final class WorkoutState: Identifiable {
 
     func startLiveActivity() {
         WorkoutActivityController.start(
-            sessionName: programSession.name,
+            sessionName: sessionTitle,
             state: liveActivityState()
         )
     }
@@ -930,7 +1185,8 @@ final class WorkoutState: Identifiable {
         effort: EffortRating? = nil,
         reachedFailure: Bool = false,
         notes: String = "",
-        durationSeconds: Int? = nil
+        durationSeconds: Int? = nil,
+        distanceMeters: Double? = nil
     ) -> CompletedSet {
         let orderIndex = exercises.firstIndex { $0.id == target.exercise.id } ?? 0
         return insertCompletedSet(
@@ -952,6 +1208,7 @@ final class WorkoutState: Identifiable {
             reachedFailure: reachedFailure,
             notes: notes,
             durationSeconds: durationSeconds,
+            distanceMeters: distanceMeters,
             plannedExerciseId: substitutions[target.exercise.id] ?? ""
         )
     }
@@ -980,8 +1237,13 @@ final class WorkoutState: Identifiable {
         reachedFailure: Bool = false,
         notes: String = "",
         durationSeconds: Int? = nil,
+        distanceMeters: Double? = nil,
         plannedExerciseId: String = ""
     ) -> CompletedSet {
+        let now = Date.now
+        // Repos reel : depuis la validation de la serie precedente de la
+        // seance (quelle qu'elle soit), lue AVANT l'insertion.
+        let previousSetEnd = (activeWorkout?.loggedSets ?? []).map(\.createdAt).max()
         let newSet = CompletedSet(
             exerciseId: exerciseId,
             displayName: displayName,
@@ -1001,9 +1263,17 @@ final class WorkoutState: Identifiable {
             roundIndex: roundIndex,
             subSetIndex: subSetIndex,
             durationSeconds: durationSeconds,
+            distanceMeters: distanceMeters,
             plannedExerciseId: plannedExerciseId,
             formatRaw: SetFormat(rawValue: format.rawValue)?.rawValue ?? SetFormat.classic.rawValue,
-            sequenceIndex: nextSequenceIndex()
+            sequenceIndex: nextSequenceIndex(),
+            actualRestSeconds: ActualRest.seconds(
+                previousSetEnd: previousSetEnd,
+                validatedAt: now,
+                currentSetDurationSeconds: durationSeconds
+            ),
+            createdAt: now,
+            updatedAt: now
         )
         modelContext.insert(newSet)
         let workout = activeWorkout ?? createActiveWorkout()
@@ -1081,13 +1351,16 @@ final class WorkoutState: Identifiable {
     private func createActiveWorkout() -> ActiveWorkout {
         let workout = ActiveWorkout(
             startedAt: startedAt,
-            programSessionId: programSession.id,
+            // Une seance libre n'a pas de seance de programme : l'identifiant
+            // ne designe rien, c'est `isFreeSession` qui fait foi.
+            programSessionId: programSession?.id ?? UUID(),
             exerciseIndex: position.nodeIndex,
             setIndex: position.setIndex,
             phaseRaw: phase.rawValue,
             runtimeStateData: try? JSONEncoder().encode(runtimeState),
             planData: try? JSONEncoder().encode(plan),
-            positionData: try? JSONEncoder().encode(position)
+            positionData: try? JSONEncoder().encode(position),
+            isFreeSession: isFreeSession
         )
         modelContext.insert(workout)
         activeWorkout = workout

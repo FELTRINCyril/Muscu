@@ -20,10 +20,25 @@ Quatre jeux de données sont exportables séparément depuis
 
 | Fichier | Contenu | Colonnes |
 | --- | --- | --- |
-| `muscu-seances` | une ligne par séance terminée | `id`, `date`, `programme`, `seance`, `duree_secondes`, `series_de_travail`, `repetitions`, `tonnage_kg`, `series_sans_tonnage`, `poids_de_corps_kg`, `notes` |
-| `muscu-series` | une ligne par série réalisée | `seance_id`, `date`, `exercice_id`, `exercice`, `exercice_prevu_id`, `format`, `role`, `tour`, `serie`, `sous_serie`, `charge_kg`, `type_de_charge`, `repetitions`, `duree_secondes`, `effort`, `echec`, `tempo`, `cote`, `notes` |
+| `muscu-seances` | une ligne par séance terminée | `id`, `date`, `programme`, `seance`, `duree_secondes`, `series_de_travail`, `repetitions`, `tonnage_kg`, `series_sans_tonnage`, `poids_de_corps_kg`, `notes`, `effort_seance` |
+| `muscu-series` | une ligne par série réalisée | `seance_id`, `date`, `exercice_id`, `exercice`, `exercice_prevu_id`, `format`, `role`, `tour`, `serie`, `sous_serie`, `charge_kg`, `type_de_charge`, `repetitions`, `duree_secondes`, `effort`, `echec`, `tempo`, `cote`, `notes`, `distance_m`, `repos_reel_secondes` |
 | `muscu-mesures` | mensurations et poids | `id`, `date`, `type`, `nom_personnalise`, `valeur`, `unite`, `source`, `notes`, `supprimee` |
 | `muscu-checkins` | check-in de forme | `id`, `date`, `energie`, `sommeil`, `courbatures`, `stress`, `douleur`, `zone_douleur`, `notes` |
+
+Évolution des colonnes : une colonne existante n’est **jamais renommée,
+déplacée ni supprimée** ; une nouvelle colonne s’ajoute **en fin de ligne**.
+Un lecteur par position ou par en-tête lit donc toujours un ancien export
+comme un nouveau. Une cellule vide signifie « non renseigné », jamais zéro.
+
+- `effort_seance` : note d’effort globale de 1 à 10, vide si la séance n’a
+  pas été notée ;
+- `distance_m` : distance d’une série à la distance (mètres) ;
+- `repos_reel_secondes` : repos réellement pris avant la série, vide pour la
+  première série, après une interruption de plus d’une heure ou pour une
+  série importée.
+
+Une série au temps ou à la distance a `repetitions` à 0 et ne compte aucun
+tonnage.
 
 `series_sans_tonnage` compte les séries dont la charge effective est inconnue
 (par exemple un exercice au poids du corps sans poids de corps renseigné) :

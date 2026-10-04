@@ -45,6 +45,12 @@ enum PersonalBestUpdater {
                 offerTimedCandidates(for: set, offer: offer)
                 continue
             }
+            // Serie classique mesuree en temps ou en distance, sans
+            // repetitions : ni charge, ni 1RM, ni repetitions n'ont de sens.
+            if isMeasured(set) {
+                offerMeasuredCandidates(for: set, offer: offer)
+                continue
+            }
 
             if let oneRepMax = SetMetrics.estimatedOneRepMax(input) {
                 offer(Candidate(
@@ -143,6 +149,52 @@ enum PersonalBestUpdater {
             ))
         case .classic, .pyramid, .dropset, .restPause, .myoReps:
             return
+        }
+    }
+
+    /// Serie au temps ou a la distance : aucune repetition, mais une duree
+    /// ou une distance mesuree.
+    private static func isMeasured(_ set: CompletedSet) -> Bool {
+        set.reps == 0 && ((set.durationSeconds ?? 0) > 0 || (set.distanceMeters ?? 0) > 0)
+    }
+
+    /// Records d'une serie mesuree :
+    /// - temps seul (gainage) : duree maximale, plus haut = mieux ;
+    /// - distance : distance maximale ;
+    /// - temps ET distance (course) : distance maximale, et meilleur temps
+    ///   A DISTANCE EGALE — plus bas = mieux, comme le For Time. Deux
+    ///   distances differentes ne sont jamais comparees.
+    private static func offerMeasuredCandidates(for set: CompletedSet, offer: (Candidate) -> Void) {
+        let duration = set.durationSeconds ?? 0
+        let distance = set.distanceMeters ?? 0
+        if distance > 0, distance.isFinite {
+            offer(Candidate(
+                exerciseId: set.exerciseId,
+                displayName: set.displayName,
+                kind: .maxDistance,
+                configurationKey: "",
+                value: distance,
+                reps: nil
+            ))
+            if duration > 0 {
+                offer(Candidate(
+                    exerciseId: set.exerciseId,
+                    displayName: set.displayName,
+                    kind: .bestTime,
+                    configurationKey: "distance:" + String(Int(distance.rounded())),
+                    value: Double(duration),
+                    reps: nil
+                ))
+            }
+        } else if duration > 0 {
+            offer(Candidate(
+                exerciseId: set.exerciseId,
+                displayName: set.displayName,
+                kind: .maxDuration,
+                configurationKey: "",
+                value: Double(duration),
+                reps: nil
+            ))
         }
     }
 

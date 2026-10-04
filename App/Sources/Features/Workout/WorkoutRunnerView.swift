@@ -16,6 +16,8 @@ struct WorkoutRunnerView: View {
     @State private var showingOverview = false
     @State private var showingOneRepMaxPrompt = false
     @State private var showingMaxRepsPrompt = false
+    @State private var showingAddExercise = false
+    @State private var showingReorder = false
 
     var body: some View {
         Group {
@@ -79,7 +81,7 @@ struct WorkoutRunnerView: View {
             }
             .background(Theme.background)
             .overlay(alignment: .top) { LiveRecordBannerHost(state: state) }
-            .navigationTitle(state.programSession.name)
+            .navigationTitle(state.sessionTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -140,6 +142,15 @@ struct WorkoutRunnerView: View {
                     state.moveTo(position: position)
                 }
             }
+            // Ajout pour cette seance uniquement : le programme ne change pas.
+            .sheet(isPresented: $showingAddExercise) {
+                ExercisePickerView(initialMuscleFilter: nil) { id, displayName in
+                    state.addExercise(exerciseId: id, displayName: displayName)
+                }
+            }
+            .sheet(isPresented: $showingReorder) {
+                ReorderExercisesView(state: state)
+            }
         }
     }
 
@@ -147,7 +158,12 @@ struct WorkoutRunnerView: View {
     private var stepBody: some View {
         switch state.currentStep {
         case .finished:
-            EmptyView()
+            // Seance libre : un deroule epuise attend l'exercice suivant.
+            if state.isFreeSession {
+                FreeSessionIdleView(state: state) { showingAddExercise = true }
+            } else {
+                EmptyView()
+            }
         case .timedBlock(let exercise):
             timedBody(for: exercise)
         case .logSet(let target):
@@ -200,15 +216,48 @@ struct WorkoutRunnerView: View {
                     Label("Corriger la série précédente", systemImage: "arrow.uturn.backward")
                 }
             }
-            Button {
-                state.skipExercise()
-            } label: {
-                Label("Passer l'exercice", systemImage: "forward.fill")
+            if state.currentExercise != nil {
+                Button {
+                    state.skipExercise()
+                } label: {
+                    Label("Passer l'exercice", systemImage: "forward.fill")
+                }
+                Button {
+                    showingPicker = true
+                } label: {
+                    Label("Remplacer l'exercice", systemImage: "arrow.triangle.2.circlepath")
+                }
             }
             Button {
-                showingPicker = true
+                showingAddExercise = true
             } label: {
-                Label("Remplacer l'exercice", systemImage: "arrow.triangle.2.circlepath")
+                Label("Ajouter un exercice", systemImage: "plus.rectangle.on.rectangle")
+            }
+            .accessibilityIdentifier("workout.addExercise")
+            if state.reorderableNodes.count > 1 {
+                Button {
+                    showingReorder = true
+                } label: {
+                    Label("Réordonner les exercices restants", systemImage: "arrow.up.arrow.down")
+                }
+                .accessibilityIdentifier("workout.reorderExercises")
+            }
+            // Ce que mesure l'exercice courant : poids x repetitions, temps
+            // (gainage), distance (portage, course). Format classique seul.
+            if let exercise = state.currentExercise, exercise.format == .classic {
+                Picker(
+                    selection: Binding(
+                        get: { exercise.effectiveMeasure },
+                        set: { state.setMeasure($0) }
+                    )
+                ) {
+                    ForEach(SetMeasure.allCases, id: \.self) { measure in
+                        Text(measure.displayName).tag(measure)
+                    }
+                } label: {
+                    Label("Mesure de l'exercice", systemImage: "ruler")
+                }
+                .pickerStyle(.menu)
             }
             if let node = state.currentNode, node.isGroup {
                 Button {
@@ -232,6 +281,14 @@ struct WorkoutRunnerView: View {
                 } label: {
                     Label("Retirer une série", systemImage: "minus")
                 }
+            }
+            if state.isFreeSession, !state.loggedSets.isEmpty {
+                Button {
+                    state.requestEnd()
+                } label: {
+                    Label("Terminer la séance", systemImage: "flag.checkered")
+                }
+                .accessibilityIdentifier("workout.finishFreeSession")
             }
         } label: {
             Image(systemName: "ellipsis.circle")
@@ -483,24 +540,43 @@ private struct SetEntryCard: View {
                     .buttonStyle(.bordered)
                 }
 
-                SetLoggerView(
-                    initialWeight: state.prefillWeight(for: target),
-                    initialReps: prefillReps,
-                    weightStepKilograms: state.loadStepKilograms(for: exercise),
-                    previous: state.previousSet(for: target),
-                    showsPlateCalculator: state.usesBarbell(exercise),
-                    onValidate: { (result: SetLoggerView.Result) in
-                        state.logSet(
-                            weight: result.weight,
-                            reps: result.reps,
-                            effort: result.effort,
-                            reachedFailure: result.reachedFailure,
-                            notes: result.notes,
-                            role: result.role
-                        )
-                    }
-                )
-                .id(setIdentity)
+                if exercise.effectiveMeasure == .weightReps {
+                    SetLoggerView(
+                        initialWeight: state.prefillWeight(for: target),
+                        initialReps: prefillReps,
+                        weightStepKilograms: state.loadStepKilograms(for: exercise),
+                        previous: state.previousSet(for: target),
+                        showsPlateCalculator: state.usesBarbell(exercise),
+                        onValidate: { (result: SetLoggerView.Result) in
+                            state.logSet(
+                                weight: result.weight,
+                                reps: result.reps,
+                                effort: result.effort,
+                                reachedFailure: result.reachedFailure,
+                                notes: result.notes,
+                                role: result.role
+                            )
+                        }
+                    )
+                    .id(setIdentity)
+                } else {
+                    MeasuredSetLoggerView(
+                        measure: exercise.effectiveMeasure,
+                        targetDurationSeconds: exercise.targetDurationSeconds,
+                        targetDistanceMeters: exercise.targetDistanceMeters,
+                        initialWeight: exercise.targetWeight ?? 0,
+                        weightStepKilograms: state.loadStepKilograms(for: exercise),
+                        onValidate: { result in
+                            state.logMeasuredSet(
+                                result.measured,
+                                weight: result.weight,
+                                notes: result.notes,
+                                role: result.role
+                            )
+                        }
+                    )
+                    .id("\(setIdentity)-\(exercise.effectiveMeasure.rawValue)")
+                }
 
                 if canStopSubSets {
                     Button("Terminer le bloc après cette série") {
@@ -563,6 +639,9 @@ private struct SetEntryCard: View {
         if !exercise.objectiveLabel.isEmpty, exercise.format != .classic {
             return exercise.objectiveLabel
         }
+        if let measured = measuredObjective {
+            return measured
+        }
         if let percent = exercise.percentMaxReps, let targetReps = state.suggestedReps(for: exercise) {
             return "\(exercise.setCount) x \(targetReps) reps (\(Int(percent)) % du max)"
         }
@@ -574,6 +653,29 @@ private struct SetEntryCard: View {
             return "\(reps) reps @ \(WeightFormatter.string(kilograms: weight, unit: massUnit))"
         }
         return "\(reps) reps"
+    }
+
+    /// Objectif d'une serie au temps ou a la distance : la cible quand
+    /// elle existe, sinon la nature de la mesure.
+    private var measuredObjective: String? {
+        let measure = exercise.effectiveMeasure
+        guard measure != .weightReps else { return nil }
+        var parts: [String] = []
+        if measure.measuresDuration {
+            if let target = exercise.targetDurationSeconds, target > 0 {
+                parts.append(CompletedSetPresentation.formattedDuration(target))
+            } else {
+                parts.append(String(localized: "Temps"))
+            }
+        }
+        if measure.measuresDistance {
+            if let target = exercise.targetDistanceMeters, target > 0 {
+                parts.append(MeasureFormatter.distance(meters: target))
+            } else {
+                parts.append(String(localized: "Distance"))
+            }
+        }
+        return parts.joined(separator: " · ")
     }
 
     private var prefillReps: Int {

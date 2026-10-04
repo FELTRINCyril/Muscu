@@ -38,12 +38,16 @@ enum CompletedSetPresentation {
     }
 
     /// Libelle de droite : la performance elle-meme. Une serie chronometree
-    /// affiche son temps, une serie au poids du corps n'affiche pas « 0 kg ».
+    /// ou au temps affiche son temps, une serie a la distance sa distance,
+    /// une serie au poids du corps n'affiche pas « 0 kg ».
     static func performance(for set: CompletedSet, unit: MassUnit = WeightFormatter.preferredUnit) -> String {
         var parts: [String] = []
 
-        if let duration = set.durationSeconds, duration > 0, set.format.isTimed {
+        if let duration = set.durationSeconds, duration > 0 {
             parts.append(formattedDuration(duration))
+        }
+        if let distance = set.distanceMeters, distance > 0, distance.isFinite {
+            parts.append(MeasureFormatter.distance(meters: distance))
         }
         if set.reps > 0 {
             parts.append(String(localized: "\(set.reps) reps"))
@@ -72,6 +76,14 @@ enum CompletedSetPresentation {
             parts.append(String(localized: "échec"))
         }
         return parts.isEmpty ? String(localized: "—") : parts.joined(separator: " · ")
+    }
+
+    /// Repos reellement pris avant la serie, affiche discretement. `nil`
+    /// quand il n'a pas ete mesure (premiere serie, interruption, import) :
+    /// on n'affiche jamais un repos invente.
+    static func restNote(for set: CompletedSet) -> String? {
+        guard let rest = set.actualRestSeconds, rest >= 0 else { return nil }
+        return String(localized: "Repos \(MeasureFormatter.clock(seconds: rest))")
     }
 
     /// Mention de substitution : l'historique conserve prevu ET realise.

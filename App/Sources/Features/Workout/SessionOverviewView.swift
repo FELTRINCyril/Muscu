@@ -80,6 +80,10 @@ struct SessionOverviewView: View {
 
     private func subtitle(for exercise: WorkoutExercisePlan, in node: WorkoutNode) -> String {
         if !exercise.objectiveLabel.isEmpty { return exercise.objectiveLabel }
+        // Serie au temps ou a la distance : pas de repetitions a annoncer.
+        if exercise.effectiveMeasure != .weightReps {
+            return String(localized: "\(exercise.setCount) x \(exercise.effectiveMeasure.displayName)")
+        }
         let reps = exercise.repsLower == exercise.repsUpper
             ? "\(exercise.repsLower)"
             : "\(exercise.repsLower)-\(exercise.repsUpper)"

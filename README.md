@@ -80,6 +80,22 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
     Barre et disques possédés réglables (jeux standards kg et lb).
   - **Bips de fin de repos** : trois bips courts aux trois dernières secondes
     (si les sons sont activés), avec une vibration légère.
+  - **Séance libre** depuis l'accueil, sans programme : les exercices
+    s'ajoutent au fil de l'eau avec le sélecteur habituel, la séance se
+    termine sur demande et rejoint l'historique comme les autres (records,
+    Santé, résumé), reprise après interruption comprise.
+  - **Ajouter un exercice** et **réordonner les exercices restants** en
+    pleine séance, pour cette séance seulement. Un exercice déjà commencé ne
+    bouge jamais.
+  - **Séries au temps et à la distance** (gainage, portage, course) :
+    chronomètre ou compte à rebours avec saisie manuelle, distance en mètres
+    affichée en km au-delà de 1 000 m. Sans tonnage ; records de durée, de
+    distance et de meilleur temps à distance égale.
+  - **Repos réel** mesuré entre deux séries et affiché discrètement dans
+    l'historique (non mesuré pour la première série ou après plus d'une
+    heure d'interruption).
+  - **Note d'effort de séance** (1 à 10, du « très facile » au « maximal »),
+    facultative, en fin de séance ; affichée dans l'historique et exportée.
 - **Calculateur de 1RM** (Records, fiche exercice) : charge × répétitions →
   1RM estimé et tableau 95-50 % arrondi au palier chargeable. Rien n'est
   enregistré ; le test de 1RM guidé reste la mesure.
@@ -87,7 +103,9 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   (`MuscuEngine.WorkoutStateMachine`), reprenable à n'importe quelle transition :
   - **Classique** : séries/répétitions standard, avec suggestion de charge
     (progression de +2,5 kg après validation du haut de fourchette, dernière
-    performance ou pourcentage du 1RM connu).
+    performance ou pourcentage du 1RM connu). L'éditeur de prescription
+    choisit ce que mesure l'exercice : poids × répétitions (par défaut),
+    temps, distance, ou temps + distance, avec une cible.
   - **Superset, triset, giant set, circuit** : exercices enchaînés A1 → A2 → …,
     repos court entre exercices et repos de fin de tour distincts, tour et
     exercice courants affichés, reprise exacte après fermeture de l'app.

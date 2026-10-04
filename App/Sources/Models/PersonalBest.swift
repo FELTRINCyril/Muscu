@@ -20,6 +20,9 @@ enum PersonalBestKind: String, Codable, CaseIterable, Sendable {
     case maxRounds
     /// Distance maximale (metres).
     case maxDistance
+    /// Duree maximale tenue sur une serie au temps, gainage par exemple
+    /// (secondes, plus haut = mieux — l'inverse de `bestTime`).
+    case maxDuration
 
     /// Un record de temps s'ameliore en DIMINUANT ; tous les autres en augmentant.
     var lowerIsBetter: Bool { self == .bestTime }
@@ -33,6 +36,7 @@ enum PersonalBestKind: String, Codable, CaseIterable, Sendable {
         case .bestTime: return String(localized: "Meilleur temps")
         case .maxRounds: return String(localized: "Tours complets")
         case .maxDistance: return String(localized: "Distance")
+        case .maxDuration: return String(localized: "Durée maximale")
         }
     }
 }
@@ -106,7 +110,9 @@ extension PersonalBest {
         case .maxRounds:
             return String(localized: "\(Int(value)) tours")
         case .maxDistance:
-            return String(localized: "\(Int(value)) m")
+            return MeasureFormatter.distance(meters: value)
+        case .maxDuration:
+            return CompletedSetPresentation.formattedDuration(Int(value))
         }
     }
 
@@ -125,6 +131,8 @@ extension PersonalBest {
             if let rounds = Int(detail) { return String(localized: "EMOM \(rounds) min") }
         case "forTime":
             if let seconds = Int(detail) { return String(localized: "For Time (cap \(seconds) s)") }
+        case "distance":
+            if let meters = Double(detail) { return String(localized: "Sur \(MeasureFormatter.distance(meters: meters))") }
         default:
             break
         }

@@ -18,6 +18,10 @@ struct WorkoutSummaryView: View {
     // CompletedSession fraichement creee pour continuer a afficher le recap.
     @State private var finishedSets: [CompletedSet]?
     @State private var isFinishing = false
+    /// Note d'effort facultative, choisie avant « Terminer » : elle part
+    /// avec la seance. Ensuite elle est figee — une seance terminee est
+    /// immuable (cf. decision 0011, synchronisation).
+    @State private var effortRating: Int?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -26,7 +30,7 @@ struct WorkoutSummaryView: View {
                     VStack(spacing: 4) {
                         Text("Séance terminée")
                             .font(.title2.weight(.bold))
-                        Text(state.programSession.name)
+                        Text(state.sessionTitle)
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -45,6 +49,8 @@ struct WorkoutSummaryView: View {
                         )
                         StatCard(title: "Séries", value: "\(workingSets.count)")
                     }
+
+                    EffortRatingView(rating: $effortRating, isEditable: !hasFinished && !isFinishing)
 
                     if hasFinished && !pendingSuggestions.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
@@ -84,7 +90,21 @@ struct WorkoutSummaryView: View {
             .controlSize(.large)
             .disabled(isFinishing)
             .accessibilityIdentifier(hasFinished ? "workout.closeSummaryButton" : "workout.finishSummaryButton")
-            .padding()
+            .padding(.horizontal)
+            .padding(.top)
+            .padding(.bottom, state.isFreeSession && !hasFinished ? 4 : 16)
+
+            // Seance libre : la fin a ete demandee, elle peut encore etre
+            // reprise tant que rien n'est enregistre.
+            if state.isFreeSession && !hasFinished {
+                Button("Continuer la séance") {
+                    state.cancelEndRequest()
+                }
+                .font(.footnote)
+                .disabled(isFinishing)
+                .padding(.bottom)
+                .accessibilityIdentifier("workout.continueFreeSession")
+            }
         }
         .background(Theme.background)
     }
@@ -93,7 +113,7 @@ struct WorkoutSummaryView: View {
 
     private func finishSession() {
         isFinishing = true
-        guard let completedSession = state.finish() else {
+        guard let completedSession = state.finish(effortRating: effortRating) else {
             isFinishing = false
             return
         }

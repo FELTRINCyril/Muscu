@@ -58,6 +58,9 @@ enum CSVExport {
             "id", "date", "programme", "seance", "duree_secondes",
             "series_de_travail", "repetitions", "tonnage_kg", "series_sans_tonnage",
             "poids_de_corps_kg", "notes",
+            // Colonnes ajoutees apres coup : toujours EN FIN de ligne, pour
+            // qu'un lecteur par position reste juste (cf. docs/formats/csv.md).
+            "effort_seance",
         ]]
         for session in sessions {
             let working = session.workingSets
@@ -74,6 +77,7 @@ enum CSVExport {
                 String(tonnage.unknownSets),
                 session.bodyweightKilograms.map(number) ?? "",
                 session.notes,
+                session.effortRating.map(String.init) ?? "",
             ])
         }
         return render(rows)
@@ -89,6 +93,7 @@ enum CSVExport {
             "format", "role", "tour", "serie", "sous_serie",
             "charge_kg", "type_de_charge", "repetitions", "duree_secondes",
             "effort", "echec", "tempo", "cote", "notes",
+            "distance_m", "repos_reel_secondes",
         ]]
         for session in sessions {
             for set in session.orderedSets {
@@ -112,6 +117,8 @@ enum CSVExport {
                     set.tempoNotation,
                     set.sideConventionRaw,
                     set.notes,
+                    set.distanceMeters.map(number) ?? "",
+                    set.actualRestSeconds.map(String.init) ?? "",
                 ])
             }
         }

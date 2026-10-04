@@ -25,6 +25,19 @@
   calculateur de disques avec inventaire kg / lb réglable, bips aux trois
   dernières secondes du repos.
 - Calculateur de 1RM rapide depuis les records et la fiche exercice.
+- Séance libre depuis l'accueil (sans programme) : exercices ajoutés au fil
+  de l'eau, fin sur demande, même fin de séance que les autres et reprise
+  après interruption. Ajout d'un exercice et réordonnancement des exercices
+  restants en pleine séance ; un exercice commencé ne bouge pas.
+- Séries au temps et à la distance : mesure choisie dans l'éditeur de
+  prescription ou en séance, chronomètre / compte à rebours avec saisie
+  manuelle, saisie de distance. Aucun tonnage ; nouveaux records « Durée
+  maximale », distance maximale et meilleur temps à distance égale.
+- Repos réel enregistré pour chaque série (borné à une heure) et affiché dans
+  l'historique.
+- Note d'effort de séance 1-10 en fin de séance, affichée dans le résumé et
+  l'historique. Export CSV : colonnes `effort_seance`, `distance_m` et
+  `repos_reel_secondes` ajoutées en fin de ligne.
 
 ### Écosystème Apple (phase 7)
 

@@ -140,6 +140,12 @@ final class ActiveWorkout {
     var planData: Data?
     var positionData: Data?
 
+    // Seance libre : demarree sans programme, ses exercices sont ajoutes au
+    // fil de l'eau. `programSessionId` ne designe alors aucune seance de
+    // programme. Faux pour toute seance anterieure a ce champ (v7), qui
+    // venait forcement d'un programme.
+    var isFreeSession: Bool = false
+
     // Metadonnees de synchronisation. Une seance en cours n'a qu'un seul
     // proprietaire d'edition a la fois : c'est la strategie de fusion
     // `singleOwner` qui tranche, sur la base de `updatedAt`.
@@ -160,6 +166,7 @@ final class ActiveWorkout {
         runtimeStateData: Data? = nil,
         planData: Data? = nil,
         positionData: Data? = nil,
+        isFreeSession: Bool = false,
         updatedAt: Date = Date(),
         deletedAt: Date? = nil,
         loggedSets: [CompletedSet] = []
@@ -174,6 +181,7 @@ final class ActiveWorkout {
         self.runtimeStateData = runtimeStateData
         self.planData = planData
         self.positionData = positionData
+        self.isFreeSession = isFreeSession
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt
         self.loggedSets = loggedSets

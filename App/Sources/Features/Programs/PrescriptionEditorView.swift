@@ -83,6 +83,11 @@ struct PrescriptionEditorView: View {
                 }
             }
             .onChange(of: exercise.format) { _, newValue in
+                // Une mesure en temps ou en distance n'existe qu'en format
+                // classique : on ne la laisse pas cachee derriere un autre.
+                if newValue != .classic, exercise.measure != .weightReps {
+                    exercise.measure = .weightReps
+                }
                 applyDefaults(for: newValue)
             }
             .navigationTitle(exercise.displayName)
@@ -108,6 +113,71 @@ struct PrescriptionEditorView: View {
         Section("Séries classiques") {
             Stepper("Séries : \(exercise.sets)", value: $exercise.sets, in: 1...10)
 
+            // Ce que mesure l'exercice. Seul le format classique en porte
+            // une autre que poids x repetitions.
+            if exercise.format == .classic {
+                Picker("Mesure", selection: Binding(
+                    get: { exercise.measure },
+                    set: { newValue in
+                        exercise.measure = newValue
+                        if newValue != .weightReps {
+                            // Pourcentages de 1RM / de max sans objet ici.
+                            chargeMode = .free
+                        }
+                    }
+                )) {
+                    ForEach(SetMeasure.allCases, id: \.self) { measure in
+                        Text(measure.displayName).tag(measure)
+                    }
+                }
+                .accessibilityIdentifier("prescription.measurePicker")
+            }
+
+            if exercise.format == .classic, exercise.measure != .weightReps {
+                measuredTargets
+            } else {
+                repsAndChargeRows
+            }
+        }
+    }
+
+    /// Cibles d'une serie au temps et / ou a la distance, plus la charge
+    /// facultative (lest, portage). Le repos reste celui d'une serie.
+    @ViewBuilder
+    private var measuredTargets: some View {
+        if exercise.measure.measuresDuration {
+            Stepper(
+                "Durée visée : \(Self.formatDuration(exercise.targetDurationSeconds))",
+                value: $exercise.targetDurationSeconds,
+                in: 5...3_600,
+                step: exercise.targetDurationSeconds >= 120 ? 30 : 5
+            )
+            .accessibilityIdentifier("prescription.targetDuration")
+        }
+        if exercise.measure.measuresDistance {
+            Stepper(
+                "Distance visée : \(MeasureFormatter.distance(meters: exercise.targetDistanceMeters))",
+                value: $exercise.targetDistanceMeters,
+                in: 10...100_000,
+                step: exercise.targetDistanceMeters >= 1_000 ? 100 : 10
+            )
+            .accessibilityIdentifier("prescription.targetDistance")
+        }
+        restPicker
+        targetWeightField
+    }
+
+    private var restPicker: some View {
+        Picker("Repos", selection: $exercise.restSeconds) {
+            ForEach(Array(stride(from: 15, through: 300, by: 15)), id: \.self) { seconds in
+                Text(Self.formatDuration(seconds)).tag(seconds)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var repsAndChargeRows: some View {
+        Group {
             Picker("Mode", selection: $repsMode) {
                 Text("Fixe").tag(RepsMode.fixed)
                 Text("Fourchette").tag(RepsMode.range)
@@ -129,11 +199,7 @@ struct PrescriptionEditorView: View {
                 Stepper("Reps maxi : \(exercise.repsUpper)", value: $exercise.repsUpper, in: max(1, exercise.repsLower)...50)
             }
 
-            Picker("Repos", selection: $exercise.restSeconds) {
-                ForEach(Array(stride(from: 15, through: 300, by: 15)), id: \.self) { seconds in
-                    Text(Self.formatDuration(seconds)).tag(seconds)
-                }
-            }
+            restPicker
 
             Picker("Charge", selection: $chargeMode) {
                 Text("Libre").tag(ChargeMode.free)

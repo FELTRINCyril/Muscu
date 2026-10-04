@@ -34,6 +34,13 @@ enum FeedbackSettings {
         UINotificationFeedbackGenerator().notificationOccurred(type)
     }
 
+    /// Changement de valeur sous le doigt (barres d'effort) : retour leger.
+    @MainActor
+    static func selectionChanged() {
+        guard isHapticsEnabled else { return }
+        UISelectionFeedbackGenerator().selectionChanged()
+    }
+
     /// Record battu en direct : vibration de reussite, sans son (la
     /// celebration ne doit pas couvrir le chrono de repos qui demarre).
     @MainActor

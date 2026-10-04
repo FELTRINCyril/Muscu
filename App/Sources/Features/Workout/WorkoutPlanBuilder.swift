@@ -65,7 +65,9 @@ enum WorkoutPlanBuilder {
         catalogStore: CatalogStore? = nil,
         customExercises: [CustomExercise] = []
     ) -> WorkoutExercisePlan {
-        WorkoutExercisePlan(
+        // Seul le format classique porte une mesure en temps ou en distance.
+        let measure = exercise.format == .classic ? exercise.measure : .weightReps
+        return WorkoutExercisePlan(
             id: exercise.id,
             exerciseId: exercise.exerciseId,
             displayName: exercise.displayName,
@@ -93,7 +95,10 @@ enum WorkoutPlanBuilder {
             intervalRounds: exercise.intervalRounds,
             countdownSeconds: exercise.intervalCountdownSeconds,
             amrapSeconds: exercise.amrapSeconds,
-            capSeconds: exercise.forTimeCapSeconds
+            capSeconds: exercise.forTimeCapSeconds,
+            measure: measure == .weightReps ? nil : measure,
+            targetDurationSeconds: measure.measuresDuration ? exercise.targetDurationSeconds : nil,
+            targetDistanceMeters: measure.measuresDistance ? exercise.targetDistanceMeters : nil
         )
     }
 

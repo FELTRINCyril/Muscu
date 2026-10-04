@@ -25,6 +25,8 @@ enum DataIntegrityRepair {
 
         let history = try context.fetch(FetchDescriptor<CompletedSession>())
         for completed in history where completed.programId == nil || completed.programSessionId == nil {
+            // Seance libre : sans programme par nature, rien a rattacher.
+            guard !completed.programName.isEmpty else { continue }
             let matchingPrograms = programs.filter { $0.name == completed.programName }
             guard matchingPrograms.count == 1, let program = matchingPrograms.first else { continue }
             let matchingSessions = program.sessions.filter { $0.name == completed.sessionName }

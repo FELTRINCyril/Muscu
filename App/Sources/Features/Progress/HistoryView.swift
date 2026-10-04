@@ -104,6 +104,10 @@ private struct SessionRow: View {
                 Text(durationLabel)
                 Text("\(workingSetsCount) séries")
                 Text(WeightFormatter.string(kilograms: tonnage, unit: massUnit))
+                if let rating = session.effortRating {
+                    Text("Effort \(rating)/10")
+                        .foregroundStyle(SessionEffortPresentation.color(for: rating))
+                }
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -135,6 +139,13 @@ private struct SessionDetailView: View {
 
     var body: some View {
         List {
+            if let rating = session.effortRating {
+                Section {
+                    Text(SessionEffortPresentation.summary(for: rating))
+                        .foregroundStyle(SessionEffortPresentation.color(for: rating))
+                        .accessibilityIdentifier("history.effort")
+                }
+            }
             ForEach(groupedSets, id: \.orderIndex) { group in
                 Section {
                     ForEach(group.sets) { set in
@@ -148,6 +159,14 @@ private struct SessionDetailView: View {
                                 Text(note)
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
+                            }
+                            // Repos reellement pris : discret, absent quand
+                            // il n'a pas ete mesure.
+                            if let rest = CompletedSetPresentation.restNote(for: set) {
+                                Text(rest)
+                                    .font(.caption2)
+                                    .monospacedDigit()
+                                    .foregroundStyle(.tertiary)
                             }
                         }
                         .font(.subheadline)

@@ -396,6 +396,9 @@ enum ExportImport {
         var runExercisesData: Data?
         var runtimeStateData: Data?
         var loggedSets: [CompletedSetDTO]
+        /// Seance libre (sans programme). Cle absente des archives
+        /// anterieures : la seance venait alors d'un programme.
+        var isFreeSession: Bool?
     }
 
     struct SettingsDTO: Codable {
@@ -1182,7 +1185,8 @@ enum ExportImport {
             runtimeStateData: workout.runtimeStateData,
             loggedSets: workout.loggedSets.sorted {
                 ($0.orderIndex, $0.setIndex) < ($1.orderIndex, $1.setIndex)
-            }.map(Self.dto(from:))
+            }.map(Self.dto(from:)),
+            isFreeSession: workout.isFreeSession ? true : nil
         )
     }
 
@@ -1543,7 +1547,8 @@ enum ExportImport {
             setIndex: dto.setIndex,
             phaseRaw: dto.phaseRaw,
             runExercisesData: dto.runExercisesData,
-            runtimeStateData: dto.runtimeStateData
+            runtimeStateData: dto.runtimeStateData,
+            isFreeSession: dto.isFreeSession ?? false
         )
         workout.loggedSets = dto.loggedSets.map { setDTO in
             let set = model(from: setDTO)

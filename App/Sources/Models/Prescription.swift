@@ -77,3 +77,26 @@ extension PrescribedExercise {
         set { formatRaw = newValue.rawValue }
     }
 }
+
+extension PrescribedExercise {
+    /// Ce que mesure une serie classique, deduit des cibles persistees
+    /// (zero = non prescrit) : aucun champ supplementaire n'est necessaire.
+    ///
+    /// Choisir une mesure pose une cible par defaut pour chaque grandeur
+    /// demandee et remet a zero celles qui ne le sont plus.
+    var measure: SetMeasure {
+        get { SetMeasure(targetDurationSeconds: targetDurationSeconds, targetDistanceMeters: targetDistanceMeters) }
+        set {
+            if newValue.measuresDuration {
+                if targetDurationSeconds <= 0 { targetDurationSeconds = SetMeasure.defaultTargetDurationSeconds }
+            } else {
+                targetDurationSeconds = 0
+            }
+            if newValue.measuresDistance {
+                if !(targetDistanceMeters > 0) { targetDistanceMeters = SetMeasure.defaultTargetDistanceMeters }
+            } else {
+                targetDistanceMeters = 0
+            }
+        }
+    }
+}

@@ -52,6 +52,13 @@ grouping of previous sessions by consecutive load and relative age buckets, in
 `Packages/MuscuEngine/Sources/MuscuEngine/Runner/PreviousPerformance.swift` and
 `App/Sources/Features/Workout/LiveSessionViews.swift`. Converted from pounds to the profile unit.
 
+Adapted from UpLift (`Views/Workout/EffortRatingView.swift`, `Services/EffortScale.swift`):
+session effort rating as ten bars of increasing height selected by tapping or
+dragging, with green-to-red effort bands, in
+`App/Sources/Features/Workout/EffortRatingView.swift` and
+`Packages/MuscuEngine/Sources/MuscuEngine/Runner/SessionEffort.swift`. Bands
+refined to six labels (very easy to maximal) and made optional and accessible.
+
 ```
 MIT License
 
