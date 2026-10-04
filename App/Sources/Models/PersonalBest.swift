@@ -100,6 +100,12 @@ extension PersonalBest {
     /// afficher « 42 » sans dire si ce sont des kilos, des secondes ou des
     /// tours ne veut rien dire.
     var formattedValue: String {
+        Self.formatted(value: value, kind: kind)
+    }
+
+    /// Meme mise en forme pour une valeur qui n'est pas (encore) un record :
+    /// la confirmation d'une correction annonce la valeur a venir.
+    static func formatted(value: Double, kind: PersonalBestKind) -> String {
         switch kind {
         case .maxWeight, .estimatedOneRepMax, .maxSessionVolume:
             return WeightFormatter.string(kilograms: value)

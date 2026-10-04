@@ -24,10 +24,67 @@ enum PersonalBestUpdater {
         }
     }
 
+    /// Serie vue par le calcul des records. Type valeur : la correction
+    /// d'une seance passee calcule les records de la version CORRIGEE avant
+    /// de l'enregistrer, pour les montrer dans la confirmation.
+    struct SetSnapshot {
+        var exerciseId: String
+        var displayName: String
+        var format: SetFormat
+        var formatRaw: String
+        var reps: Int
+        var durationSeconds: Int?
+        var distanceMeters: Double?
+        var countsAsWorkingSet: Bool
+        var input: SetMetricsInput
+
+        init(
+            exerciseId: String,
+            displayName: String,
+            format: SetFormat,
+            reps: Int,
+            durationSeconds: Int?,
+            distanceMeters: Double?,
+            countsAsWorkingSet: Bool,
+            input: SetMetricsInput
+        ) {
+            self.exerciseId = exerciseId
+            self.displayName = displayName
+            self.format = format
+            self.formatRaw = format.rawValue
+            self.reps = reps
+            self.durationSeconds = durationSeconds
+            self.distanceMeters = distanceMeters
+            self.countsAsWorkingSet = countsAsWorkingSet
+            self.input = input
+        }
+
+        init(_ set: CompletedSet, bodyweightKilograms: Double?) {
+            self.init(
+                exerciseId: set.exerciseId,
+                displayName: set.displayName,
+                format: set.format,
+                reps: set.reps,
+                durationSeconds: set.durationSeconds,
+                distanceMeters: set.distanceMeters,
+                countsAsWorkingSet: set.role.countsAsWorkingSet,
+                input: set.metricsInput(bodyweightKilograms: bodyweightKilograms)
+            )
+            // Valeur brute conservee : une valeur inconnue garde sa cle.
+            self.formatRaw = set.formatRaw
+        }
+    }
+
     /// Candidats issus d'une seance, un par (exercice, nature, configuration).
     static func candidates(for session: CompletedSession, bodyweightKilograms: Double? = nil) -> [Candidate] {
         let knownBodyweight = session.bodyweightKilograms ?? bodyweightKilograms
+        return candidates(for: session.sets.map { SetSnapshot($0, bodyweightKilograms: knownBodyweight) })
+    }
+
+    /// Candidats issus de series, un par (exercice, nature, configuration).
+    static func candidates(for sets: [SetSnapshot]) -> [Candidate] {
         var best: [String: Candidate] = [:]
+        let workingSets = sets.filter(\.countsAsWorkingSet)
 
         func offer(_ candidate: Candidate) {
             let existing = best[candidate.identityKey]
@@ -37,8 +94,8 @@ enum PersonalBestUpdater {
             if improves { best[candidate.identityKey] = candidate }
         }
 
-        for set in session.workingSets {
-            let input = set.metricsInput(bodyweightKilograms: knownBodyweight)
+        for set in workingSets {
+            let input = set.input
             let configurationKey = SetMetrics.recordConfigurationKey(input)
 
             if set.format.isTimed {
@@ -97,8 +154,8 @@ enum PersonalBestUpdater {
         }
 
         // Tonnage de seance par exercice : une seule valeur par exercice.
-        for (exerciseId, sets) in Dictionary(grouping: session.workingSets, by: \.exerciseId) {
-            let inputs = sets.map { $0.metricsInput(bodyweightKilograms: knownBodyweight) }
+        for (exerciseId, sets) in Dictionary(grouping: workingSets, by: \.exerciseId) {
+            let inputs = sets.map(\.input)
             let tonnage = SetMetrics.totalTonnage(inputs)
             guard tonnage.total > 0, tonnage.unknownSets == 0, let displayName = sets.first?.displayName else { continue }
             offer(Candidate(
@@ -119,7 +176,7 @@ enum PersonalBestUpdater {
     /// Les formats chronometres produisent un record propre a leur
     /// configuration : un AMRAP de 8 minutes n'est pas comparable a un
     /// AMRAP de 12 minutes.
-    private static func offerTimedCandidates(for set: CompletedSet, offer: (Candidate) -> Void) {
+    private static func offerTimedCandidates(for set: SetSnapshot, offer: (Candidate) -> Void) {
         let duration = set.durationSeconds ?? 0
         let configurationKey = "\(set.formatRaw):\(duration)"
 
@@ -154,7 +211,7 @@ enum PersonalBestUpdater {
 
     /// Serie au temps ou a la distance : aucune repetition, mais une duree
     /// ou une distance mesuree.
-    private static func isMeasured(_ set: CompletedSet) -> Bool {
+    private static func isMeasured(_ set: SetSnapshot) -> Bool {
         set.reps == 0 && ((set.durationSeconds ?? 0) > 0 || (set.distanceMeters ?? 0) > 0)
     }
 
@@ -164,7 +221,7 @@ enum PersonalBestUpdater {
     /// - temps ET distance (course) : distance maximale, et meilleur temps
     ///   A DISTANCE EGALE — plus bas = mieux, comme le For Time. Deux
     ///   distances differentes ne sont jamais comparees.
-    private static func offerMeasuredCandidates(for set: CompletedSet, offer: (Candidate) -> Void) {
+    private static func offerMeasuredCandidates(for set: SetSnapshot, offer: (Candidate) -> Void) {
         let duration = set.durationSeconds ?? 0
         let distance = set.distanceMeters ?? 0
         if distance > 0, distance.isFinite {
@@ -214,7 +271,11 @@ enum PersonalBestUpdater {
 
         for candidate in candidates {
             if let current = byKey[candidate.identityKey] {
-                guard current.isImprovement(by: candidate.value) else { continue }
+                // Un record supprime logiquement n'est plus une reference :
+                // il renait avec la nouvelle valeur plutot que de rester
+                // masque avec une valeur a jour.
+                guard current.deletedAt != nil || current.isImprovement(by: candidate.value) else { continue }
+                current.deletedAt = nil
                 current.value = candidate.value
                 current.reps = candidate.reps
                 current.achievedAt = achievedAt

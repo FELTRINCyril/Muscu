@@ -96,6 +96,25 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
     heure d'interruption).
   - **Note d'effort de séance** (1 à 10, du « très facile » au « maximal »),
     facultative, en fin de séance ; affichée dans l'historique et exportée.
+  - **Temps actif / temps de repos** dans le résumé de fin de séance et le
+    détail de l'historique, à partir du repos réellement mesuré — rien
+    n'est affiché quand une mesure manque.
+  - **Mettre à jour le programme** : en fin de séance de programme, si la
+    structure a changé (exercice ajouté, retiré, remplacé ou déplacé, nombre
+    de séries, mesure), Muscu liste les écarts et propose de mettre à jour la
+    séance du programme, de le garder tel quel ou d'enregistrer un nouveau
+    modèle. Jamais les charges réalisées.
+- **Historique modifiable** : corriger une séance passée (horaires, note
+  d'effort, séries et exercices ajoutés, modifiés ou retirés) en mode édition
+  explicite, avec confirmation qui annonce les records touchés. Les records
+  sont recalculés sans régression, l'entraînement Santé est remplacé, la
+  séance repart en synchronisation (la correction la plus récente gagne) et
+  les widgets suivent.
+- **Refaire une séance** de l'historique (« Refaire » avec les charges et
+  répétitions comme cibles, ou « Refaire à vide ») : une séance libre
+  préremplie, reprenable après interruption.
+- **Partager une séance** en texte ou en carte image carrée au style de
+  l'application : date, durée, exercices, séries et records — rien d'autre.
 - **Calculateur de 1RM** (Records, fiche exercice) : charge × répétitions →
   1RM estimé et tableau 95-50 % arrondi au palier chargeable. Rien n'est
   enregistré ; le test de 1RM guidé reste la mesure.
@@ -138,7 +157,11 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
 - **Import / export inter-apps** : export CSV stable et documenté
   ([docs/formats/csv.md](docs/formats/csv.md)), et import CSV avec assistant de
   correspondance des colonnes, aperçu, détection des doublons et **quarantaine**
-  des lignes illisibles. Préréglages Strong et Hevy.
+  des lignes illisibles. Préréglages Strong et Hevy. Le matériel écrit entre
+  parenthèses (« Deadlift (Barbell) ») guide la correspondance avec le
+  catalogue. Après l'import, chaque titre de séance peut devenir un modèle ou
+  une séance d'un nouveau programme (exercices et nombre de séries usuel),
+  avec aperçu et confirmation.
 - **Coach IA** (facultatif, **désactivé par défaut**) : demande en français,
   brouillon prévisualisé et confirmé avant toute écriture, corrections
   appliquées affichées, repli annoncé sur le générateur local. Votre clé reste

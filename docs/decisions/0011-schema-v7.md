@@ -74,3 +74,5 @@ n'est pas incrémentée : les attributs sont facultatifs et un appareil plus
 ancien les ignore. Limite connue : une séance terminée est immuable côté
 synchronisation (`immutableByIdentifier`) ; la correction d'une séance
 passée (lot 4) devra donc revoir cette règle pour propager `editedAt`.
+*Levée par la décision 0014 : la correction la plus récente (`editedAt`)
+gagne.*

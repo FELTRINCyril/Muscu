@@ -91,6 +91,9 @@ final class WorkoutState: Identifiable {
         // seance" pour le passer. Une seance reprise (restoring:) preserve
         // sa phase persistee et ne repasse jamais par ici.
         self.phase = .warmup
+        // Structure de depart, figee : la fin de seance la compare au
+        // deroule final pour proposer de mettre le programme a jour.
+        self.runtimeState.structureBaseline = SessionStructureDiff.entries(of: plan)
         _ = createActiveWorkout()
         if !PersistenceSupport.save(modelContext, action: "Démarrage de la séance") {
             activeWorkout = nil
@@ -101,10 +104,16 @@ final class WorkoutState: Identifiable {
     /// Seance libre : aucun programme, un deroule vide auquel les exercices
     /// s'ajoutent au fil de l'eau. Pas d'echauffement guide : il n'y a pas
     /// encore d'exercice sur lequel le calculer.
+    ///
+    /// `replaying` preremplit le deroule (« Refaire » une seance de
+    /// l'historique) ; la seance reste libre : elle ne se termine que sur
+    /// demande et accepte d'autres exercices.
     init(
         freeSessionWith modelContext: ModelContext,
         catalogStore: CatalogStore,
-        restTimer: RestTimer
+        restTimer: RestTimer,
+        replaying plan: WorkoutPlan = WorkoutPlan(nodes: []),
+        title: String? = nil
     ) {
         self.programSession = nil
         self.isFreeSession = true
@@ -112,11 +121,14 @@ final class WorkoutState: Identifiable {
         self.catalogStore = catalogStore
         self.restTimer = restTimer
         self.weekScaling = .neutral
-        self.plan = WorkoutPlan(nodes: [])
+        self.plan = plan
         self.startedAt = .now
         self.position = .start
         self.activeWorkout = nil
-        self.runtimeState = WorkoutRuntimeState()
+        var runtimeState = WorkoutRuntimeState()
+        let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        runtimeState.title = trimmedTitle?.isEmpty == false ? trimmedTitle : nil
+        self.runtimeState = runtimeState
         self.phase = .running
         _ = createActiveWorkout()
         if !PersistenceSupport.save(modelContext, action: "Démarrage de la séance libre") {
@@ -307,8 +319,22 @@ final class WorkoutState: Identifiable {
     /// Titre de la seance : nom de la seance de programme, ou « Séance
     /// libre ».
     var sessionTitle: String {
-        programSession?.name ?? Self.freeSessionTitle
+        programSession?.name ?? runtimeState.title ?? Self.freeSessionTitle
     }
+
+    // MARK: - Structure et programme
+
+    /// Ce qui a change dans la STRUCTURE de la seance par rapport a la seance
+    /// du programme au demarrage : exercices ajoutes, retires, remplaces,
+    /// deplaces, nombre de series, mesure. Vide pour une seance libre, une
+    /// seance reprise d'avant cette fonction, ou si rien n'a change.
+    var structureChanges: [SessionStructureChange] {
+        guard programSession != nil, let baseline = runtimeState.structureBaseline else { return [] }
+        return SessionStructureDiff.changes(baseline: baseline, final: SessionStructureDiff.entries(of: plan))
+    }
+
+    /// Structure de depart, pour reporter les ecarts dans le programme.
+    var structureBaseline: [SessionStructureEntry]? { runtimeState.structureBaseline }
 
     static var freeSessionTitle: String { String(localized: "Séance libre") }
 

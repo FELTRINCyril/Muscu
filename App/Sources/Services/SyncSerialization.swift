@@ -41,7 +41,8 @@ enum SyncSerialization {
             _ models: [Model],
             metadata: (Model) -> SyncMetadata,
             dto: (Model) -> DTO,
-            comparableValue: ((Model) -> Double?)? = nil
+            comparableValue: ((Model) -> Double?)? = nil,
+            editedAt: ((Model) -> Date?)? = nil
         ) throws {
             for model in models {
                 let meta = metadata(model)
@@ -49,13 +50,22 @@ enum SyncSerialization {
                     kind: kind,
                     metadata: meta,
                     payload: try encoder.encode(dto(model)),
-                    comparableValue: comparableValue?(model)
+                    comparableValue: comparableValue?(model),
+                    editedAt: editedAt?(model)
                 )
             }
         }
 
         try add(.program, context.fetch(FetchDescriptor<Program>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))
-        try add(.completedSession, context.fetch(FetchDescriptor<CompletedSession>()), metadata: \.syncMetadata, dto: syncDTO(from:))
+        // Une seance terminee ne bouge entre appareils que si l'utilisateur
+        // l'a corrigee : la correction la plus recente gagne (decision 0014).
+        try add(
+            .completedSession,
+            context.fetch(FetchDescriptor<CompletedSession>()),
+            metadata: \.syncMetadata,
+            dto: syncDTO(from:),
+            editedAt: { $0.editedAt }
+        )
         try add(.activeWorkout, context.fetch(FetchDescriptor<ActiveWorkout>()), metadata: \.syncMetadata, dto: ExportImport.dto(from:))
         // Un `ExerciseRecord` porte deux performances distinctes (1RM et max
         // de repetitions). On compare la plus structurante, le 1RM, en

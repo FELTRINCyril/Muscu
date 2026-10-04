@@ -3,8 +3,8 @@ import SwiftData
 import MuscuEngine
 
 // Historique des seances terminees, groupees par mois. Le detail d'une
-// seance liste chaque serie par exercice, dans l'ordre de la seance ; les
-// series d'echauffement sont marquees et attenuees.
+// seance (lecture, correction, « Refaire », partage) vit dans
+// `SessionDetailView`.
 struct HistoryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \CompletedSession.date, order: .reverse) private var sessions: [CompletedSession]
@@ -55,14 +55,22 @@ struct HistoryView: View {
         ) {
             Button("Supprimer", role: .destructive) {
                 if let session = sessionPendingDelete {
-                    modelContext.delete(session)
-                    _ = PersistenceSupport.save(modelContext, action: "Suppression de la séance")
+                    // Les records issus de la seance sont recalcules dans la
+                    // meme sauvegarde ; widgets et Sante suivent.
+                    if PastSessionEditor.delete(session, in: modelContext) {
+                        WidgetSnapshotService.refresh(in: modelContext)
+                        Task {
+                            await HealthSyncService.synchronize(in: modelContext, store: AppServices.healthStore)
+                        }
+                    }
                 }
                 sessionPendingDelete = nil
             }
             Button("Annuler", role: .cancel) {
                 sessionPendingDelete = nil
             }
+        } message: {
+            Text("Les records issus de cette séance seront recalculés depuis le reste de l’historique.")
         }
     }
 
@@ -130,97 +138,6 @@ private struct SessionRow: View {
 
     private var durationLabel: String {
         String(localized: "\(session.durationSeconds / 60) min")
-    }
-}
-
-private struct SessionDetailView: View {
-    let session: CompletedSession
-    @Environment(\.massUnit) private var massUnit
-
-    var body: some View {
-        List {
-            if let rating = session.effortRating {
-                Section {
-                    Text(SessionEffortPresentation.summary(for: rating))
-                        .foregroundStyle(SessionEffortPresentation.color(for: rating))
-                        .accessibilityIdentifier("history.effort")
-                }
-            }
-            ForEach(groupedSets, id: \.orderIndex) { group in
-                Section {
-                    ForEach(group.sets) { set in
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack {
-                                Text(CompletedSetPresentation.label(for: set, inGroup: group.isGrouped))
-                                Spacer()
-                                Text(CompletedSetPresentation.performance(for: set, unit: massUnit))
-                            }
-                            if let note = CompletedSetPresentation.substitutionNote(for: set) {
-                                Text(note)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            // Repos reellement pris : discret, absent quand
-                            // il n'a pas ete mesure.
-                            if let rest = CompletedSetPresentation.restNote(for: set) {
-                                Text(rest)
-                                    .font(.caption2)
-                                    .monospacedDigit()
-                                    .foregroundStyle(.tertiary)
-                            }
-                        }
-                        .font(.subheadline)
-                        .foregroundStyle(set.role == .warmup ? .secondary : .primary)
-                        .padding(.leading, set.subSetIndex > 0 ? 16 : 0)
-                        .accessibilityElement(children: .combine)
-                    }
-                } header: {
-                    HStack {
-                        Text(group.displayName)
-                        if let badge = group.formatBadge {
-                            Text(badge)
-                                .font(.caption2.weight(.semibold))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Theme.accent.opacity(0.2))
-                                .foregroundStyle(Theme.accent)
-                                .clipShape(Capsule())
-                        }
-                    }
-                }
-            }
-        }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(Theme.background)
-        .navigationTitle(session.sessionName.isEmpty ? "Séance" : session.sessionName)
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private struct ExerciseGroup {
-        let orderIndex: Int
-        let displayName: String
-        let sets: [CompletedSet]
-        /// L'exercice faisait partie d'un superset, triset ou circuit :
-        /// les series se lisent alors par TOUR, pas par numero de serie.
-        let isGrouped: Bool
-        /// Format affiche a cote du nom quand ce n'est pas du classique.
-        let formatBadge: String?
-    }
-
-    private var groupedSets: [ExerciseGroup] {
-        let grouped = Dictionary(grouping: session.sets, by: \.orderIndex)
-        return grouped.keys.sorted().compactMap { orderIndex in
-            guard let sets = grouped[orderIndex], let first = sets.first else { return nil }
-            let format = first.format
-            return ExerciseGroup(
-                orderIndex: orderIndex,
-                displayName: first.displayName,
-                sets: sets.sorted { ($0.roundIndex, $0.setIndex, $0.subSetIndex) < ($1.roundIndex, $1.setIndex, $1.subSetIndex) },
-                isGrouped: first.groupId != nil,
-                formatBadge: format == .classic ? nil : format.displayName
-            )
-        }
     }
 }
 

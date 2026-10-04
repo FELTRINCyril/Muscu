@@ -38,6 +38,24 @@
 - Note d'effort de séance 1-10 en fin de séance, affichée dans le résumé et
   l'historique. Export CSV : colonnes `effort_seance`, `distance_m` et
   `repos_reel_secondes` ajoutées en fin de ligne.
+- Séance passée modifiable depuis l'historique : horaires, note d'effort,
+  séries et exercices (ajout, correction, suppression), en mode édition
+  explicite et après confirmation. `editedAt` et la révision sont renseignés ;
+  les records issus de la séance sont recalculés depuis l'historique (sans
+  jamais faire redescendre un record venu d'ailleurs), y compris à la
+  suppression d'une séance ; l'entraînement Santé est remplacé ; la
+  synchronisation laisse gagner la correction la plus récente (décision 0014).
+- Santé : une séance terminée dans Muscu est écrite avec son vrai début
+  (la date enregistrée est sa fin).
+- « Refaire » et « Refaire à vide » une séance de l'historique : séance libre
+  préremplie, titre conservé.
+- Partage d'une séance en texte et en carte image carrée (ImageRenderer).
+- Fin d'une séance de programme modifiée : écarts de structure listés et
+  proposition de mettre à jour la séance du programme, de garder le programme
+  ou d'enregistrer un nouveau modèle.
+- Temps actif / temps de repos dans le résumé et l'historique.
+- Import CSV : matériel déduit d'un nom « Exercice (Matériel) », et création
+  de modèles ou d'un programme à partir des titres de séance importés.
 
 ### Écosystème Apple (phase 7)
 

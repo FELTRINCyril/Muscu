@@ -23,12 +23,21 @@ struct CSVImportView: View {
     @State private var outcome: CSVImportOutcome?
     @State private var errorMessage: String?
 
+    // Seances de programme a partir des titres importes.
+    @State private var routineCandidates: [ImportedRoutineCandidate] = []
+    @State private var selectedRoutines: Set<String> = []
+    @State private var routineDestination: ImportedRoutineDestination = .templates
+    @State private var routineProgramName = ""
+    @State private var showingRoutineConfirm = false
+    @State private var routineMessage: String?
+
     var body: some View {
         List {
             fileSection
             if !header.isEmpty { mappingSection }
             if let plan { previewSection(plan) }
             if let outcome { reportSection(outcome) }
+            if !routineCandidates.isEmpty || routineMessage != nil { routinesSection }
             quarantineSection
         }
         .listStyle(.insetGrouped)
@@ -189,6 +198,97 @@ struct CSVImportView: View {
         }
     }
 
+    // MARK: - Programmes
+
+    private var routinesSection: some View {
+        Section {
+            if let routineMessage {
+                Text(routineMessage)
+                    .font(.footnote)
+                    .accessibilityIdentifier("csv.routines.result")
+            }
+            ForEach(routineCandidates) { candidate in
+                Toggle(isOn: routineBinding(candidate.key)) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(candidate.name)
+                        Text("\(candidate.sessionCount) séance(s) · dernière le \(candidate.lastDate.formatted(date: .abbreviated, time: .omitted))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text(candidate.exercises.map { "\($0.displayName) × \($0.workingSetCount)" }.joined(separator: ", "))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityIdentifier("csv.routines.toggle")
+            }
+            if !routineCandidates.isEmpty {
+                Picker("Créer", selection: $routineDestination) {
+                    ForEach(ImportedRoutineDestination.allCases) { destination in
+                        Text(destination.displayName).tag(destination)
+                    }
+                }
+                if routineDestination == .newProgram {
+                    TextField("Nom du programme", text: $routineProgramName)
+                        .accessibilityIdentifier("csv.routines.programName")
+                }
+                Button("Créer \(selectedRoutines.count) séance(s)") {
+                    showingRoutineConfirm = true
+                }
+                .disabled(selectedRoutines.isEmpty)
+                .accessibilityIdentifier("csv.routines.create")
+                .confirmationDialog(
+                    "Créer ces séances ?",
+                    isPresented: $showingRoutineConfirm,
+                    titleVisibility: .visible
+                ) {
+                    Button("Créer") { createRoutines() }
+                    Button("Annuler", role: .cancel) {}
+                } message: {
+                    Text(routineConfirmationMessage)
+                }
+            }
+        } header: {
+            Text("Séances de programme")
+        } footer: {
+            Text("Un import restaure des séances, pas les programmes dont elles viennent. Chaque titre peut devenir une séance : exercices reconnus et nombre de séries usuel, sans aucune charge importée. Rien n’est créé sans confirmation.")
+        }
+    }
+
+    private func routineBinding(_ key: String) -> Binding<Bool> {
+        Binding(
+            get: { selectedRoutines.contains(key) },
+            set: { isOn in
+                if isOn { selectedRoutines.insert(key) } else { selectedRoutines.remove(key) }
+            }
+        )
+    }
+
+    private var routineConfirmationMessage: String {
+        let names = routineCandidates.filter { selectedRoutines.contains($0.key) }.map(\.name).joined(separator: ", ")
+        switch routineDestination {
+        case .templates:
+            return String(localized: "Modèles créés : \(names).")
+        case .newProgram:
+            return String(localized: "Un programme inactif sera créé avec : \(names).")
+        }
+    }
+
+    private func createRoutines() {
+        let chosen = routineCandidates.filter { selectedRoutines.contains($0.key) }
+        guard let created = CSVImportService.createRoutines(
+            chosen,
+            destination: routineDestination,
+            programName: routineProgramName,
+            in: modelContext
+        ) else {
+            routineMessage = String(localized: "L’enregistrement a échoué : rien n’a été créé.")
+            return
+        }
+        routineMessage = String(localized: "\(created) séance(s) créée(s).")
+        routineCandidates = []
+        selectedRoutines = []
+    }
+
     private var quarantineSection: some View {
         let entries = CSVImportService.quarantine(in: modelContext)
         return Section {
@@ -282,6 +382,9 @@ struct CSVImportView: View {
         errorMessage = nil
         plan = nil
         outcome = nil
+        routineCandidates = []
+        selectedRoutines = []
+        routineMessage = nil
         header = []
         rows = []
         fileName = ""
@@ -307,5 +410,11 @@ struct CSVImportView: View {
             in: modelContext
         )
         self.plan = nil
+        if let outcome, outcome.didWrite {
+            routineCandidates = CSVImportService.routineCandidates(for: outcome, in: modelContext)
+            selectedRoutines = []
+            routineMessage = nil
+            routineProgramName = preset == .generic ? String(localized: "Programme importé") : preset.displayName
+        }
     }
 }

@@ -85,6 +85,14 @@ struct WorkoutRuntimeState: Codable, Equatable {
     var amrap: AmrapRuntimeState?
     var forTime: ForTimeRuntimeState?
     var warmup = WarmupRuntimeState()
+    /// Structure de la seance de programme AU DEMARRAGE (mise a l'echelle
+    /// comprise), pour proposer en fin de seance de reporter dans le
+    /// programme ce qui a change. `nil` pour une seance libre ou commencee
+    /// avant cette cle : rien n'est alors propose.
+    var structureBaseline: [SessionStructureEntry]?
+    /// Titre d'une seance libre refaite depuis l'historique (« Refaire »).
+    /// `nil` = « Séance libre ».
+    var title: String?
 
     init() {}
 
@@ -98,6 +106,8 @@ struct WorkoutRuntimeState: Codable, Equatable {
         amrap = try container.decodeIfPresent(AmrapRuntimeState.self, forKey: .amrap)
         forTime = try container.decodeIfPresent(ForTimeRuntimeState.self, forKey: .forTime)
         warmup = try container.decodeIfPresent(WarmupRuntimeState.self, forKey: .warmup) ?? WarmupRuntimeState()
+        structureBaseline = try container.decodeIfPresent([SessionStructureEntry].self, forKey: .structureBaseline)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
     }
 
     /// Un etat ecrit par une version PLUS RECENTE de l'application ne doit

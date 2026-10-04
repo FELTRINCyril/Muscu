@@ -115,6 +115,48 @@
         }
       }
     },
+    "%@ : %@ → %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ : %2$@ → %3$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: %@ → %@"
+          }
+        }
+      }
+    },
+    "%@ : %lld → %lld séries": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ : %2$lld → %3$lld séries"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: %lld → %lld sets"
+          }
+        }
+      }
+    },
+    "%@ : déplacé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: moved"
+          }
+        }
+      }
+    },
     "%@ de tonnage": {
       "localizations": {
         "en": {
@@ -587,6 +629,22 @@
         }
       }
     },
+    "%lld h %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld h %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld h %@"
+          }
+        }
+      }
+    },
     "%lld jour(s) actif(s) sur la période, total %@%@, maximum le %@.": {
       "localizations": {
         "en": {
@@ -662,6 +720,16 @@
           "stringUnit": {
             "state": "new",
             "value": "%1$lld point(s), de %2$@ à %3$@ sur %4$@."
+          }
+        }
+      }
+    },
+    "%lld record(s)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld record(s)"
           }
         }
       }
@@ -764,6 +832,16 @@
         }
       }
     },
+    "%lld séance(s) créée(s).": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld session(s) created."
+          }
+        }
+      }
+    },
     "%lld séance(s) sans valeur exploitable pour cet indicateur : elles sont absentes de la courbe plutôt qu'affichées à zéro.": {
       "localizations": {
         "en": {
@@ -786,6 +864,22 @@
           "stringUnit": {
             "state": "new",
             "value": "%1$lld séance(s) sur %2$@. Semaines consécutives avec au moins une séance : %3$lld."
+          }
+        }
+      }
+    },
+    "%lld séance(s) · dernière le %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld séance(s) · dernière le %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld session(s) · last on %@"
           }
         }
       }
@@ -1028,6 +1122,16 @@
         }
       }
     },
+    "+ %lld exercice(s)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+ %lld exercise(s)"
+          }
+        }
+      }
+    },
     "+30 s": {
       "localizations": {
         "en": {
@@ -1064,6 +1168,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "1 exercise selected · select a second one to create a group"
+          }
+        }
+      }
+    },
+    "1RM": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1RM"
           }
         }
       }
@@ -1242,6 +1356,16 @@
         }
       }
     },
+    "Abandonner les corrections ?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discard corrections?"
+          }
+        }
+      }
+    },
     "Accueil": {
       "localizations": {
         "en": {
@@ -1278,6 +1402,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Active"
+          }
+        }
+      }
+    },
+    "Actions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actions"
           }
         }
       }
@@ -1564,6 +1698,32 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add a first value to follow how it changes."
+          }
+        }
+      }
+    },
+    "Ajouté : %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added: %@"
+          }
+        }
+      }
+    },
+    "Ajouté : %@ (%lld séries)": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Ajouté : %1$@ (%2$lld séries)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added: %@ (%lld sets)"
           }
         }
       }
@@ -3183,6 +3343,16 @@
         }
       }
     },
+    "Continuer la correction": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep editing"
+          }
+        }
+      }
+    },
     "Continuer la séance": {
       "localizations": {
         "en": {
@@ -3223,12 +3393,42 @@
         }
       }
     },
+    "Corrigée le %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Corrected on %@"
+          }
+        }
+      }
+    },
     "Créer": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Create"
+          }
+        }
+      }
+    },
+    "Créer %lld séance(s)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create %lld session(s)"
+          }
+        }
+      }
+    },
+    "Créer ces séances ?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create these sessions?"
           }
         }
       }
@@ -3269,6 +3469,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Create your first program with the + button."
+          }
+        }
+      }
+    },
+    "Créé depuis un import CSV. Les charges et répétitions importées ne sont pas reprises.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Created from a CSV import. Imported loads and reps are not copied."
+          }
+        }
+      }
+    },
+    "Créé depuis une séance modifiée. Les charges réalisées ne sont pas reprises.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Created from a modified session. Performed loads are not copied."
           }
         }
       }
@@ -4178,6 +4398,16 @@
         }
       }
     },
+    "Enregistrer comme nouveau modèle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save as new template"
+          }
+        }
+      }
+    },
     "Enregistrer la clé": {
       "localizations": {
         "en": {
@@ -4208,6 +4438,16 @@
         }
       }
     },
+    "Enregistrer les corrections ?": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save corrections?"
+          }
+        }
+      }
+    },
     "Enregistrer l’approche": {
       "localizations": {
         "en": {
@@ -4224,6 +4464,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Save the warm-up"
+          }
+        }
+      }
+    },
+    "Enregistré avec Muscu": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logged with Muscu"
           }
         }
       }
@@ -4778,6 +5028,16 @@
         }
       }
     },
+    "Garder le programme": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep the program"
+          }
+        }
+      }
+    },
     "Giant set": {
       "localizations": {
         "en": {
@@ -4874,6 +5134,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Workout history"
+          }
+        }
+      }
+    },
+    "Horaires": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Times"
           }
         }
       }
@@ -5218,6 +5488,26 @@
         }
       }
     },
+    "La fin doit suivre le début.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The end must come after the start."
+          }
+        }
+      }
+    },
+    "La fin ne peut pas être dans le futur.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The end cannot be in the future."
+          }
+        }
+      }
+    },
     "La première semaine à venir démarrera cette semaine-là ; les suivantes s’enchaînent de sept jours en sept jours.": {
       "localizations": {
         "en": {
@@ -5269,12 +5559,32 @@
         }
       }
     },
+    "La séance a changé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The session changed"
+          }
+        }
+      }
+    },
     "La séance a changé entre-temps. Rouvre la liste pour réessayer.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The workout changed in the meantime. Reopen the list to try again."
+          }
+        }
+      }
+    },
+    "La séance sera marquée comme corrigée et synchronisée de nouveau.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The session will be marked as corrected and synced again."
           }
         }
       }
@@ -5636,6 +5946,16 @@
         }
       }
     },
+    "Le repos va d’une validation à la suivante : il inclut l’exécution des séries en répétitions.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest runs from one validation to the next: it includes performing rep-based sets."
+          }
+        }
+      }
+    },
     "Le serveur n’a pas renvoyé une image valide.": {
       "localizations": {
         "en": {
@@ -5763,6 +6083,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reminders are turned on recurrence by recurrence, in Programs → Schedule → Recurrences. This switch turns them all off at once; Muscu works entirely without notifications."
+          }
+        }
+      }
+    },
+    "Les records issus de cette séance seront recalculés depuis le reste de l’historique.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records from this session will be recalculated from the rest of your history."
           }
         }
       }
@@ -6049,6 +6379,16 @@
         }
       }
     },
+    "L’enregistrement a échoué : rien n’a été créé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving failed: nothing was created."
+          }
+        }
+      }
+    },
     "L’enregistrement a échoué : rien n’a été modifié.": {
       "localizations": {
         "en": {
@@ -6299,6 +6639,16 @@
         }
       }
     },
+    "Mettre à jour la séance du programme": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update the program session"
+          }
+        }
+      }
+    },
     "Micro-repos : %lld s": {
       "localizations": {
         "en": {
@@ -6455,12 +6805,32 @@
         }
       }
     },
+    "Modèle « %@ » enregistré. Le programme est inchangé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Template “%@” saved. The program is unchanged."
+          }
+        }
+      }
+    },
     "Modèles": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Templates"
+          }
+        }
+      }
+    },
+    "Modèles créés : %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Templates created: %@."
           }
         }
       }
@@ -7165,12 +7535,42 @@
         }
       }
     },
+    "Partager la séance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share session"
+          }
+        }
+      }
+    },
     "Partager le poids corporel": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Share the bodyweight"
+          }
+        }
+      }
+    },
+    "Partager le texte": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share text"
+          }
+        }
+      }
+    },
+    "Partager l’image": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share image"
           }
         }
       }
@@ -7588,6 +7988,16 @@
         }
       }
     },
+    "Programme importé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Imported program"
+          }
+        }
+      }
+    },
     "Programmes": {
       "localizations": {
         "en": {
@@ -7984,6 +8394,16 @@
         }
       }
     },
+    "Records de la séance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Session records"
+          }
+        }
+      }
+    },
     "Records par exercice, y compris les records typés.": {
       "localizations": {
         "en": {
@@ -8000,6 +8420,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Records by type"
+          }
+        }
+      }
+    },
+    "Refaire": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeat"
+          }
+        }
+      }
+    },
+    "Refaire à vide": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeat blank"
           }
         }
       }
@@ -8084,6 +8524,22 @@
         }
       }
     },
+    "Remplacé : %@ → %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Remplacé : %1$@ → %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replaced: %@ → %@"
+          }
+        }
+      }
+    },
     "Remplir le planning": {
       "localizations": {
         "en": {
@@ -8120,6 +8576,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Reschedule"
+          }
+        }
+      }
+    },
+    "Reporter ces changements dans le programme ? Les charges réalisées ne sont jamais recopiées.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apply these changes to the program? Performed loads are never copied."
           }
         }
       }
@@ -8401,6 +8867,16 @@
         }
       }
     },
+    "Retirer l’exercice": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove exercise"
+          }
+        }
+      }
+    },
     "Retirer un tour": {
       "localizations": {
         "en": {
@@ -8417,6 +8893,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Remove a set"
+          }
+        }
+      }
+    },
+    "Retiré : %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removed: %@"
           }
         }
       }
@@ -8649,6 +9135,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Extra repetitions: %lld"
+          }
+        }
+      }
+    },
+    "Répétitions max": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Max reps"
           }
         }
       }
@@ -8926,6 +9422,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stop threshold: %lld reps"
+          }
+        }
+      }
+    },
+    "Seul le contenu affiché est partagé : ni notes, ni lieu, ni données de santé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only what is shown is shared: no notes, no location, no health data."
           }
         }
       }
@@ -9302,6 +9808,16 @@
         }
       }
     },
+    "Séance du programme mise à jour.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Program session updated."
+          }
+        }
+      }
+    },
     "Séance en cours": {
       "localizations": {
         "en": {
@@ -9338,6 +9854,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Workouts"
+          }
+        }
+      }
+    },
+    "Séances de programme": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Program sessions"
           }
         }
       }
@@ -9677,6 +10203,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Finish some workouts to see your dashboards."
+          }
+        }
+      }
+    },
+    "Terminez ou abandonnez la séance en cours avant d’en refaire une.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish or discard the current session before repeating one."
           }
         }
       }
@@ -10073,6 +10609,16 @@
         }
       }
     },
+    "Un import restaure des séances, pas les programmes dont elles viennent. Chaque titre peut devenir une séance : exercices reconnus et nombre de séries usuel, sans aucune charge importée. Rien n’est créé sans confirmation.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An import restores sessions, not the programs they came from. Each title can become a session: recognized exercises and usual set count, without any imported load. Nothing is created without confirmation."
+          }
+        }
+      }
+    },
     "Un inventaire vide ne filtre rien. Le poids du corps reste toujours disponible, quel que soit le lieu.": {
       "localizations": {
         "en": {
@@ -10115,6 +10661,16 @@
           "stringUnit": {
             "state": "new",
             "value": "Un plateau est signalé quand la progression reste sous %1$lld %% sur %2$lld séances comparables. Rien n’est appliqué sans votre accord."
+          }
+        }
+      }
+    },
+    "Un programme inactif sera créé avec : %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An inactive program will be created with: %@."
           }
         }
       }
@@ -10169,12 +10725,42 @@
         }
       }
     },
+    "Une séance doit garder au moins une série.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A session must keep at least one set."
+          }
+        }
+      }
+    },
     "Une séance déjà écrite ne l’est jamais deux fois. Désactiver le partage n’efface pas ce qui a déjà été ajouté à Santé : ces données vous appartiennent, et c’est à vous de les retirer depuis l’app Santé.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "A workout already written is never written twice. Turning sharing off does not erase what was already added to Health: that data is yours, and it is up to you to remove it from the Health app."
+          }
+        }
+      }
+    },
+    "Une séance est déjà en cours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A session is already in progress"
+          }
+        }
+      }
+    },
+    "Une séance ne peut pas dépasser 24 heures.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A session cannot exceed 24 hours."
           }
         }
       }
@@ -10199,12 +10785,32 @@
         }
       }
     },
+    "Une série ajoutée après coup n’a pas de repos mesuré. Les records issus de cette séance seront recalculés à l’enregistrement.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A set added afterwards has no measured rest. Records from this session will be recalculated when saving."
+          }
+        }
+      }
+    },
     "Une série au début de chaque intervalle ; le temps restant sert de récupération.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "One set at the start of each interval; the time left is the recovery."
+          }
+        }
+      }
+    },
+    "Une série de « %@ » n’a pas de valeur valide.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A set of “%@” has no valid value."
           }
         }
       }
@@ -10642,6 +11248,26 @@
         }
       }
     },
+    "lest %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "added %@"
+          }
+        }
+      }
+    },
+    "m": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "m"
+          }
+        }
+      }
+    },
     "min": {
       "localizations": {
         "en": {
@@ -10702,6 +11328,16 @@
         }
       }
     },
+    "reps": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "reps"
+          }
+        }
+      }
+    },
     "répétitions": {
       "localizations": {
         "en": {
@@ -10728,6 +11364,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "sub-set %lld"
+          }
+        }
+      }
+    },
+    "supprimé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "removed"
           }
         }
       }

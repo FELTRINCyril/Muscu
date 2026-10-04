@@ -22,6 +22,12 @@ struct WorkoutSummaryView: View {
     /// avec la seance. Ensuite elle est figee — une seance terminee est
     /// immuable (cf. decision 0011, synchronisation).
     @State private var effortRating: Int?
+    /// Duree figee a « Terminer » : apres, le recapitulatif ne doit plus
+    /// compter le temps passe a le lire.
+    @State private var finishedDurationSeconds: Int?
+    /// Ecarts de structure avec la seance du programme, releves a la fin.
+    @State private var structureChanges: [SessionStructureChange] = []
+    @State private var programUpdateMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,7 +56,29 @@ struct WorkoutSummaryView: View {
                         StatCard(title: "Séries", value: "\(workingSets.count)")
                     }
 
+                    if let breakdown = timeBreakdown {
+                        SessionTimeBreakdownRow(breakdown: breakdown)
+                            .padding()
+                            .background(Theme.card)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+
                     EffortRatingView(rating: $effortRating, isEditable: !hasFinished && !isFinishing)
+
+                    if hasFinished && !structureChanges.isEmpty {
+                        ProgramUpdateCard(
+                            changes: structureChanges,
+                            onUpdateProgram: updateProgram,
+                            onKeepProgram: { resolveProgramUpdate(message: nil) },
+                            onSaveTemplate: saveAsTemplate
+                        )
+                    }
+                    if let programUpdateMessage {
+                        Label(programUpdateMessage, systemImage: "checkmark.circle")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("programUpdate.result")
+                    }
 
                     if hasFinished && !pendingSuggestions.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
@@ -118,6 +146,10 @@ struct WorkoutSummaryView: View {
             return
         }
         finishedSets = completedSession.sets
+        finishedDurationSeconds = completedSession.durationSeconds
+        // La structure se compare au deroule FINAL de la seance, toujours en
+        // memoire apres la fin ; rien n'est propose si rien n'a change.
+        structureChanges = state.structureChanges
 
         // Les widgets affichent la semaine écoulée : ils doivent refléter
         // cette séance immédiatement.
@@ -154,6 +186,38 @@ struct WorkoutSummaryView: View {
         }
         hasFinished = true
         isFinishing = false
+    }
+
+    // MARK: - Programme
+
+    private func updateProgram() {
+        guard let programSession = state.programSession, let baseline = state.structureBaseline else { return }
+        if ProgramEditing.applyStructure(of: state.plan, baseline: baseline, to: programSession, in: state.modelContext) {
+            resolveProgramUpdate(message: String(localized: "Séance du programme mise à jour."))
+        }
+    }
+
+    private func saveAsTemplate() {
+        guard let programSession = state.programSession, let baseline = state.structureBaseline else { return }
+        let template = TemplateService.makeTemplate(
+            fromPlan: state.plan,
+            baseline: baseline,
+            programSession: programSession,
+            in: state.modelContext
+        )
+        resolveProgramUpdate(message: String(localized: "Modèle « \(template.name) » enregistré. Le programme est inchangé."))
+    }
+
+    private func resolveProgramUpdate(message: String?) {
+        structureChanges = []
+        programUpdateMessage = message
+    }
+
+    /// Temps actif / repos : seulement si le repos a ete mesure pour chaque
+    /// serie (cf. `SessionTimeBreakdown`).
+    private var timeBreakdown: SessionTimeBreakdown? {
+        let total = finishedDurationSeconds ?? max(0, Int(Date.now.timeIntervalSince(state.startedAt)))
+        return SessionReplayBuilder.timeBreakdown(totalSeconds: total, sets: finishedSets ?? state.loggedSets)
     }
 
     private func save(_ suggestion: RecordDetection.RecordSuggestion) {
@@ -209,7 +273,7 @@ struct WorkoutSummaryView: View {
     private var totalTonnage: Double { tonnage.total }
 
     private var formattedDuration: String {
-        let seconds = max(0, Int(Date.now.timeIntervalSince(state.startedAt)))
+        let seconds = finishedDurationSeconds ?? max(0, Int(Date.now.timeIntervalSince(state.startedAt)))
         let minutes = seconds / 60
         let remainder = seconds % 60
         return String(format: "%d:%02d", minutes, remainder)

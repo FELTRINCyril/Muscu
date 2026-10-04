@@ -21,6 +21,18 @@ plate calculator algorithm (bounded subset sum in integer thousandths, heaviest-
 `Packages/MuscuEngine/Sources/MuscuEngine/Places/PlateMath.swift` and
 `Packages/MuscuEngine/Sources/MuscuEngine/Runner/PreviousPerformance.swift`.
 
+Adapted from Ischys (`frontend/src/domain/routineDiff.ts`, `domain/importedRoutines.ts`,
+`domain/exerciseNaming.ts`, `components/ShareWorkoutSheet.tsx`, `app/summary/[id].tsx`):
+structure-only routine diff with longest-common-subsequence move detection,
+imported-title grouping (case/whitespace-insensitive, newest spelling, suffixed
+unique names), equipment parsed from a trailing parenthetical, and the
+share-as-text-or-card / update-the-routine prompts. Used in
+`Packages/MuscuEngine/Sources/MuscuEngine/History/SessionStructureDiff.swift`,
+`Packages/MuscuEngine/Sources/MuscuEngine/Interop/ImportedRoutines.swift`,
+`Packages/MuscuEngine/Sources/MuscuEngine/Interop/ExerciseNaming.swift`,
+`App/Sources/Services/SessionShareSummary.swift` and
+`App/Sources/Features/Workout/ProgramUpdateCard.swift`.
+
 ```
 MIT License
 

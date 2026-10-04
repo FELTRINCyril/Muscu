@@ -142,16 +142,20 @@ enum HealthSyncService {
             sessions: sessions.map {
                 HealthSyncSession(
                     id: $0.id,
-                    startDate: $0.date,
+                    // Une seance terminee dans Muscu porte sa date de FIN :
+                    // l'entrainement Sante commence une duree plus tot.
+                    startDate: PastSessionEditor.interval(of: $0).start,
                     durationSeconds: $0.durationSeconds,
-                    isDeleted: $0.deletedAt != nil
+                    isDeleted: $0.deletedAt != nil,
+                    editedAt: $0.editedAt
                 )
             },
             links: existingLinks.map {
                 HealthSyncLink(
                     completedSessionId: $0.completedSessionId,
                     workoutIdentifier: $0.healthKitWorkoutIdentifier,
-                    isDeleted: $0.deletedAt != nil
+                    isDeleted: $0.deletedAt != nil,
+                    writtenAt: $0.writtenAt
                 )
             }
         )
@@ -174,6 +178,48 @@ enum HealthSyncService {
             } catch {
                 // Un échec sur une séance n'interrompt pas les autres, et ne
                 // laisse jamais de lien vers un entraînement inexistant.
+                outcome.failures.append(error.localizedDescription)
+                DiagnosticsCenter.record(.health, code: "health.workout.writeFailed", error: error)
+            }
+        }
+
+        // Seances corrigees apres leur ecriture : HealthKit ne modifie pas un
+        // entrainement enregistre. L'ancien est retire et son lien aussi,
+        // PUIS le nouveau est ecrit. Dans cet ordre, un echec ne double
+        // jamais l'entrainement : sans lien vivant, la synchronisation
+        // suivante ecrit simplement la seance.
+        for replacement in plan.toReplace {
+            let session = replacement.session
+            do {
+                try await store.deleteWorkout(identifier: replacement.previousWorkoutIdentifier)
+                outcome.deleted += 1
+            } catch HealthStoreError.notFound {
+                // Deja supprime dans Sante : rien a regretter, on poursuit.
+            } catch {
+                // L'ancien entrainement est peut-etre toujours la : en ecrire
+                // un second ferait un doublon. On retentera plus tard.
+                outcome.failures.append(error.localizedDescription)
+                DiagnosticsCenter.record(.health, code: "health.workout.deleteFailed", error: error)
+                continue
+            }
+            for link in existingLinks where link.healthKitWorkoutIdentifier == replacement.previousWorkoutIdentifier {
+                link.deletedAt = now
+                link.updatedAt = now
+            }
+            do {
+                let identifier = try await store.writeWorkout(
+                    sessionId: session.id,
+                    start: session.startDate,
+                    durationSeconds: session.durationSeconds,
+                    energyKilocalories: session.activeEnergyKilocalories
+                )
+                context.insert(HealthWorkoutLink(
+                    completedSessionId: session.id,
+                    healthKitWorkoutIdentifier: identifier,
+                    writtenAt: now
+                ))
+                outcome.written += 1
+            } catch {
                 outcome.failures.append(error.localizedDescription)
                 DiagnosticsCenter.record(.health, code: "health.workout.writeFailed", error: error)
             }

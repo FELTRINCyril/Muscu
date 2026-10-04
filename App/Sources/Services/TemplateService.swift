@@ -58,6 +58,10 @@ struct TemplateExercise: Codable, Sendable {
     var intervalRounds: Int
     var amrapSeconds: Int
     var forTimeCapSeconds: Int
+    /// Cibles d'une serie mesuree en temps ou en distance. Facultatives :
+    /// un modele anterieur ne les porte pas et reste lisible.
+    var targetDurationSeconds: Int? = nil
+    var targetDistanceMeters: Double? = nil
 }
 
 /// Modeles de seance et de programme : creation, application, duplication,
@@ -181,6 +185,175 @@ enum TemplateService {
         )
     }
 
+    /// Modele a partir d'une seance de programme TELLE QU'ELLE A ETE FAITE :
+    /// la prescription d'origine, avec la structure de la seance deroulee
+    /// (exercices ajoutes ou remplaces, ordre, nombre de series, mesure).
+    /// Rien de realise n'est recopie ; les charges cibles sont celles de la
+    /// prescription, jamais celles allegees par une decharge.
+    @discardableResult
+    static func makeTemplate(
+        fromPlan plan: WorkoutPlan,
+        baseline: [SessionStructureEntry],
+        programSession: ProgramSession,
+        named name: String? = nil,
+        in context: ModelContext,
+        now: Date = .now
+    ) -> SessionTemplate {
+        let baselineByID = Dictionary(baseline.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let finalByID = Dictionary(
+            SessionStructureDiff.entries(of: plan).map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let prescriptions = Dictionary(programSession.exercises.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let programGroups = Dictionary(programSession.groups.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+
+        var groups: [TemplateGroup] = []
+        var exercises: [TemplateExercise] = []
+        var order = 0
+        for node in plan.nodes {
+            var groupIndex: Int?
+            if node.isGroup {
+                let source = programGroups[node.id]
+                let baselineRounds = node.exercises.compactMap { baselineByID[$0.id]?.setCount }.first
+                groups.append(TemplateGroup(
+                    kindRaw: source?.kindRaw ?? node.kind.rawValue,
+                    orderIndex: groups.count,
+                    rounds: ProgramEditing.adjustedCount(
+                        prescribed: source?.rounds ?? node.rounds,
+                        baseline: baselineRounds,
+                        final: node.rounds
+                    ),
+                    restBetweenExercisesSeconds: source?.restBetweenExercisesSeconds ?? node.restBetweenExercisesSeconds,
+                    restBetweenRoundsSeconds: source?.restBetweenRoundsSeconds ?? node.restBetweenRoundsSeconds,
+                    transitionSeconds: source?.transitionSeconds ?? node.transitionSeconds,
+                    requiresManualStationValidation: source?.requiresManualStationValidation ?? true,
+                    notes: source?.notes ?? ""
+                ))
+                groupIndex = groups.count - 1
+            }
+            for (memberIndex, exercise) in node.exercises.enumerated() {
+                let prescription = prescriptions[exercise.id]
+                let sets = node.isGroup
+                    ? (prescription?.sets ?? exercise.setCount)
+                    : ProgramEditing.adjustedCount(
+                        prescribed: prescription?.sets ?? exercise.setCount,
+                        baseline: baselineByID[exercise.id]?.setCount,
+                        final: finalByID[exercise.id]?.setCount
+                    )
+                let measure = exercise.effectiveMeasure
+                exercises.append(TemplateExercise(
+                    exerciseId: exercise.exerciseId,
+                    displayName: exercise.displayName,
+                    orderIndex: order,
+                    formatRaw: exercise.format.rawValue,
+                    sets: sets,
+                    repsLower: prescription?.repsLower ?? exercise.repsLower,
+                    repsUpper: prescription?.repsUpper ?? exercise.repsUpper,
+                    restSeconds: prescription?.restSeconds ?? exercise.restSeconds,
+                    notes: prescription?.notes ?? exercise.notes,
+                    groupOrderIndex: node.isGroup ? memberIndex : 0,
+                    groupIndex: groupIndex,
+                    tempoNotation: exercise.tempo?.notation ?? "",
+                    // Exercice remplace : le type de charge prescrit decrivait
+                    // l'ancien, il est rededuit a l'application.
+                    loadKindRaw: prescription?.exerciseId == exercise.exerciseId ? (prescription?.loadKindRaw ?? "") : "",
+                    sideConventionRaw: exercise.side.rawValue,
+                    percentOneRepMax: prescription?.percentOneRepMax,
+                    targetWeight: prescription?.targetWeight,
+                    pyramidReps: exercise.pyramidReps,
+                    dropsetDrops: exercise.dropset?.drops ?? [],
+                    dropsetUsesPercent: exercise.dropset?.usesPercent ?? true,
+                    intervalWork: exercise.intervalWorkSeconds,
+                    intervalRest: exercise.intervalRestSeconds,
+                    intervalRounds: exercise.intervalRounds,
+                    amrapSeconds: exercise.amrapSeconds,
+                    forTimeCapSeconds: exercise.capSeconds,
+                    targetDurationSeconds: measure.measuresDuration
+                        ? (exercise.targetDurationSeconds ?? SetMeasure.defaultTargetDurationSeconds)
+                        : nil,
+                    targetDistanceMeters: measure.measuresDistance
+                        ? (exercise.targetDistanceMeters ?? SetMeasure.defaultTargetDistanceMeters)
+                        : nil
+                ))
+                order += 1
+            }
+        }
+
+        let payload = TemplatePayload(sessions: [
+            TemplateSession(
+                name: programSession.name,
+                warmupEnabled: programSession.warmupEnabled,
+                groups: groups,
+                exercises: exercises
+            ),
+        ])
+        return store(
+            payload: payload,
+            name: name ?? programSession.name,
+            scope: .session,
+            notes: String(localized: "Créé depuis une séance modifiée. Les charges réalisées ne sont pas reprises."),
+            in: context,
+            now: now
+        )
+    }
+
+    /// Modeles a partir de titres de seances importees : la structure
+    /// (exercices, nombre de series usuel), sans aucune valeur realisee.
+    @discardableResult
+    static func makeTemplate(
+        fromImported candidate: ImportedRoutineCandidate,
+        named name: String,
+        in context: ModelContext,
+        now: Date = .now
+    ) -> SessionTemplate {
+        let payload = TemplatePayload(sessions: [importedSession(candidate, named: name)])
+        return store(
+            payload: payload,
+            name: name,
+            scope: .session,
+            notes: String(localized: "Créé depuis un import CSV. Les charges et répétitions importées ne sont pas reprises."),
+            in: context,
+            now: now
+        )
+    }
+
+    /// Seance de modele decrivant un titre importe.
+    static func importedSession(_ candidate: ImportedRoutineCandidate, named name: String) -> TemplateSession {
+        TemplateSession(
+            name: name,
+            warmupEnabled: false,
+            groups: [],
+            exercises: candidate.exercises.enumerated().map { index, exercise in
+                TemplateExercise(
+                    exerciseId: exercise.exerciseId,
+                    displayName: exercise.displayName,
+                    orderIndex: index,
+                    formatRaw: SetFormat.classic.rawValue,
+                    sets: max(1, exercise.workingSetCount),
+                    repsLower: SessionReplay.defaultRepsLower,
+                    repsUpper: SessionReplay.defaultRepsUpper,
+                    restSeconds: 0,
+                    notes: "",
+                    groupOrderIndex: 0,
+                    groupIndex: nil,
+                    tempoNotation: "",
+                    loadKindRaw: "",
+                    sideConventionRaw: SideConvention.bilateral.rawValue,
+                    percentOneRepMax: nil,
+                    targetWeight: nil,
+                    pyramidReps: [],
+                    dropsetDrops: [],
+                    dropsetUsesPercent: true,
+                    intervalWork: 0,
+                    intervalRest: 0,
+                    intervalRounds: 0,
+                    amrapSeconds: 0,
+                    forTimeCapSeconds: 0
+                )
+            }
+        )
+    }
+
     private struct CompletedExerciseGroup {
         let exerciseId: String
         let displayName: String
@@ -254,7 +427,9 @@ enum TemplateService {
                     intervalRest: exercise.intervalRest,
                     intervalRounds: exercise.intervalRounds,
                     amrapSeconds: exercise.amrapSeconds,
-                    forTimeCapSeconds: exercise.forTimeCapSeconds
+                    forTimeCapSeconds: exercise.forTimeCapSeconds,
+                    targetDurationSeconds: exercise.targetDurationSeconds > 0 ? exercise.targetDurationSeconds : nil,
+                    targetDistanceMeters: exercise.targetDistanceMeters > 0 ? exercise.targetDistanceMeters : nil
                 )
             }
         )
@@ -305,7 +480,21 @@ enum TemplateService {
         now: Date = .now
     ) -> [ProgramSession] {
         guard let payload = payload(of: template) else { return [] }
+        let created = insertSessions(from: payload, into: program, in: context, now: now)
+        template.lastUsedAt = now
+        template.updatedAt = now
+        _ = PersistenceSupport.save(context, action: "Application du modèle")
+        return created
+    }
 
+    /// Ajoute les seances d'un contenu de modele a un programme, sans
+    /// sauvegarder : l'appelant enregistre en une fois.
+    static func insertSessions(
+        from payload: TemplatePayload,
+        into program: Program,
+        in context: ModelContext,
+        now: Date = .now
+    ) -> [ProgramSession] {
         var created: [ProgramSession] = []
         var order = program.sessions.count
 
@@ -360,6 +549,8 @@ enum TemplateService {
                 exercise.intervalRounds = templateExercise.intervalRounds
                 exercise.amrapSeconds = templateExercise.amrapSeconds
                 exercise.forTimeCapSeconds = templateExercise.forTimeCapSeconds
+                exercise.targetDurationSeconds = max(0, templateExercise.targetDurationSeconds ?? 0)
+                exercise.targetDistanceMeters = max(0, templateExercise.targetDistanceMeters ?? 0)
                 exercise.session = session
                 session.exercises.append(exercise)
                 if let groupIndex = templateExercise.groupIndex, groups.indices.contains(groupIndex) {
@@ -371,10 +562,7 @@ enum TemplateService {
             created.append(session)
         }
 
-        template.lastUsedAt = now
-        template.updatedAt = now
         program.touch(now: now)
-        _ = PersistenceSupport.save(context, action: "Application du modèle")
         return created
     }
 
