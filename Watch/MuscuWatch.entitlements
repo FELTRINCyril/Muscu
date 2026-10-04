@@ -6,8 +6,6 @@
 	     l'utilisateur a active Sante dans Muscu sur l'iPhone. -->
 	<key>com.apple.developer.healthkit</key>
 	<true/>
-	<key>com.apple.developer.healthkit.access</key>
-	<array/>
 
 	<!-- Groupe d'applications de la montre : la complication y lit le
 	     resume que l'application y depose (prochaine seance ou seance en
