@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import MuscuEngine
 
 /// Traduit une seance de programme (SwiftData) vers le deroule pur que la
@@ -12,10 +13,15 @@ enum WorkoutPlanBuilder {
     /// Construit le plan d'une seance : les exercices rattaches a un groupe
     /// forment un noeud de groupe, les autres des noeuds simples. L'ordre des
     /// noeuds suit l'ordre d'affichage de la seance.
+    ///
+    /// Un exercice seul sans repos prescrit recoit le repos par defaut de son
+    /// materiel (barre ou autres, cf. Reglages). Les membres d'un groupe n'en
+    /// recoivent pas : leur recuperation est portee par le groupe lui-meme.
     static func plan(
         for session: ProgramSession,
         catalogStore: CatalogStore? = nil,
-        customExercises: [CustomExercise] = []
+        customExercises: [CustomExercise] = [],
+        restDefaults: RestDefaults = WorkoutSettings.restDefaults
     ) -> WorkoutPlan {
         let exercises = session.orderedExercises
         var nodes: [WorkoutNode] = []
@@ -23,7 +29,13 @@ enum WorkoutPlanBuilder {
 
         for exercise in exercises {
             guard let group = exercise.group else {
-                nodes.append(.single(plan(for: exercise, catalogStore: catalogStore, customExercises: customExercises)))
+                let single = plan(for: exercise, catalogStore: catalogStore, customExercises: customExercises)
+                let equipment = Self.equipment(
+                    forExerciseId: exercise.exerciseId,
+                    catalogStore: catalogStore,
+                    customExercises: customExercises
+                )
+                nodes.append(.single(restDefaults.filling(single, equipment: equipment)))
                 continue
             }
             // Un groupe n'apparait qu'une fois, a la position de son premier
@@ -83,6 +95,32 @@ enum WorkoutPlanBuilder {
             amrapSeconds: exercise.amrapSeconds,
             capSeconds: exercise.forTimeCapSeconds
         )
+    }
+
+    /// Materiel d'un exercice : catalogue, sinon exercice personnalise.
+    /// `nil` quand il n'est pas connu.
+    static func equipment(
+        forExerciseId exerciseId: String,
+        catalogStore: CatalogStore?,
+        customExercises: [CustomExercise]
+    ) -> String? {
+        if let catalogExercise = catalogStore?.exercise(id: exerciseId) {
+            return catalogExercise.equipment
+        }
+        let custom = customExercises.first { $0.id.uuidString == exerciseId }
+        return custom.flatMap { $0.equipment.isEmpty ? nil : $0.equipment }
+    }
+
+    /// Repos par defaut d'un exercice nouvellement prescrit, selon son
+    /// materiel et les reglages.
+    static func defaultRestSeconds(
+        forExerciseId exerciseId: String,
+        catalogStore: CatalogStore?,
+        context: ModelContext
+    ) -> Int {
+        let customExercises = (try? context.fetch(FetchDescriptor<CustomExercise>())) ?? []
+        let equipment = equipment(forExerciseId: exerciseId, catalogStore: catalogStore, customExercises: customExercises)
+        return WorkoutSettings.restDefaults.seconds(forEquipment: equipment)
     }
 
     /// Type de charge effectif : declaration explicite de la prescription,

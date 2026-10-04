@@ -56,7 +56,8 @@ enum PlateauReview {
                     )
                     let finding = PlateauDetector.detect(
                         exposures: exposures,
-                        bodyweightKilograms: bodyweight
+                        bodyweightKilograms: bodyweight,
+                        maximumRepsForOneRepMax: WorkoutSettings.maximumRepsForOneRepMax
                     )
                     guard finding.isPlateau else { continue }
 
@@ -105,7 +106,8 @@ enum PlateauReview {
             prescribedExerciseId: item.prescription.id,
             exerciseId: item.prescription.exerciseId,
             displayName: item.displayName,
-            summary: "Décharge : \(WeightFormatter.number(current)) → \(WeightFormatter.number(target)) kg",
+            // Texte fige a l'ecriture, dans l'unite du profil a ce moment.
+            summary: "Décharge : \(WeightFormatter.number(kilograms: current)) → \(WeightFormatter.string(kilograms: target))",
             factors: item.finding.factors + ["Décharge de \(Int(deloadFraction * 100)) % proposée après stagnation."],
             previousWeightKilograms: current,
             newWeightKilograms: target

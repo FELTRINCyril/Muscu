@@ -13,6 +13,7 @@ import MuscuEngine
 struct ChartsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(CatalogStore.self) private var catalogStore
+    @Environment(\.massUnit) private var massUnit
 
     @State private var sessions: [AnalyticsSession] = []
     @State private var selectedExerciseId: String?
@@ -133,8 +134,8 @@ struct ChartsView: View {
 
     private var heatmapMaximumLabel: String {
         guard heatmapMaximum > 0 else { return String(localized: "aucune donnée") }
-        let value = WeightFormatter.number(heatmapMaximum)
-        return heatmapMetric.unit.map { String(localized: "\(value) \($0)") } ?? value
+        let value = WeightFormatter.number(heatmapDisplayValue(heatmapMaximum))
+        return heatmapUnit.map { String(localized: "\(value) \($0)") } ?? value
     }
 
     /// Semaines couvertes par la fenêtre, de la plus ancienne à la plus
@@ -170,8 +171,18 @@ struct ChartsView: View {
         // Le suffixe d'unite est assemble AVANT la chaine localisee : un
         // litteral imbrique dans une interpolation ne peut pas etre
         // extrait par le catalogue.
-        let unit = heatmapMetric.unit.map { " " + $0 } ?? ""
-        return String(localized: "\(active.count) jour(s) actif(s) sur la période, total \(WeightFormatter.number(total))\(unit), maximum le \(bestDay).")
+        let unit = heatmapUnit.map { " " + $0 } ?? ""
+        return String(localized: "\(active.count) jour(s) actif(s) sur la période, total \(WeightFormatter.number(heatmapDisplayValue(total)))\(unit), maximum le \(bestDay).")
+    }
+
+    /// Le moteur calcule en kg ; seule une grandeur de masse est convertie
+    /// dans l'unite du profil.
+    private var heatmapUnit: String? {
+        heatmapMetric.unit == MassUnit.kilograms.symbol ? massUnit.symbol : heatmapMetric.unit
+    }
+
+    private func heatmapDisplayValue(_ value: Double) -> Double {
+        heatmapMetric.unit == MassUnit.kilograms.symbol ? massUnit.fromKilograms(value) : value
     }
 
     private static let dayFormatter: DateFormatter = {
@@ -213,7 +224,7 @@ struct ChartsView: View {
         guard let last = weeks.last else { return String(localized: "Aucune semaine sur la période.") }
         let total = TrainingAnalytics.merged(weeks)
         let tonnage = total.tonnage.isComplete
-            ? String(localized: "\(WeightFormatter.string(kilograms: total.tonnage.value)) de tonnage")
+            ? String(localized: "\(WeightFormatter.string(kilograms: total.tonnage.value, unit: massUnit)) de tonnage")
             : String(localized: "tonnage partiel (\(total.tonnage.unknownSets) séries non mesurables)")
         return String(localized: "\(weeks.count) semaines analysées, \(total.workingSetCount) séries de travail, \(tonnage). Dernière semaine : \(last.workingSetCount) séries, \(last.sessionCount) séance(s).")
     }
@@ -323,7 +334,9 @@ struct ChartsView: View {
                 ChartCard(
                     title: metricLabel(effectiveMetric),
                     subtitle: unitLabel(effectiveMetric) + " · " + periodLabel,
-                    footnote: effectiveMetric.formulaDescription,
+                    footnote: effectiveMetric.formulaDescription(
+                        maximumRepsForOneRepMax: WorkoutSettings.maximumRepsForOneRepMax
+                    ),
                     missingDataNote: exerciseMissingNote,
                     textAlternative: exerciseAlternative
                 ) {
@@ -353,7 +366,7 @@ struct ChartsView: View {
         guard let first = exerciseSeries.first, let last = exerciseSeries.last else {
             return String(localized: "Aucune valeur exploitable pour cet exercice sur la période.")
         }
-        let unit = effectiveMetric.unitSymbol
+        let unit = displayUnitSymbol(effectiveMetric)
         let start = WeightFormatter.number(first.value) + (unit.isEmpty ? "" : " " + unit)
         let end = WeightFormatter.number(last.value) + (unit.isEmpty ? "" : " " + unit)
         return String(localized: "\(exerciseSeries.count) point(s), de \(start) à \(end) sur \(periodLabel).")
@@ -439,9 +452,21 @@ struct ChartsView: View {
         availableMetrics.contains(selectedMetric) ? selectedMetric : (availableMetrics.first ?? .maxReps)
     }
 
+    /// Serie affichee, convertie dans l'unite du profil pour un indicateur
+    /// de masse. Les calculs restent faits en kg par le moteur.
     private var exerciseSeries: [AnalyticsPoint] {
         guard let selectedExerciseId else { return [] }
-        return TrainingAnalytics.series(metric: effectiveMetric, exerciseId: selectedExerciseId, sessions: windowedSessions)
+        let series = TrainingAnalytics.series(metric: effectiveMetric, exerciseId: selectedExerciseId, sessions: windowedSessions)
+        guard isMassMetric(effectiveMetric) else { return series }
+        return series.map { AnalyticsPoint(date: $0.date, value: massUnit.fromKilograms($0.value)) }
+    }
+
+    private func isMassMetric(_ metric: ExerciseMetric) -> Bool {
+        metric.unitSymbol == MassUnit.kilograms.symbol
+    }
+
+    private func displayUnitSymbol(_ metric: ExerciseMetric) -> String {
+        isMassMetric(metric) ? massUnit.symbol : metric.unitSymbol
     }
 
     private var periodLabel: String {
@@ -458,7 +483,7 @@ struct ChartsView: View {
     }
 
     private func unitLabel(_ metric: ExerciseMetric) -> String {
-        metric.unitSymbol.isEmpty ? "répétitions" : metric.unitSymbol
+        metric.unitSymbol.isEmpty ? "répétitions" : displayUnitSymbol(metric)
     }
 
     private func reload() {

@@ -29,9 +29,14 @@ first_simulator() {
   # Le nom complet compte : « iPad Pro 13-inch (M5) » et « Apple Watch
   # Series 11 (46mm) » portent leur variante entre parentheses. On ne retire
   # donc que l'UDID et l'etat en fin de ligne, pas tout ce qui est parenthese.
+  #
+  # `tail -1` et non `head -1` : simctl liste les runtimes du plus ancien au
+  # plus recent, et `-destination name=…` resout vers le runtime le PLUS
+  # RECENT. Un modele absent de ce runtime (iPhone 17 Pro sous iOS 27) ferait
+  # echouer xcodebuild alors qu'il existe sous un runtime plus ancien.
   xcrun simctl list devices available \
     | grep -E "^ +$1" \
-    | head -1 \
+    | tail -1 \
     | sed -E 's/ \([0-9A-F-]{36}\) \(.*\) *$//; s/^ +//; s/ +$//'
 }
 

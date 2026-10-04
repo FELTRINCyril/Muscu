@@ -1,8 +1,14 @@
 import Foundation
 import UserNotifications
+import MuscuEngine
 
 // Chrono de repos fiable, base sur une date de fin absolue (jamais un compteur
 // decrementant) : le temps restant survit a une suspension de l'app.
+//
+// Une fois la fin atteinte, le chrono ne s'arrete pas : il passe en
+// DEPASSEMENT (« +0:12 ») jusqu'a la serie suivante. `isRunning` redevient
+// faux — l'ecran de repos se ferme comme avant — mais `isOvertime` reste vrai
+// tant que `skip()` ou un nouveau `start` n'a pas eu lieu.
 @Observable
 @MainActor
 final class RestTimer {
@@ -11,6 +17,8 @@ final class RestTimer {
 
     private(set) var endDate: Date?
     private(set) var totalSeconds: Int = 0
+    /// Repos termine, depassement en cours d'affichage.
+    private(set) var isOvertime = false
 
     var onFinished: (() -> Void)?
     var onStateChange: ((Date?, Int) -> Void)?
@@ -18,12 +26,18 @@ final class RestTimer {
     private var expiryTask: Task<Void, Never>?
 
     var isRunning: Bool {
-        endDate != nil
+        endDate != nil && !isOvertime
     }
 
     var remaining: Int {
         guard let endDate else { return 0 }
-        return max(0, Int((endDate.timeIntervalSinceNow).rounded(.up)))
+        return RestCountdown(endDate: endDate, now: .now).remainingSeconds
+    }
+
+    /// Etat affiche a l'instant `now` : decompte, puis depassement.
+    func countdown(at now: Date = .now) -> RestCountdown? {
+        guard let endDate else { return nil }
+        return RestCountdown(endDate: endDate, now: now)
     }
 
     var progress: Double {
@@ -35,6 +49,7 @@ final class RestTimer {
     func start(seconds: Int) {
         requestAuthorizationIfNeeded()
 
+        isOvertime = false
         totalSeconds = seconds
         endDate = Date.now.addingTimeInterval(Double(seconds))
         onStateChange?(endDate, totalSeconds)
@@ -43,7 +58,7 @@ final class RestTimer {
     }
 
     func addThirtySeconds() {
-        guard let currentEnd = endDate else { return }
+        guard let currentEnd = endDate, !isOvertime else { return }
         endDate = currentEnd.addingTimeInterval(30)
         totalSeconds += 30
         onStateChange?(endDate, totalSeconds)
@@ -59,14 +74,36 @@ final class RestTimer {
         expiryTask = nil
         endDate = nil
         totalSeconds = 0
+        isOvertime = false
         onStateChange?(nil, 0)
     }
 
+    /// Ferme un depassement en cours (serie suivante saisie, seance
+    /// terminee). Sans effet pendant un repos qui n'est pas termine.
+    func endOvertime() {
+        guard isOvertime else { return }
+        skip()
+    }
+
     func restore(endDate: Date, totalSeconds: Int) {
-        guard endDate > .now, totalSeconds > 0 else {
+        guard totalSeconds > 0 else {
             skip()
             return
         }
+        guard endDate > .now else {
+            // Repos termine pendant que l'app etait fermee : on reprend le
+            // depassement s'il reste plausible, sinon on l'oublie.
+            let overtime = RestCountdown(endDate: endDate, now: .now).overtimeSeconds
+            guard overtime <= RestCountdown.maximumOvertimeSeconds else {
+                skip()
+                return
+            }
+            self.endDate = endDate
+            self.totalSeconds = totalSeconds
+            isOvertime = true
+            return
+        }
+        isOvertime = false
         self.endDate = endDate
         self.totalSeconds = totalSeconds
         let remainingSeconds = max(1, Int(endDate.timeIntervalSinceNow.rounded(.up)))
@@ -86,11 +123,11 @@ final class RestTimer {
     }
 
     private func handleExpiry() {
-        guard endDate != nil else { return }
+        guard endDate != nil, !isOvertime else { return }
         cancelNotification()
-        endDate = nil
-        totalSeconds = 0
-        onStateChange?(nil, 0)
+        // La date de fin est conservee : c'est elle qui mesure le
+        // depassement. L'etat persiste ne change donc pas.
+        isOvertime = true
 
         FeedbackSettings.playSound(1007)
         FeedbackSettings.notification(.success)

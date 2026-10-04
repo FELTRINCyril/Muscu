@@ -9,6 +9,16 @@
   démonstration, redirection d'un exercice fusionné, identifiant d'échantillon
   Santé. Tous facultatifs, exportés et validés à l'import ; les mesures Santé
   ne partent pas dans la synchronisation iCloud.
+- Les boutons +/- de la charge suivent le pas réellement disponible (matériel
+  du lieu, paliers du profil, unité) au lieu de 2,5 kg fixes.
+- Écran maintenu allumé pendant une séance (réglage, activé par défaut).
+- Toutes les charges affichées suivent l'unité choisie, y compris sur la
+  montre ; la saisie se fait dans cette unité.
+- Le repos ne s'arrête plus à zéro : son dépassement s'affiche (« +0:12 »)
+  jusqu'à la série suivante. Repos par défaut distincts pour la barre et pour
+  les haltères / machines.
+- Plafond de répétitions réglable pour le 1RM estimé, appliqué aux records,
+  graphiques et suggestions.
 
 ### Écosystème Apple (phase 7)
 

@@ -9,6 +9,7 @@ struct SessionEditorView: View {
     @Bindable var session: ProgramSession
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(CatalogStore.self) private var catalogStore
 
     @State private var editMode: EditMode = .inactive
     @State private var showingPicker = false
@@ -282,7 +283,11 @@ struct SessionEditorView: View {
     }
 
     private func addExercise(exerciseId: String, displayName: String) {
-        let defaultRest = UserDefaults.standard.object(forKey: "defaultRestSeconds") != nil ? UserDefaults.standard.integer(forKey: "defaultRestSeconds") : 90
+        let defaultRest = WorkoutPlanBuilder.defaultRestSeconds(
+            forExerciseId: exerciseId,
+            catalogStore: catalogStore,
+            context: modelContext
+        )
         let exercise = PrescribedExercise(
             exerciseId: exerciseId,
             displayName: displayName,
@@ -412,6 +417,7 @@ struct SessionEditorView: View {
 
 struct ExercisePrescriptionRow: View {
     let exercise: PrescribedExercise
+    @Environment(\.massUnit) private var massUnit
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -438,8 +444,10 @@ struct ExercisePrescriptionRow: View {
         case .pyramid:
             return "Pyramide " + exercise.pyramidReps.map(String.init).joined(separator: "-")
         case .dropset:
-            let unit = exercise.dropsetUsesPercent ? "%" : "kg"
-            let drops = exercise.dropsetDrops.map { String(format: "%g", $0) }.joined(separator: "/")
+            let unit = exercise.dropsetUsesPercent ? "%" : massUnit.symbol
+            let drops = exercise.dropsetDrops
+                .map { exercise.dropsetUsesPercent ? String(format: "%g", $0) : WeightFormatter.number(kilograms: $0, unit: massUnit) }
+                .joined(separator: "/")
             return String(localized: "Dropset \(exercise.sets) x — paliers -\(drops) \(unit)")
         case .restPause:
             return String(localized: "Rest-pause \(exercise.sets) x — \(exercise.restPauseMaxMiniSets) mini-séries, \(exercise.restPauseMicroRestSeconds) s")

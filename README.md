@@ -63,7 +63,10 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   comme performance **mesurée**, distincte d'un 1RM estimé.
 - **Séances en direct** : saisie rapide poids/répétitions, chrono de repos
   automatique avec notifications, reprise après interruption (kill de l'app en
-  pleine séance).
+  pleine séance). Les +/- de charge suivent le pas réellement disponible, le
+  dépassement du repos s'affiche jusqu'à la série suivante, le repos par
+  défaut distingue la barre des haltères / machines, et l'écran reste allumé
+  pendant la séance (réglable).
 - **Formats d'exercices** — tous pilotés par une machine à états unique
   (`MuscuEngine.WorkoutStateMachine`), reprenable à n'importe quelle transition :
   - **Classique** : séries/répétitions standard, avec suggestion de charge

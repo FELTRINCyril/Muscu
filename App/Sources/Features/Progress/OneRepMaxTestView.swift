@@ -14,6 +14,7 @@ struct OneRepMaxTestView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.massUnit) private var massUnit
 
     @State private var hasAcknowledgedWarning = false
     @State private var validatedWeights: Set<Double> = []
@@ -82,7 +83,7 @@ struct OneRepMaxTestView: View {
         guard let reference else {
             return String(localized: "Aucune référence connue pour « \(displayName) ». Enregistrez d’abord quelques séries : l’estimation issue de vos performances sert de base au protocole.")
         }
-        return String(localized: "La référence connue (\(WeightFormatter.number(reference)) kg) est trop faible pour justifier un test maximal : la montée en charge n’aurait pas assez de paliers.")
+        return String(localized: "La référence connue (\(WeightFormatter.string(kilograms: reference, unit: massUnit))) est trop faible pour justifier un test maximal : la montée en charge n’aurait pas assez de paliers.")
     }
 
     private var protocolSection: some View {
@@ -93,7 +94,7 @@ struct OneRepMaxTestView: View {
         } header: {
             Text("Protocole")
         } footer: {
-            Text("Construit à partir de votre référence de \(WeightFormatter.number(reference ?? 0)) kg, arrondi à vos paliers de \(WeightFormatter.number(increment)) kg. Arrêtez-vous dès qu’une tentative échoue : la suivante ne serait pas plus sûre.")
+            Text("Construit à partir de votre référence de \(WeightFormatter.string(kilograms: reference ?? 0, unit: massUnit)), arrondi à vos paliers de \(WeightFormatter.string(kilograms: increment, unit: massUnit)). Arrêtez-vous dès qu’une tentative échoue : la suivante ne serait pas plus sûre.")
         }
     }
 
@@ -103,7 +104,7 @@ struct OneRepMaxTestView: View {
                 Text(step.kind == .warmup ? "Montée en charge" : "Tentative")
                     .font(.subheadline.weight(.semibold))
                 Spacer()
-                Text("\(WeightFormatter.number(step.weightKilograms)) kg × \(step.reps)")
+                Text("\(WeightFormatter.string(kilograms: step.weightKilograms, unit: massUnit)) × \(step.reps)")
                     .font(.subheadline)
                     .foregroundStyle(Theme.accent)
             }
@@ -134,14 +135,14 @@ struct OneRepMaxTestView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(
             "\(step.kind == .warmup ? "Montée en charge" : "Tentative"), "
-            + "\(WeightFormatter.number(step.weightKilograms)) kilogrammes, \(step.reps) répétition(s)"
+            + "\(WeightFormatter.string(kilograms: step.weightKilograms, unit: massUnit)), \(step.reps) répétition(s)"
         )
     }
 
     private var resultSection: some View {
         Section {
             if let best = OneRepMaxTest.result(validatedWeights: Array(validatedWeights)) {
-                LabeledContent("Meilleure tentative validée", value: "\(WeightFormatter.number(best)) kg")
+                LabeledContent("Meilleure tentative validée", value: WeightFormatter.string(kilograms: best, unit: massUnit))
                 Button("Enregistrer ce record") { save(best) }
                     .accessibilityIdentifier("oneRepMaxTest.save")
             } else {
@@ -170,7 +171,7 @@ struct OneRepMaxTestView: View {
             displayName: displayName,
             in: modelContext
         )
-        savedMessage = "Record enregistré : \(WeightFormatter.number(weight)) kg, mesuré le \(Date.now.formatted(date: .abbreviated, time: .omitted))."
+        savedMessage = "Record enregistré : \(WeightFormatter.string(kilograms: weight, unit: massUnit)), mesuré le \(Date.now.formatted(date: .abbreviated, time: .omitted))."
     }
 }
 

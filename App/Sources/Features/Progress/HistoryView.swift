@@ -88,6 +88,7 @@ struct HistoryView: View {
 
 private struct SessionRow: View {
     let session: CompletedSession
+    @Environment(\.massUnit) private var massUnit
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -102,7 +103,7 @@ private struct SessionRow: View {
             HStack(spacing: 12) {
                 Text(durationLabel)
                 Text("\(workingSetsCount) séries")
-                Text("\(WorkoutState.formatWeight(tonnage)) kg")
+                Text(WeightFormatter.string(kilograms: tonnage, unit: massUnit))
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -130,6 +131,7 @@ private struct SessionRow: View {
 
 private struct SessionDetailView: View {
     let session: CompletedSession
+    @Environment(\.massUnit) private var massUnit
 
     var body: some View {
         List {
@@ -140,7 +142,7 @@ private struct SessionDetailView: View {
                             HStack {
                                 Text(CompletedSetPresentation.label(for: set, inGroup: group.isGrouped))
                                 Spacer()
-                                Text(CompletedSetPresentation.performance(for: set))
+                                Text(CompletedSetPresentation.performance(for: set, unit: massUnit))
                             }
                             if let note = CompletedSetPresentation.substitutionNote(for: set) {
                                 Text(note)

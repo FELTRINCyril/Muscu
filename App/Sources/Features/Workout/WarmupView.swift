@@ -7,6 +7,7 @@ import MuscuEngine
 // plusieurs blocs avant de demarrer reellement la seance. Toujours sortie
 // via `state.finishWarmup()`, quel que soit le chemin pris.
 struct WarmupView: View {
+    @Environment(\.massUnit) private var massUnit
     let state: WorkoutState
 
     private enum Step: Equatable {
@@ -234,7 +235,7 @@ struct WarmupView: View {
 
             ForEach(Array(rampSets.enumerated()), id: \.offset) { index, ramp in
                 HStack {
-                    Text("\(WorkoutState.formatWeight(ramp.weight)) kg x \(ramp.reps)")
+                    Text("\(WeightFormatter.string(kilograms: ramp.weight, unit: massUnit)) x \(ramp.reps)")
                         .font(.body.monospacedDigit())
                     Spacer()
                     Button {

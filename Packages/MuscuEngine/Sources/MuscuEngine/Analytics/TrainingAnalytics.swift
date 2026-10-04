@@ -82,9 +82,17 @@ public enum ExerciseMetric: String, CaseIterable, Sendable {
     /// Formule a afficher a cote du graphique, pour que l'utilisateur sache
     /// ce qu'il regarde.
     public var formulaDescription: String {
+        formulaDescription(maximumRepsForOneRepMax: OneRepMaxEstimation.defaultMaximumReps)
+    }
+
+    /// Meme description, avec le plafond de repetitions reellement regle :
+    /// le texte doit dire ce que le graphique calcule.
+    public func formulaDescription(maximumRepsForOneRepMax: Int) -> String {
         switch self {
         case .estimatedOneRepMax:
-            return "1RM estimé (Epley : charge × (1 + répétitions ⁄ 30)), sur les séries de 1 à 12 répétitions portant une charge réelle."
+            let maximum = OneRepMaxEstimation.clamped(maximumRepsForOneRepMax)
+            let range = maximum == 1 ? "d’une seule répétition" : "de 1 à \(maximum) répétitions"
+            return "1RM estimé (Epley : charge × (1 + répétitions ⁄ 30)), sur les séries \(range) portant une charge réelle."
         case .maxLoad:
             return "Charge effective la plus lourde : poids soulevé, ou poids de corps ± lest/assistance."
         case .maxReps:

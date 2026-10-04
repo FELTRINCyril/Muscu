@@ -1,7 +1,24 @@
 {
   "sourceLanguage": "fr",
   "strings": {
+    "%@ %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ %@"
+          }
+        }
+      }
+    },
     "%@ kg": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -141,7 +158,24 @@
         }
       }
     },
+    "Série %lld · %@ %@ × %lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Série %1$lld · %2$@ %3$@ × %4$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set %lld · %@ %@ × %lld"
+          }
+        }
+      }
+    },
     "Série %lld · %@ kg × %lld": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {

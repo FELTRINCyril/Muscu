@@ -12,11 +12,13 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+# Simulateurs : dernier de la liste, donc du runtime le plus recent — voir
+# `first_simulator` dans Scripts/ci.sh.
 PROJECT="Muscu.xcodeproj"
 IPHONE_DESTINATION="platform=iOS Simulator,name=$(
   xcrun simctl list devices available \
     | grep -E '^ +iPhone' \
-    | head -1 \
+    | tail -1 \
     | sed -E 's/ \([0-9A-F-]{36}\) \(.*\) *$//; s/^ +//; s/ +$//'
 )"
 
@@ -36,7 +38,7 @@ xcodebuild build \
   -destination "platform=watchOS Simulator,name=$(
     xcrun simctl list devices available \
       | grep -E '^ +Apple Watch' \
-      | head -1 \
+      | tail -1 \
       | sed -E 's/ \([0-9A-F-]{36}\) \(.*\) *$//; s/^ +//; s/ +$//'
   )" \
   -configuration Debug \

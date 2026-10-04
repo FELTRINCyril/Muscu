@@ -1,4 +1,5 @@
 import SwiftUI
+import MuscuEngine
 
 // Ecran plein ecran du chrono de repos entre deux series.
 struct RestTimerView: View {
@@ -25,9 +26,11 @@ struct RestTimerView: View {
                             .rotationEffect(.degrees(-90))
                             .animation(.linear(duration: 0.5), value: timer.progress)
 
-                        Text(formattedTime(timer.remaining))
+                        // Meme libelle que le bandeau du deroule : decompte,
+                        // puis depassement signe en couleur d'alerte.
+                        Text(verbatim: timer.countdown()?.label ?? RestCountdown.clock(timer.remaining))
                             .timerFont()
-                            .foregroundStyle(.white)
+                            .foregroundStyle(timer.isOvertime ? .orange : .white)
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
@@ -59,11 +62,6 @@ struct RestTimerView: View {
         }
     }
 
-    private func formattedTime(_ seconds: Int) -> String {
-        let minutes = seconds / 60
-        let secs = seconds % 60
-        return String(format: "%d:%02d", minutes, secs)
-    }
 }
 
 #Preview {

@@ -266,8 +266,9 @@ struct WeeklySummaryIntent: AppIntent {
 
         let workingSets = sessions.reduce(0) { $0 + $1.workingSets.count }
         let tonnage = SetMetrics.totalTonnage(sessions.flatMap { $0.metricsInputs() })
+        let unit = ProfileStore.massUnit(in: context)
         let tonnageText = tonnage.total > 0
-            ? String(format: "%.0f kg de tonnage", tonnage.total)
+            ? String(format: "%.0f %@ de tonnage", unit.fromKilograms(tonnage.total), unit.symbol)
             : "tonnage inconnu"
 
         return .result(dialog: "\(sessions.count) séance(s), \(workingSets) série(s) de travail, \(tonnageText).")

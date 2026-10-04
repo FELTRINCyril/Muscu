@@ -17,6 +17,7 @@ import MuscuEngine
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(CatalogStore.self) private var catalogStore
+    @Environment(\.massUnit) private var massUnit
 
     @Query(sort: \Program.name) private var programs: [Program]
     @Query(sort: \CompletedSession.date, order: .reverse) private var completedSessions: [CompletedSession]
@@ -373,9 +374,12 @@ struct HomeView: View {
     }
 
     // "850 kg" sous 1000 kg, "12,4 t" au-dela (plus lisible qu'un nombre a
-    // 5 chiffres pour une stat compacte).
-    private static func formattedTonnage(_ value: Double) -> String {
-        guard value >= 1000 else { return "\(Int(value.rounded())) kg" }
+    // 5 chiffres pour une stat compacte). En livres, la tonne n'a pas de
+    // sens : la valeur reste en livres.
+    private static func formattedTonnage(_ value: Double, unit: MassUnit) -> String {
+        guard unit == .kilograms, value >= 1000 else {
+            return "\(Int(unit.fromKilograms(value).rounded())) \(unit.symbol)"
+        }
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "fr_FR")
         formatter.numberStyle = .decimal
@@ -399,7 +403,7 @@ struct HomeView: View {
             )
             StatTile(
                 systemImage: "scalemass.fill",
-                value: Self.formattedTonnage(tonnageLast7Days),
+                value: Self.formattedTonnage(tonnageLast7Days, unit: massUnit),
                 label: "Tonnage\n7 jours"
             )
         }
@@ -498,7 +502,9 @@ struct HomeView: View {
 
     private func recordLabel(for record: ExerciseRecord) -> String {
         var values: [String] = []
-        if let oneRepMax = record.oneRepMax { values.append("1RM \(WorkoutState.formatWeight(oneRepMax)) kg") }
+        if let oneRepMax = record.oneRepMax {
+            values.append("1RM \(WeightFormatter.string(kilograms: oneRepMax, unit: massUnit))")
+        }
         if let maxReps = record.maxReps { values.append("Max \(maxReps) reps") }
         return values.joined(separator: " · ")
     }

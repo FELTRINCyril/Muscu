@@ -13,6 +13,8 @@ struct PrescriptionEditorView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.massUnit) private var massUnit
+    @Environment(CatalogStore.self) private var catalogStore
 
     @State private var repsMode: RepsMode
     @State private var chargeMode: ChargeMode
@@ -188,25 +190,26 @@ struct PrescriptionEditorView: View {
                 Text("Poids cible")
                 Spacer()
                 Button {
-                    exercise.targetWeight = max(0, weight - 2.5)
+                    exercise.targetWeight = LoadStep.stepped(weight, by: massUnit.defaultIncrementKilograms, up: false)
                 } label: {
                     Image(systemName: "minus.circle")
                 }
+                // Saisie dans l'unite du profil, stockage en kg.
                 TextField(
                     "Poids",
                     value: Binding(
-                        get: { exercise.targetWeight ?? 0 },
-                        set: { exercise.targetWeight = $0 }
+                        get: { massUnit.fromKilograms(exercise.targetWeight ?? 0) },
+                        set: { exercise.targetWeight = massUnit.toKilograms($0) }
                     ),
-                    format: .number
+                    format: .number.precision(.fractionLength(0...1))
                 )
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.center)
                 .frame(width: 60)
-                Text("kg")
+                Text(massUnit.symbol)
                     .foregroundStyle(.secondary)
                 Button {
-                    exercise.targetWeight = weight + 2.5
+                    exercise.targetWeight = LoadStep.stepped(weight, by: massUnit.defaultIncrementKilograms, up: true)
                 } label: {
                     Image(systemName: "plus.circle")
                 }
@@ -341,11 +344,19 @@ struct PrescriptionEditorView: View {
 
     // MARK: - Dropset
 
+    /// Baisse d'un palier : pourcentage tel quel, charge (stockee en kg)
+    /// dans l'unite du profil.
+    private func dropLabel(_ drop: Double) -> String {
+        exercise.dropsetUsesPercent
+            ? String(format: "%g", drop) + " %"
+            : WeightFormatter.string(kilograms: drop, unit: massUnit)
+    }
+
     private var dropsetSection: some View {
         Section {
             Picker("Unité des paliers", selection: $exercise.dropsetUsesPercent) {
                 Text("Pourcentage").tag(true)
-                Text("Kilogrammes").tag(false)
+                Text(massUnit == .kilograms ? "Kilogrammes" : "Livres").tag(false)
             }
             .pickerStyle(.segmented)
 
@@ -353,10 +364,10 @@ struct PrescriptionEditorView: View {
 
             ForEach(Array(exercise.dropsetDrops.enumerated()), id: \.offset) { index, drop in
                 Stepper(
-                    "Palier \(index + 1) : -\(String(format: "%g", drop)) \(exercise.dropsetUsesPercent ? "%" : "kg")",
+                    "Palier \(index + 1) : -\(dropLabel(drop))",
                     value: dropBinding(at: index),
-                    in: exercise.dropsetUsesPercent ? 5...80 : 2.5...100,
-                    step: exercise.dropsetUsesPercent ? 5 : 2.5
+                    in: exercise.dropsetUsesPercent ? 5...80 : massUnit.defaultIncrementKilograms...100,
+                    step: exercise.dropsetUsesPercent ? 5 : massUnit.defaultIncrementKilograms
                 )
             }
 
@@ -509,7 +520,11 @@ struct PrescriptionEditorView: View {
     // (steppers/pickers avec bornes invalides) quand on bascule de format ou
     // qu'on ouvre l'editeur sur un exercice tout juste cree.
     private func applyDefaults(for format: SetFormat) {
-        let defaultRest = UserDefaults.standard.object(forKey: "defaultRestSeconds") != nil ? UserDefaults.standard.integer(forKey: "defaultRestSeconds") : 90
+        let defaultRest = WorkoutPlanBuilder.defaultRestSeconds(
+            forExerciseId: exercise.exerciseId,
+            catalogStore: catalogStore,
+            context: modelContext
+        )
         switch format {
         case .classic:
             applyClassicDefaults(defaultRest: defaultRest)

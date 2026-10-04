@@ -9,6 +9,7 @@ struct WorkoutRunnerView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(CatalogStore.self) private var catalogStore
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var showingExitConfirm = false
     @State private var showingPicker = false
@@ -30,7 +31,9 @@ struct WorkoutRunnerView: View {
             isPresented: Binding(
                 get: { state.restTimer.isRunning },
                 set: { isPresented in
-                    if !isPresented { state.restTimer.skip() }
+                    // Une fermeture due a la fin du repos ne doit PAS
+                    // effacer le depassement qui commence.
+                    if !isPresented, state.restTimer.isRunning { state.restTimer.skip() }
                 }
             )
         ) {
@@ -39,10 +42,20 @@ struct WorkoutRunnerView: View {
         // La Live Activity suit la seance : elle demarre avec le runner et
         // se met a jour a chaque changement d'etape ou de repos.
         .onAppear {
+            updateScreenAwake()
             guard !state.isSessionComplete else { return }
             state.startLiveActivity()
         }
         .onChange(of: state.restTimer.isRunning) { _, _ in state.refreshLiveActivity() }
+        // Ecran allume tant qu'une seance est en cours ET visible ; retabli
+        // a la fin, a la sortie du deroule et en arriere-plan.
+        .onChange(of: state.isSessionComplete) { _, _ in updateScreenAwake() }
+        .onChange(of: scenePhase) { _, _ in updateScreenAwake() }
+        .onDisappear { ScreenAwake.update(workoutIsOnScreen: false) }
+    }
+
+    private func updateScreenAwake() {
+        ScreenAwake.update(workoutIsOnScreen: scenePhase == .active && !state.isSessionComplete)
     }
 
     private var runningBody: some View {
@@ -53,6 +66,9 @@ struct WorkoutRunnerView: View {
                 // exactement ce que la roadmap interdit.
                 if !state.weekScaling.isNeutral {
                     WeekScalingBanner(scaling: state.weekScaling)
+                }
+                if state.restTimer.isOvertime {
+                    RestOvertimeBanner(timer: state.restTimer)
                 }
                 if let node = state.currentNode, node.isGroup, let target = state.currentTarget {
                     GroupOverviewBar(node: node, target: target)
@@ -274,6 +290,38 @@ struct SessionChronoLabel: View {
 // tour courant, exercice courant et enchainement du groupe. Sans lui, rien
 // a l'ecran ne distingue un superset d'une suite d'exercices independants.
 /// Bandeau d'une semaine allegee : il dit ce qui a change et pourquoi.
+/// Repos depasse : le temps ecoule depuis la fin prevue, en couleur
+/// d'alerte, jusqu'a la serie suivante. Dire combien de temps le repos a
+/// vraiment dure vaut mieux qu'un chrono qui disparait a zero.
+private struct RestOvertimeBanner: View {
+    let timer: RestTimer
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let label = timer.countdown(at: context.date)?.label ?? ""
+            HStack(spacing: 8) {
+                Image(systemName: "timer")
+                Text("Repos dépassé")
+                Spacer()
+                Text(verbatim: label)
+                    .monospacedDigit()
+                    .fontWeight(.semibold)
+                Button("Masquer") { timer.skip() }
+                    .font(.caption)
+                    .buttonStyle(.bordered)
+            }
+            .font(.subheadline)
+            .foregroundStyle(.orange)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .background(Color.orange.opacity(0.12))
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(Text("Repos dépassé de \(label)"))
+            .accessibilityIdentifier("workout.restOvertime")
+        }
+    }
+}
+
 private struct WeekScalingBanner: View {
     let scaling: WeekScaling
 
@@ -372,6 +420,7 @@ private struct SetEntryCard: View {
     @Binding var showingMaxRepsPrompt: Bool
 
     @Environment(CatalogStore.self) private var catalogStore
+    @Environment(\.massUnit) private var massUnit
 
     private var exercise: WorkoutExercisePlan { target.exercise }
 
@@ -436,6 +485,7 @@ private struct SetEntryCard: View {
                 SetLoggerView(
                     initialWeight: state.prefillWeight(for: target),
                     initialReps: prefillReps,
+                    weightStepKilograms: state.loadStepKilograms(for: exercise),
                     onValidate: { (result: SetLoggerView.Result) in
                         state.logSet(
                             weight: result.weight,
@@ -518,7 +568,7 @@ private struct SetEntryCard: View {
             : "\(target.targetRepsLower)-\(target.targetRepsUpper)"
         let weight = state.prefillWeight(for: target)
         if weight > 0 {
-            return "\(reps) reps @ \(WorkoutState.formatWeight(weight)) kg"
+            return "\(reps) reps @ \(WeightFormatter.string(kilograms: weight, unit: massUnit))"
         }
         return "\(reps) reps"
     }
@@ -539,13 +589,24 @@ private struct OneRepMaxPromptView: View {
     let onSave: (Double) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.massUnit) private var massUnit
 
     private enum Mode: String { case direct, estimate }
 
+    /// Charges saisies dans l'unite du profil, converties en kg a
+    /// l'enregistrement.
     @State private var mode: Mode = .direct
     @State private var directWeight: Double = 2.5
     @State private var perfWeight: Double = 2.5
     @State private var perfReps: Int = 5
+    @State private var didSetInitialWeights = false
+
+    /// Pas usuel dans l'unite affichee : 2,5 kg ou 5 lb.
+    private var displayStep: Double { (massUnit.fromKilograms(massUnit.defaultIncrementKilograms) * 100).rounded() / 100 }
+    private var displayRange: ClosedRange<Double> { displayStep...massUnit.fromKilograms(500).rounded() }
+    /// Au-dela du plafond regle, l'estimation n'est plus retenue nulle part
+    /// ailleurs : la proposer ici serait incoherent.
+    private var maximumReps: Int { WorkoutSettings.maximumRepsForOneRepMax }
 
     var body: some View {
         NavigationStack {
@@ -558,26 +619,44 @@ private struct OneRepMaxPromptView: View {
 
                 switch mode {
                 case .direct:
-                    Section("1RM (kg)") {
-                        Stepper("\(WorkoutState.formatWeight(directWeight)) kg", value: $directWeight, in: 2.5...500, step: 2.5)
+                    Section("1RM (\(massUnit.symbol))") {
+                        Stepper(
+                            "\(WeightFormatter.number(directWeight)) \(massUnit.symbol)",
+                            value: $directWeight,
+                            in: displayRange,
+                            step: displayStep
+                        )
                     }
                 case .estimate:
                     Section("Performance récente") {
-                        Stepper("Poids : \(WorkoutState.formatWeight(perfWeight)) kg", value: $perfWeight, in: 2.5...500, step: 2.5)
-                        Stepper("Répétitions : \(perfReps)", value: $perfReps, in: 1...12)
-                        LabeledContent("1RM estimé", value: "\(WorkoutState.formatWeight(estimatedOneRepMax)) kg")
+                        Stepper(
+                            "Poids : \(WeightFormatter.number(perfWeight)) \(massUnit.symbol)",
+                            value: $perfWeight,
+                            in: displayRange,
+                            step: displayStep
+                        )
+                        Stepper("Répétitions : \(perfReps)", value: $perfReps, in: 1...max(1, maximumReps))
+                        LabeledContent("1RM estimé", value: WeightFormatter.string(kilograms: estimatedOneRepMax, unit: massUnit))
                     }
                 }
             }
             .navigationTitle(exercise.displayName)
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                // L'unite n'est connue qu'une fois la vue installee : les
+                // valeurs de depart suivent le pas de cette unite.
+                guard !didSetInitialWeights else { return }
+                didSetInitialWeights = true
+                directWeight = displayStep
+                perfWeight = displayStep
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Annuler") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Enregistrer") {
-                        onSave(mode == .direct ? directWeight : estimatedOneRepMax)
+                        onSave(mode == .direct ? massUnit.toKilograms(directWeight) : estimatedOneRepMax)
                         dismiss()
                     }
                     .disabled((mode == .direct ? directWeight : perfWeight) <= 0)
@@ -586,8 +665,9 @@ private struct OneRepMaxPromptView: View {
         }
     }
 
+    /// 1RM estime, en kg canonique.
     private var estimatedOneRepMax: Double {
-        OneRepMax.epley(weight: perfWeight, reps: perfReps)
+        OneRepMax.epley(weight: massUnit.toKilograms(perfWeight), reps: min(perfReps, maximumReps))
     }
 }
 

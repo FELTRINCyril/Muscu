@@ -132,27 +132,37 @@ private struct ProfileFormSections: View {
         Section {
             Picker("Unité de charge", selection: Binding(
                 get: { profile.massUnit },
-                set: { profile.massUnit = $0 }
+                set: { newUnit in
+                    // Les paliers suivent l'unite : un athlete en livres
+                    // charge des disques de 2,5 / 5 / 10 lb, pas de 1,25 kg.
+                    profile.availableIncrementsKilograms = Self.convertedIncrements(
+                        profile.availableIncrementsKilograms,
+                        to: newUnit
+                    )
+                    profile.massUnit = newUnit
+                }
             )) {
                 Text("Kilogrammes").tag(MassUnit.kilograms)
                 Text("Livres").tag(MassUnit.pounds)
             }
-            ForEach(Self.increments, id: \.self) { increment in
-                Toggle("Palier de \(WeightFormatter.number(increment)) kg", isOn: Binding(
+            ForEach(Self.increments(for: profile.massUnit), id: \.self) { increment in
+                Toggle("Palier de \(WeightFormatter.string(kilograms: increment, unit: profile.massUnit))", isOn: Binding(
                     get: { profile.availableIncrementsKilograms.contains(increment) },
                     set: { isOn in
                         var values = Set(profile.availableIncrementsKilograms)
                         if isOn { values.insert(increment) } else { values.remove(increment) }
                         // Au moins un palier doit rester disponible, sinon
                         // aucune progression de charge n'est calculable.
-                        profile.availableIncrementsKilograms = values.isEmpty ? [2.5] : values.sorted()
+                        profile.availableIncrementsKilograms = values.isEmpty
+                            ? [profile.massUnit.defaultIncrementKilograms]
+                            : values.sorted()
                     }
                 ))
             }
         } header: {
             Text("Charges disponibles")
         } footer: {
-            Text("Les charges sont toujours stockées en kilogrammes ; l'unité choisie ne change que l'affichage.")
+            Text("Les charges sont toujours stockées en kilogrammes ; l'unité choisie change l'affichage et la saisie.")
         }
 
         Section {
@@ -178,8 +188,11 @@ private struct ProfileFormSections: View {
             )
             MeasurementField(
                 label: "Poids de référence",
-                unit: "kg",
-                value: Binding(get: { profile.bodyweightKilograms }, set: { profile.bodyweightKilograms = $0 })
+                unit: profile.massUnit.symbol,
+                value: Binding(
+                    get: { profile.bodyweightKilograms.map(profile.massUnit.fromKilograms) },
+                    set: { profile.bodyweightKilograms = $0.map(profile.massUnit.toKilograms) }
+                )
             )
         } header: {
             Text("Mesures (facultatives)")
@@ -263,7 +276,24 @@ private struct ProfileFormSections: View {
         (6, "Vendredi"), (7, "Samedi"), (1, "Dimanche"),
     ]
 
-    private static let increments: [Double] = [1.25, 2.5, 5]
+    /// Paliers proposes, en kg canonique, exprimes dans l'unite choisie.
+    static func increments(for unit: MassUnit) -> [Double] {
+        switch unit {
+        case .kilograms: return [1.25, 2.5, 5]
+        case .pounds: return [2.5, 5, 10].map(MassUnit.pounds.toKilograms)
+        }
+    }
+
+    /// Ramene chaque palier declare au palier le plus proche de la nouvelle
+    /// unite, pour qu'un changement d'unite ne laisse aucune case cochee
+    /// invisible.
+    static func convertedIncrements(_ values: [Double], to unit: MassUnit) -> [Double] {
+        let candidates = increments(for: unit)
+        let converted = Set(values.compactMap { value in
+            candidates.min { abs($0 - value) < abs($1 - value) }
+        })
+        return converted.isEmpty ? [unit.defaultIncrementKilograms] : converted.sorted()
+    }
 
     private static let avoidAreas: [(key: String, label: String)] = [
         ("lower back", "Lombaires"),
@@ -334,6 +364,9 @@ private struct MeasurementField: View {
                 .multilineTextAlignment(.trailing)
                 .frame(maxWidth: 100)
                 .onChange(of: text) { _, newValue in
+                    // Le texte affiche est arrondi : le relire tel quel
+                    // reecrirait une valeur simplement consultee.
+                    guard newValue != Self.formatted(value) else { return }
                     let normalized = newValue.replacingOccurrences(of: ",", with: ".")
                     value = normalized.isEmpty ? nil : Double(normalized)
                 }
@@ -341,10 +374,14 @@ private struct MeasurementField: View {
                 .foregroundStyle(.secondary)
         }
         .onAppear {
-            text = value.map { WeightFormatter.number($0) } ?? ""
+            text = Self.formatted(value)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(label) en \(unit)")
+    }
+
+    private static func formatted(_ value: Double?) -> String {
+        value.map { WeightFormatter.number($0) } ?? ""
     }
 }
 

@@ -100,6 +100,16 @@ extension BodyMeasurement {
         }
     }
 
+    /// Valeur dans l'unite d'affichage : seule une masse est convertie (les
+    /// longueurs et le pourcentage restent dans leur unite canonique).
+    func displayValue(massUnit: MassUnit) -> Double {
+        kind == .bodyweight ? massUnit.fromKilograms(value) : value
+    }
+
+    func displayUnitSymbol(massUnit: MassUnit) -> String {
+        kind == .bodyweight ? massUnit.symbol : canonicalUnitSymbol
+    }
+
     var syncMetadata: SyncMetadata {
         SyncMetadata(identifier: id, createdAt: createdAt, updatedAt: updatedAt, deletedAt: deletedAt)
     }

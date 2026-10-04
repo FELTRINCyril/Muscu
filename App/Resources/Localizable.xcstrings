@@ -99,6 +99,22 @@
         }
       }
     },
+    "%@ -> %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ -> %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ -> %@"
+          }
+        }
+      }
+    },
     "%@ de tonnage": {
       "localizations": {
         "en": {
@@ -126,6 +142,7 @@
       }
     },
     "%@ kg": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -136,6 +153,7 @@
       }
     },
     "%@ kg -> %@ kg": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -152,6 +170,7 @@
       }
     },
     "%@ kg x %lld": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -168,6 +187,7 @@
       }
     },
     "%@ kg × %lld": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -189,6 +209,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ reps per round"
+          }
+        }
+      }
+    },
+    "%@ x %lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ x %2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ x %lld"
           }
         }
       }
@@ -237,6 +273,22 @@
           "stringUnit": {
             "state": "new",
             "value": "%1$@ · %2$lld série(s)"
+          }
+        }
+      }
+    },
+    "%@ × %lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ × %2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ × %lld"
           }
         }
       }
@@ -937,7 +989,18 @@
         }
       }
     },
+    "1RM %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1RM %@"
+          }
+        }
+      }
+    },
     "1RM %@ kg": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -947,7 +1010,18 @@
         }
       }
     },
+    "1RM (%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1RM (%@)"
+          }
+        }
+      }
+    },
     "1RM (kg)": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -977,7 +1051,18 @@
         }
       }
     },
+    "1RM estimé (%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimated 1RM (%@)"
+          }
+        }
+      }
+    },
     "1RM estimé (kg)": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -987,7 +1072,18 @@
         }
       }
     },
+    "1RM estimé : %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimated 1RM: %@"
+          }
+        }
+      }
+    },
     "1RM estimé : %@ kg": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2750,6 +2846,7 @@
       }
     },
     "Construit à partir de votre référence de %@ kg, arrondi à vos paliers de %@ kg. Arrêtez-vous dès qu’une tentative échoue : la suivante ne serait pas plus sûre.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2761,6 +2858,22 @@
           "stringUnit": {
             "state": "new",
             "value": "Construit à partir de votre référence de %1$@ kg, arrondi à vos paliers de %2$@ kg. Arrêtez-vous dès qu’une tentative échoue : la suivante ne serait pas plus sûre."
+          }
+        }
+      }
+    },
+    "Construit à partir de votre référence de %@, arrondi à vos paliers de %@. Arrêtez-vous dès qu’une tentative échoue : la suivante ne serait pas plus sûre.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Construit à partir de votre référence de %1$@, arrondi à vos paliers de %2$@. Arrêtez-vous dès qu’une tentative échoue : la suivante ne serait pas plus sûre."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Built from your reference of %@, rounded to your %@ steps. Stop as soon as an attempt fails: the next one would not be any safer."
           }
         }
       }
@@ -3291,7 +3404,24 @@
         }
       }
     },
+    "Décharge proposée : %@ → %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Décharge proposée : %1$@ → %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suggested deload: %@ → %@"
+          }
+        }
+      }
+    },
     "Décharge proposée : %@ → %@ kg": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -4564,11 +4694,22 @@
       }
     },
     "La référence connue (%@ kg) est trop faible pour justifier un test maximal : la montée en charge n’aurait pas assez de paliers.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The known reference (%@ kg) is too low to justify a maximal test: the ramp-up would not have enough steps."
+          }
+        }
+      }
+    },
+    "La référence connue (%@) est trop faible pour justifier un test maximal : la montée en charge n’aurait pas assez de paliers.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The known reference (%@) is too low to justify a maximal test: the ramp-up would not have enough steps."
           }
         }
       }
@@ -4604,11 +4745,22 @@
       }
     },
     "La valeur est enregistrée en %@. Elle reste sur cet appareil sauf si vous exportez vos données.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The value is recorded in %@. It stays on this device unless you export your data."
+          }
+        }
+      }
+    },
+    "La valeur est saisie en %@. Elle reste sur cet appareil sauf si vous exportez vos données.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The value is entered in %@. It stays on this device unless you export your data."
           }
         }
       }
@@ -4959,7 +5111,18 @@
         }
       }
     },
+    "Les charges sont toujours stockées en kilogrammes ; l'unité choisie change l'affichage et la saisie.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loads are always stored in kilograms; the unit you choose changes display and input."
+          }
+        }
+      }
+    },
     "Les charges sont toujours stockées en kilogrammes ; l'unité choisie ne change que l'affichage.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -5367,6 +5530,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mark as handled"
+          }
+        }
+      }
+    },
+    "Masquer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide"
           }
         }
       }
@@ -6193,7 +6366,24 @@
         }
       }
     },
+    "Palier %lld : -%@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Palier %1$lld : -%2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Step %lld: -%@"
+          }
+        }
+      }
+    },
     "Palier %lld : -%@ %@": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6209,7 +6399,18 @@
         }
       }
     },
+    "Palier de %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Step of %@"
+          }
+        }
+      }
+    },
     "Palier de %@ kg": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -6509,7 +6710,24 @@
         }
       }
     },
+    "Poids : %@ %@": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Poids : %1$@ %2$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Weight: %@ %@"
+          }
+        }
+      }
+    },
     "Poids : %@ kg": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -7217,6 +7435,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rest after this set: ~%@"
+          }
+        }
+      }
+    },
+    "Repos dépassé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest exceeded"
+          }
+        }
+      }
+    },
+    "Repos dépassé de %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest exceeded by %@"
           }
         }
       }
@@ -9448,6 +9686,7 @@
       }
     },
     "kg": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {

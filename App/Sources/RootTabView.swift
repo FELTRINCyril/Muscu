@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MuscuEngine
 
 // Squelette de navigation principal : 5 destinations. La selection est portee
 // ici (et non dans chaque vue) car l'etat vide de l'Accueil doit pouvoir
@@ -11,6 +12,12 @@ import SwiftData
 // par plateforme.
 struct RootTabView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    /// Profil lu par requete : changer d'unite redessine toute l'application.
+    @Query(filter: #Predicate<AthleteProfile> { $0.deletedAt == nil }, sort: \AthleteProfile.createdAt)
+    private var profiles: [AthleteProfile]
+
+    private var massUnit: MassUnit { profiles.first?.massUnit ?? .kilograms }
 
     @State private var selectedTab = 0
     @State private var appIssue: AppIssue?
@@ -93,6 +100,12 @@ struct RootTabView: View {
     var body: some View {
         adaptiveNavigation
             .tint(Theme.accent)
+            // Unite d'affichage des charges : injectee pour les vues, et
+            // recopiee pour le code qui formate hors d'une vue.
+            .environment(\.massUnit, massUnit)
+            .onChange(of: massUnit, initial: true) { _, unit in
+                WeightFormatter.storePreferredUnit(unit)
+            }
             .onAppear(perform: applyIntentRequests)
             // Un raccourci peut arriver alors que l'application est deja
             // ouverte : on reagit aussi au depot d'une demande.

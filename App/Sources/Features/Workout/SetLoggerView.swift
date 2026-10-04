@@ -9,6 +9,10 @@ import MuscuEngine
 //
 // L'effort ressenti, l'echec musculaire et le commentaire sont facultatifs
 // et replies par defaut : ils ne doivent pas ralentir la saisie courante.
+//
+// La charge est saisie dans l'unite du profil et rendue en kg : le stockage
+// ne change jamais d'unite. Le pas des boutons +/- vient du lieu ou du
+// profil (cf. `LoadStep`), jamais d'un 2,5 kg code en dur.
 struct SetLoggerView: View {
     /// Ce que l'utilisateur a reellement fait sur cette serie.
     struct Result: Equatable {
@@ -25,8 +29,13 @@ struct SetLoggerView: View {
 
     let initialWeight: Double
     let initialReps: Int
+    /// Pas des boutons +/-, en kg canonique.
+    let weightStepKilograms: Double
     let onValidate: (Result) -> Void
 
+    @Environment(\.massUnit) private var massUnit
+
+    /// Charge en kg canonique. Le champ affiche sa conversion.
     @State private var weight: Double
     @State private var reps: Int
     @State private var repsInReserve: Int?
@@ -40,9 +49,15 @@ struct SetLoggerView: View {
         case weight, reps, notes
     }
 
-    init(initialWeight: Double, initialReps: Int, onValidate: @escaping (Result) -> Void) {
+    init(
+        initialWeight: Double,
+        initialReps: Int,
+        weightStepKilograms: Double = MassUnit.kilograms.defaultIncrementKilograms,
+        onValidate: @escaping (Result) -> Void
+    ) {
         self.initialWeight = initialWeight
         self.initialReps = initialReps
+        self.weightStepKilograms = weightStepKilograms
         self.onValidate = onValidate
         _weight = State(initialValue: initialWeight)
         _reps = State(initialValue: initialReps)
@@ -60,15 +75,18 @@ struct SetLoggerView: View {
         VStack(spacing: 16) {
             editableValue(
                 label: "Poids",
-                suffix: "kg",
+                suffix: massUnit.symbol,
                 decrementLabel: "Diminuer le poids",
                 incrementLabel: "Augmenter le poids",
-                onDecrement: { weight = max(0, weight - 2.5) },
-                onIncrement: { weight += 2.5 }
+                onDecrement: { weight = LoadStep.stepped(weight, by: weightStepKilograms, up: false) },
+                onIncrement: { weight = LoadStep.stepped(weight, by: weightStepKilograms, up: true) }
             ) {
                 TextField(
                     "Poids",
-                    value: $weight,
+                    value: Binding(
+                        get: { massUnit.fromKilograms(weight) },
+                        set: { weight = massUnit.toKilograms($0) }
+                    ),
                     format: .number.precision(.fractionLength(0...1))
                 )
                 .keyboardType(.decimalPad)
@@ -217,7 +235,7 @@ struct SetLoggerView: View {
     /// non. Sans eux, VoiceOver annonce le nom du symbole SF.
     private func editableValue(
         label: LocalizedStringKey,
-        suffix: LocalizedStringKey?,
+        suffix: String?,
         decrementLabel: LocalizedStringKey,
         incrementLabel: LocalizedStringKey,
         onDecrement: @escaping () -> Void,
@@ -251,7 +269,8 @@ struct SetLoggerView: View {
                         .multilineTextAlignment(.center)
                         .frame(minWidth: 80)
                     if let suffix {
-                        Text(suffix)
+                        // Symbole d'unite : identique dans toutes les langues.
+                        Text(verbatim: suffix)
                             .scaledSystemFont(size: 20, weight: .semibold, relativeTo: .body)
                             .foregroundStyle(.secondary)
                     }

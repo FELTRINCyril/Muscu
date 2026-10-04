@@ -337,8 +337,13 @@ extension CompletedSet {
     }
 
     /// Conversion unique vers le type pur du moteur. Toute formule
-    /// (tonnage, 1RM estime, duree sous tension) passe par la.
-    func metricsInput(bodyweightKilograms: Double?) -> SetMetricsInput {
+    /// (tonnage, 1RM estime, duree sous tension) passe par la — y compris le
+    /// plafond de repetitions du 1RM estime, regle par l'utilisateur : les
+    /// records, les graphiques et les analyses l'appliquent donc tous.
+    func metricsInput(
+        bodyweightKilograms: Double?,
+        maximumRepsForOneRepMax: Int = WorkoutSettings.maximumRepsForOneRepMax
+    ) -> SetMetricsInput {
         SetMetricsInput(
             weightKilograms: weight,
             reps: reps,
@@ -347,7 +352,8 @@ extension CompletedSet {
             isWarmup: !role.countsAsWorkingSet,
             bodyweightKilograms: bodyweightKilograms,
             durationSeconds: durationSeconds,
-            distanceMeters: distanceMeters
+            distanceMeters: distanceMeters,
+            maximumRepsForOneRepMax: maximumRepsForOneRepMax
         )
     }
 

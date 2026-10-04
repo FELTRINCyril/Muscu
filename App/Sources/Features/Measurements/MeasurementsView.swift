@@ -7,6 +7,7 @@ import MuscuEngine
 // source et commentaire. Rien n'est obligatoire et rien n'est déduit.
 struct MeasurementsView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.massUnit) private var massUnit
 
     @Query(
         filter: #Predicate<BodyMeasurement> { $0.deletedAt == nil },
@@ -88,7 +89,7 @@ struct MeasurementsView: View {
         Chart(filtered.reversed(), id: \.id) { measurement in
             LineMark(
                 x: .value("Date", measurement.measuredAt),
-                y: .value(Self.label(kind), measurement.value)
+                y: .value(Self.label(kind), measurement.displayValue(massUnit: massUnit))
             )
             .foregroundStyle(Theme.accent)
             PointMark(
@@ -105,7 +106,7 @@ struct MeasurementsView: View {
     private func row(_ measurement: BodyMeasurement) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
-                Text("\(WeightFormatter.number(measurement.value)) \(measurement.canonicalUnitSymbol)")
+                Text("\(WeightFormatter.number(measurement.displayValue(massUnit: massUnit))) \(measurement.displayUnitSymbol(massUnit: massUnit))")
                     .font(.body.weight(.medium))
                 Spacer()
                 Text(Self.dateFormatter.string(from: measurement.measuredAt))
@@ -132,15 +133,17 @@ struct MeasurementsView: View {
     }
 
     private var unitSymbol: String {
-        filtered.first?.canonicalUnitSymbol ?? (kind == .bodyweight ? "kg" : "cm")
+        filtered.first?.displayUnitSymbol(massUnit: massUnit) ?? (kind == .bodyweight ? massUnit.symbol : "cm")
     }
 
     private var textAlternative: String {
         guard let last = filtered.first, let first = filtered.last else {
             return String(localized: "Aucune valeur enregistrée.")
         }
-        let unit = last.canonicalUnitSymbol
-        return "\(filtered.count) valeur(s), de \(WeightFormatter.number(first.value)) \(unit) le \(Self.dateFormatter.string(from: first.measuredAt)) à \(WeightFormatter.number(last.value)) \(unit) le \(Self.dateFormatter.string(from: last.measuredAt))."
+        let unit = last.displayUnitSymbol(massUnit: massUnit)
+        let start = WeightFormatter.number(first.displayValue(massUnit: massUnit))
+        let end = WeightFormatter.number(last.displayValue(massUnit: massUnit))
+        return "\(filtered.count) valeur(s), de \(start) \(unit) le \(Self.dateFormatter.string(from: first.measuredAt)) à \(end) \(unit) le \(Self.dateFormatter.string(from: last.measuredAt))."
     }
 
     /// Suppression logique : la mesure disparaît de l'app mais la suppression
@@ -197,6 +200,7 @@ struct MeasurementEditorView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.massUnit) private var massUnit
 
     @State private var text = ""
     @State private var measuredAt = Date.now
@@ -217,7 +221,7 @@ struct MeasurementEditorView: View {
                 } header: {
                     Text(MeasurementsView.label(kind))
                 } footer: {
-                    Text("La valeur est enregistrée en \(unitSymbol). Elle reste sur cet appareil sauf si vous exportez vos données.")
+                    Text("La valeur est saisie en \(unitSymbol). Elle reste sur cet appareil sauf si vous exportez vos données.")
                 }
 
                 Section("Commentaire") {
@@ -248,7 +252,7 @@ struct MeasurementEditorView: View {
 
     private var unitSymbol: String {
         switch kind {
-        case .bodyweight: return "kg"
+        case .bodyweight: return massUnit.symbol
         case .bodyFatPercent: return "%"
         case .custom: return ""
         default: return "cm"
@@ -257,10 +261,12 @@ struct MeasurementEditorView: View {
 
     private func save() {
         guard let value else { return }
+        // Stockage canonique : une masse saisie en livres est enregistree en kg.
+        let canonical = kind == .bodyweight ? massUnit.toKilograms(value) : value
         let measurement = BodyMeasurement(
             kindRaw: kind.rawValue,
             measuredAt: measuredAt,
-            value: value,
+            value: canonical,
             sourceRaw: MeasurementSource.manual.rawValue,
             notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
         )

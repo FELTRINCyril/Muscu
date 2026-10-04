@@ -34,14 +34,17 @@ public enum PlateauDetector {
         exposures: [ExerciseExposure],
         window: Int = minimumExposures,
         threshold: Double = defaultThreshold,
-        bodyweightKilograms: Double? = nil
+        bodyweightKilograms: Double? = nil,
+        maximumRepsForOneRepMax: Int = OneRepMaxEstimation.defaultMaximumReps
     ) -> PlateauFinding {
         let window = max(minimumExposures, window)
         // Les expositions arrivent de la plus recente a la plus ancienne ;
         // on raisonne dans l'ordre chronologique.
         let usable = exposures
             .prefix(window)
-            .compactMap { best(in: $0, bodyweightKilograms: bodyweightKilograms) }
+            .compactMap {
+                best(in: $0, bodyweightKilograms: bodyweightKilograms, maximumRepsForOneRepMax: maximumRepsForOneRepMax)
+            }
             .reversed()
             .map { $0 }
 
@@ -79,13 +82,18 @@ public enum PlateauDetector {
 
     /// Meilleur 1RM estime d'une exposition, ou a defaut la meilleure charge
     /// effective. `nil` si rien n'est exploitable.
-    private static func best(in exposure: ExerciseExposure, bodyweightKilograms: Double?) -> Double? {
+    private static func best(
+        in exposure: ExerciseExposure,
+        bodyweightKilograms: Double?,
+        maximumRepsForOneRepMax: Int
+    ) -> Double? {
         let inputs = exposure.workingSets.map {
             SetMetricsInput(
                 weightKilograms: $0.weightKilograms,
                 reps: $0.reps,
                 loadKind: $0.loadKind,
-                bodyweightKilograms: bodyweightKilograms
+                bodyweightKilograms: bodyweightKilograms,
+                maximumRepsForOneRepMax: maximumRepsForOneRepMax
             )
         }
         if let estimated = inputs.compactMap(SetMetrics.estimatedOneRepMax).max() { return estimated }

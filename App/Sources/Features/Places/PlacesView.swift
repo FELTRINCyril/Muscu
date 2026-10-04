@@ -95,6 +95,7 @@ struct PlaceEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(CatalogStore.self) private var catalogStore
+    @Environment(\.massUnit) private var massUnit
 
     @State private var items: [EquipmentAvailability] = []
     @State private var isAddingEquipment = false
@@ -169,16 +170,20 @@ struct PlaceEditorView: View {
 
     private func numberField(_ title: String, value: Binding<Double?>) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+            HStack(spacing: 2) {
+                Text(title)
+                Text(verbatim: "(\(massUnit.symbol))")
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            // Saisie dans l'unite du profil, stockage en kg canonique.
             TextField(
                 "—",
                 text: Binding(
-                    get: { value.wrappedValue.map { WeightFormatter.number($0) } ?? "" },
+                    get: { value.wrappedValue.map { WeightFormatter.number(kilograms: $0, unit: massUnit) } ?? "" },
                     set: { text in
                         let cleaned = text.replacingOccurrences(of: ",", with: ".")
-                        value.wrappedValue = cleaned.isEmpty ? nil : Double(cleaned)
+                        value.wrappedValue = cleaned.isEmpty ? nil : Double(cleaned).map(massUnit.toKilograms)
                     }
                 )
             )

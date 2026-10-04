@@ -335,7 +335,7 @@ final class WorkoutState: Identifiable {
         let repsCounts = Dictionary(grouping: matching, by: \.reps).mapValues(\.count)
         let modeReps = repsCounts.max { $0.value < $1.value }?.key ?? lastSet.reps
 
-        return "La dernière fois : \(matching.count)x\(modeReps) @ \(Self.formatWeight(lastSet.weight)) kg"
+        return "La dernière fois : \(matching.count)x\(modeReps) @ \(WeightFormatter.string(kilograms: lastSet.weight))"
     }
 
     // MARK: - Actions
@@ -354,6 +354,8 @@ final class WorkoutState: Identifiable {
     ) {
         guard let target = currentTarget, weight >= 0, weight.isFinite, reps > 0 else { return }
         let exercise = target.exercise
+        // La serie suivante est saisie : le depassement de repos s'arrete.
+        restTimer.endOvertime()
         let resolvedLoadKind = ExerciseClassification.resolvedLoadKind(base: exercise.loadKind, enteredWeight: weight)
 
         insertCompletedSet(
@@ -389,6 +391,7 @@ final class WorkoutState: Identifiable {
     // Un bloc d'intervalles / EMOM / AMRAP / For Time = une seule saisie.
     func logTimedBlock(totalReps: Int, durationSeconds: Int? = nil) {
         guard case .timedBlock(let exercise) = currentStep else { return }
+        restTimer.endOvertime()
         let clamped = WorkoutStateMachine.clamp(position, in: plan)
         let target = WorkoutSetTarget(
             exercise: exercise,
@@ -607,6 +610,7 @@ final class WorkoutState: Identifiable {
     // (cascade sur ActiveWorkout.loggedSets). Rien n'est ecrit a l'historique.
     func discard() {
         guard let workout = activeWorkout else { return }
+        restTimer.endOvertime()
         modelContext.delete(workout)
         if PersistenceSupport.save(modelContext, action: "Abandon de la séance") {
             activeWorkout = nil
@@ -620,6 +624,7 @@ final class WorkoutState: Identifiable {
     // Fin de seance : bascule les series loggees vers une CompletedSession
     // (historique), supprime l'ActiveWorkout, sauvegarde.
     func finish() -> CompletedSession? {
+        restTimer.endOvertime()
         let duration = Int(Date.now.timeIntervalSince(startedAt))
         let completedSession = CompletedSession(
             date: .now,
@@ -966,6 +971,36 @@ final class WorkoutState: Identifiable {
             return custom.defaultLoadKind
         }
         return .unknown
+    }
+
+    /// Pas des boutons +/- de la saisie pour cet exercice, en kg : pas du
+    /// materiel dans le lieu par defaut, sinon palier du profil, sinon pas
+    /// usuel de l'unite (cf. `LoadStep`).
+    func loadStepKilograms(for exercise: WorkoutExercisePlan) -> Double {
+        let profile = ProfileStore.currentProfile(in: modelContext)
+        let unit = profile?.massUnit ?? .kilograms
+        let equipmentIncrement = equipment(forExerciseId: exercise.exerciseId).flatMap { equipment in
+            defaultPlace()?.inventory.availability(for: equipment)?.increment
+        }
+        return LoadStep.inputStepKilograms(
+            equipmentIncrement: equipmentIncrement,
+            profileIncrementsKilograms: profile?.availableIncrementsKilograms ?? [],
+            unit: unit
+        )
+    }
+
+    private func equipment(forExerciseId exerciseId: String) -> String? {
+        WorkoutPlanBuilder.equipment(
+            forExerciseId: exerciseId,
+            catalogStore: catalogStore,
+            customExercises: (try? modelContext.fetch(FetchDescriptor<CustomExercise>())) ?? []
+        )
+    }
+
+    /// Lieu par defaut, meme regle que le choix de remplacement d'exercice.
+    private func defaultPlace() -> PlaceProfile? {
+        let places = ((try? modelContext.fetch(FetchDescriptor<PlaceProfile>())) ?? []).filter { $0.deletedAt == nil }
+        return places.first { $0.isDefault } ?? places.first
     }
 
     /// Increment de chargement disponible pour cet athlete, utilise par les

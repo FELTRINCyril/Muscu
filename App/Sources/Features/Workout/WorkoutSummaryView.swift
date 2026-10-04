@@ -9,6 +9,7 @@ import MuscuEngine
 struct WorkoutSummaryView: View {
     let state: WorkoutState
     let onFinish: () -> Void
+    @Environment(\.massUnit) private var massUnit
 
     @State private var hasFinished = false
     @State private var pendingSuggestions: [RecordDetection.RecordSuggestion] = []
@@ -34,7 +35,7 @@ struct WorkoutSummaryView: View {
                         StatCard(title: "Durée", value: formattedDuration)
                         StatCard(
                             title: "Tonnage",
-                            value: "\(WorkoutState.formatWeight(totalTonnage)) kg",
+                            value: WeightFormatter.string(kilograms: totalTonnage, unit: massUnit),
                             // Une seance dont le poids de corps est inconnu
                             // a un tonnage PARTIEL. L'afficher comme un
                             // total serait mentir sur une valeur ronde.
@@ -244,6 +245,7 @@ private struct StatCard: View {
 private struct ExerciseSummaryCard: View {
     let displayName: String
     let sets: [CompletedSet]
+    @Environment(\.massUnit) private var massUnit
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -257,7 +259,7 @@ private struct ExerciseSummaryCard: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text(CompletedSetPresentation.label(for: set, inGroup: set.groupId != nil))
                     Spacer(minLength: 8)
-                    Text(CompletedSetPresentation.performance(for: set))
+                    Text(CompletedSetPresentation.performance(for: set, unit: massUnit))
                         .multilineTextAlignment(.trailing)
                 }
                 .font(.caption)
@@ -274,6 +276,7 @@ private struct ExerciseSummaryCard: View {
 
 private struct RecordSuggestionCard: View {
     let suggestion: RecordDetection.RecordSuggestion
+    @Environment(\.massUnit) private var massUnit
     let onSave: () -> Void
     let onDismiss: () -> Void
 
@@ -308,9 +311,9 @@ private struct RecordSuggestionCard: View {
         switch suggestion.kind {
         case .oneRepMax(let new, let old):
             if let old {
-                return String(localized: "\(WorkoutState.formatWeight(old)) kg -> \(WorkoutState.formatWeight(new)) kg")
+                return String(localized: "\(WeightFormatter.string(kilograms: old, unit: massUnit)) -> \(WeightFormatter.string(kilograms: new, unit: massUnit))")
             }
-            return String(localized: "1RM estimé : \(WorkoutState.formatWeight(new)) kg")
+            return String(localized: "1RM estimé : \(WeightFormatter.string(kilograms: new, unit: massUnit))")
         case .maxReps(let new, let old):
             if let old {
                 return String(localized: "\(old) -> \(new) répétitions")

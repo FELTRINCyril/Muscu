@@ -39,7 +39,7 @@ enum CompletedSetPresentation {
 
     /// Libelle de droite : la performance elle-meme. Une serie chronometree
     /// affiche son temps, une serie au poids du corps n'affiche pas « 0 kg ».
-    static func performance(for set: CompletedSet) -> String {
+    static func performance(for set: CompletedSet, unit: MassUnit = WeightFormatter.preferredUnit) -> String {
         var parts: [String] = []
 
         if let duration = set.durationSeconds, duration > 0, set.format.isTimed {
@@ -50,17 +50,17 @@ enum CompletedSetPresentation {
         }
         switch set.loadType {
         case .external:
-            if set.weight > 0 { parts.append(WeightFormatter.string(kilograms: set.weight)) }
+            if set.weight > 0 { parts.append(WeightFormatter.string(kilograms: set.weight, unit: unit)) }
         case .weighted:
-            parts.append("+" + WeightFormatter.string(kilograms: set.weight))
+            parts.append("+" + WeightFormatter.string(kilograms: set.weight, unit: unit))
         case .assisted:
-            parts.append(String(localized: "-\(WeightFormatter.string(kilograms: set.weight)) d'aide"))
+            parts.append(String(localized: "-\(WeightFormatter.string(kilograms: set.weight, unit: unit)) d'aide"))
         case .bodyweight:
             parts.append(String(localized: "poids du corps"))
         case .unknown:
             // Serie anterieure au typage : on affiche la charge telle quelle
             // si elle existe, sans rien supposer de sa nature.
-            if set.weight > 0 { parts.append(WeightFormatter.string(kilograms: set.weight)) }
+            if set.weight > 0 { parts.append(WeightFormatter.string(kilograms: set.weight, unit: unit)) }
         }
         if set.sideConvention == .perSide {
             parts.append(String(localized: "par côté"))

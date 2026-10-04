@@ -12,6 +12,7 @@ struct WatchWorkoutView: View {
 
     @State private var startedAt = Date.now
     @State private var exerciseName = "Exercice"
+    /// Charge dans l'unite affichee (celle du profil iPhone).
     @State private var weight: Double = 20
     @State private var reps: Int = 10
     @State private var recorded: [WatchSetPayload] = []
@@ -20,8 +21,8 @@ struct WatchWorkoutView: View {
     var body: some View {
         List {
             Section {
-                Stepper(value: $weight, in: 0...400, step: 2.5) {
-                    Text("\(weight, format: .number.precision(.fractionLength(0...1))) kg")
+                Stepper(value: $weight, in: 0...unit.maximum, step: unit.step) {
+                    Text("\(weight, format: .number.precision(.fractionLength(0...1))) \(unit.symbol)")
                         .font(.headline)
                 }
                 Stepper(value: $reps, in: 1...100) {
@@ -37,7 +38,7 @@ struct WatchWorkoutView: View {
             if !recorded.isEmpty {
                 Section {
                     ForEach(Array(recorded.enumerated()), id: \.offset) { index, set in
-                        Text("Série \(index + 1) · \(set.weightKilograms, format: .number.precision(.fractionLength(0...1))) kg × \(set.reps)")
+                        Text("Série \(index + 1) · \(unit.fromKilograms(set.weightKilograms), format: .number.precision(.fractionLength(0...1))) \(unit.symbol) × \(set.reps)")
                             .font(.caption)
                     }
                 } header: {
@@ -65,11 +66,15 @@ struct WatchWorkoutView: View {
         .navigationTitle("Séance")
     }
 
+    private var unit: WatchMassUnit {
+        WatchMassUnit(symbol: connectivity.snapshot.massUnitSymbol)
+    }
+
     private func record() {
         recorded.append(WatchSetPayload(
             exerciseName: exerciseName,
             setIndex: recorded.count,
-            weightKilograms: weight,
+            weightKilograms: unit.toKilograms(weight),
             reps: reps
         ))
     }

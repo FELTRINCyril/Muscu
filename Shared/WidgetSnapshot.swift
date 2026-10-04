@@ -29,6 +29,10 @@ struct WidgetSnapshot: Codable, Equatable, Sendable {
     var workingSetsThisWeek: Int
     /// Semaines consecutives avec au moins une seance.
     var weeklyStreak: Int
+    /// Unite de charge du profil (« kg » ou « lb »), pour que la montre
+    /// affiche et saisisse dans la meme unite que l'iPhone. Facultative : un
+    /// instantane plus ancien la laisse absente, et la montre reste en kg.
+    var massUnitSymbol: String?
 
     init(
         version: Int = WidgetSnapshot.currentVersion,
@@ -38,7 +42,8 @@ struct WidgetSnapshot: Codable, Equatable, Sendable {
         programName: String? = nil,
         sessionsThisWeek: Int = 0,
         workingSetsThisWeek: Int = 0,
-        weeklyStreak: Int = 0
+        weeklyStreak: Int = 0,
+        massUnitSymbol: String? = nil
     ) {
         self.version = version
         self.generatedAt = generatedAt
@@ -48,6 +53,7 @@ struct WidgetSnapshot: Codable, Equatable, Sendable {
         self.sessionsThisWeek = sessionsThisWeek
         self.workingSetsThisWeek = workingSetsThisWeek
         self.weeklyStreak = weeklyStreak
+        self.massUnitSymbol = massUnitSymbol
     }
 
     /// Instantane vide, affiche tant que rien n'a ete enregistre.

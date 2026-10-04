@@ -81,6 +81,9 @@ public struct SetMetricsInput: Equatable, Sendable {
     public var bodyweightKilograms: Double?
     public var durationSeconds: Int?
     public var distanceMeters: Double?
+    /// Plafond de repetitions au-dela duquel une serie n'estime plus de 1RM
+    /// (reglage utilisateur, borne par `OneRepMaxEstimation`).
+    public var maximumRepsForOneRepMax: Int
 
     public init(
         weightKilograms: Double,
@@ -90,7 +93,8 @@ public struct SetMetricsInput: Equatable, Sendable {
         isWarmup: Bool = false,
         bodyweightKilograms: Double? = nil,
         durationSeconds: Int? = nil,
-        distanceMeters: Double? = nil
+        distanceMeters: Double? = nil,
+        maximumRepsForOneRepMax: Int = OneRepMaxEstimation.defaultMaximumReps
     ) {
         self.weightKilograms = weightKilograms
         self.reps = reps
@@ -100,6 +104,22 @@ public struct SetMetricsInput: Equatable, Sendable {
         self.bodyweightKilograms = bodyweightKilograms
         self.durationSeconds = durationSeconds
         self.distanceMeters = distanceMeters
+        self.maximumRepsForOneRepMax = OneRepMaxEstimation.clamped(maximumRepsForOneRepMax)
+    }
+}
+
+/// Reglage du plafond de repetitions pour le 1RM estime.
+///
+/// La formule d'Epley se degrade vite au-dela d'une douzaine de
+/// repetitions : une serie de 20 surestime nettement le maximum. Douze est
+/// le comportement historique ; un utilisateur prudent peut descendre a 5,
+/// un pratiquant d'endurance de force monter un peu.
+public enum OneRepMaxEstimation {
+    public static let defaultMaximumReps = 12
+    public static let allowedMaximumReps = 1...20
+
+    public static func clamped(_ value: Int) -> Int {
+        min(max(value, allowedMaximumReps.lowerBound), allowedMaximumReps.upperBound)
     }
 }
 
@@ -156,9 +176,11 @@ public enum SetMetrics {
     }
 
     /// Une serie est eligible a l'estimation de 1RM si elle est une serie
-    /// de travail portant une charge reelle, entre 1 et 12 repetitions.
+    /// de travail portant une charge reelle, entre 1 et le plafond de
+    /// repetitions regle (12 par defaut).
     public static func isEligibleForOneRepMax(_ input: SetMetricsInput) -> Bool {
-        guard !input.isWarmup, allowsLoadRecord(input), (1...12).contains(input.reps) else {
+        let maximum = OneRepMaxEstimation.clamped(input.maximumRepsForOneRepMax)
+        guard !input.isWarmup, allowsLoadRecord(input), (1...maximum).contains(input.reps) else {
             return false
         }
         guard let load = effectiveLoad(input), load > 0 else { return false }

@@ -10,6 +10,7 @@ import MuscuEngine
 struct PlateauView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(CatalogStore.self) private var catalogStore
+    @Environment(\.massUnit) private var massUnit
 
     @Query private var completedSets: [CompletedSet]
     @Query private var adaptations: [AdaptationEntry]
@@ -78,7 +79,7 @@ struct PlateauView: View {
             }
 
             if let current = item.currentLoadKilograms, let proposed = item.proposedLoadKilograms {
-                Text("Décharge proposée : \(WeightFormatter.number(current)) → \(WeightFormatter.number(proposed)) kg")
+                Text("Décharge proposée : \(WeightFormatter.number(kilograms: current, unit: massUnit)) → \(WeightFormatter.string(kilograms: proposed, unit: massUnit))")
                     .font(.caption)
                     .foregroundStyle(Theme.accent)
             } else {

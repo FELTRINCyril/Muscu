@@ -46,7 +46,8 @@ enum WidgetSnapshotService {
             programName: activeProgram?.name,
             sessionsThisWeek: recent.count,
             workingSetsThisWeek: recent.reduce(0) { $0 + $1.sets.filter(\.isWorkingSet).count },
-            weeklyStreak: TrainingAnalytics.currentWeeklyStreak(sessions: all, now: now)
+            weeklyStreak: TrainingAnalytics.currentWeeklyStreak(sessions: all, now: now),
+            massUnitSymbol: ProfileStore.massUnit(in: context).symbol
         )
     }
 

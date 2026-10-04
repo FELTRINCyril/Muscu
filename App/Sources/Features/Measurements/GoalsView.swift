@@ -183,6 +183,7 @@ struct GoalsView: View {
 struct GoalEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.massUnit) private var massUnit
 
     private enum Kind: String, CaseIterable, Identifiable {
         case sessionsPerWeek = "Séances par semaine"
@@ -230,7 +231,7 @@ struct GoalEditorView: View {
                             TextField("Poids visé", text: $bodyweightText)
                                 .keyboardType(.decimalPad)
                                 .accessibilityIdentifier("goal.bodyweight")
-                            Text("kg").foregroundStyle(.secondary)
+                            Text(massUnit.symbol).foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -280,7 +281,12 @@ struct GoalEditorView: View {
         case .bodyweight:
             let normalized = bodyweightText.replacingOccurrences(of: ",", with: ".")
             guard let value = Double(normalized) else { return nil }
-            return .bodyMeasurement(kindRaw: BodyMeasurementKind.bodyweight.rawValue, value: value, direction: .decrease)
+            // L'objectif est stocke en kg, comme les mesures qu'il compare.
+            return .bodyMeasurement(
+                kindRaw: BodyMeasurementKind.bodyweight.rawValue,
+                value: massUnit.toKilograms(value),
+                direction: .decrease
+            )
         }
     }
 

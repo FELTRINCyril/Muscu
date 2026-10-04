@@ -195,6 +195,7 @@ struct RecordsView: View {
 
 private struct RecordRow: View {
     let record: ExerciseRecord
+    @Environment(\.massUnit) private var massUnit
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -203,7 +204,7 @@ private struct RecordRow: View {
 
             HStack(spacing: 12) {
                 if let oneRepMax = record.oneRepMax {
-                    Text("1RM \(WorkoutState.formatWeight(oneRepMax)) kg")
+                    Text("1RM \(WeightFormatter.string(kilograms: oneRepMax, unit: massUnit))")
                 }
                 if let maxReps = record.maxReps {
                     Text("Max \(maxReps) reps")
@@ -243,13 +244,22 @@ private struct RecordEditSheet: View {
 
     @State private var oneRepMaxText: String
     @State private var maxRepsText: String
+    /// Unite de saisie, figee a l'ouverture. Le texte initial est garde pour
+    /// ne pas reecrire un 1RM simplement affiche : un aller-retour par les
+    /// livres l'arrondirait.
+    private let unit: MassUnit
+    private let initialOneRepMaxText: String
     @State private var showingDeleteConfirm = false
     @State private var validationMessage: String?
 
     init(record: ExerciseRecord, isNew: Bool) {
         self.record = record
         self.isNew = isNew
-        _oneRepMaxText = State(initialValue: record.oneRepMax.map { WorkoutState.formatWeight($0) } ?? "")
+        let unit = WeightFormatter.preferredUnit
+        let initialText = record.oneRepMax.map { WeightFormatter.number(kilograms: $0, unit: unit) } ?? ""
+        self.unit = unit
+        self.initialOneRepMaxText = initialText
+        _oneRepMaxText = State(initialValue: initialText)
         _maxRepsText = State(initialValue: record.maxReps.map(String.init) ?? "")
     }
 
@@ -259,7 +269,7 @@ private struct RecordEditSheet: View {
                 Section("Exercice") {
                     Text(record.displayName)
                 }
-                Section("1RM estimé (kg)") {
+                Section("1RM estimé (\(unit.symbol))") {
                     TextField("Ex : 100", text: $oneRepMaxText)
                         .keyboardType(.decimalPad)
                 }
@@ -307,7 +317,9 @@ private struct RecordEditSheet: View {
     }
 
     private func save() {
-        let oneRepMax = Self.parsedDouble(oneRepMaxText)
+        let oneRepMax = oneRepMaxText == initialOneRepMaxText
+            ? record.oneRepMax
+            : Self.parsedDouble(oneRepMaxText).map(unit.toKilograms)
         let maxReps = Self.parsedInt(maxRepsText)
         guard oneRepMax != nil || maxReps != nil else {
             validationMessage = "Renseigne au moins un 1RM ou un maximum de répétitions supérieur à zéro."
