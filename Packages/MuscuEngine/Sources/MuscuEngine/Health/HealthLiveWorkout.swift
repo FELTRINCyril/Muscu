@@ -124,11 +124,28 @@ public struct LiveWorkoutMarker: Codable, Equatable, Sendable {
     /// Seance terminee a laquelle relier l'entrainement, une fois la fin
     /// demandee. `nil` = seance encore en cours.
     public var completedSessionId: UUID?
+    /// Appareil qui enregistre la seance Sante (decision 0017). `nil` =
+    /// l'iPhone, comme dans un marqueur anterieur au lot 7.
+    public var host: HealthWorkoutHost?
+    /// Instant ou la fin a ete demandee a la montre, pour borner l'attente
+    /// de sa confirmation (`RemoteHealthWorkout.confirmationTimeout`).
+    public var finishRequestedAt: Date?
 
-    public init(activeWorkoutId: UUID, completedSessionId: UUID? = nil) {
+    public init(
+        activeWorkoutId: UUID,
+        completedSessionId: UUID? = nil,
+        host: HealthWorkoutHost? = nil,
+        finishRequestedAt: Date? = nil
+    ) {
         self.activeWorkoutId = activeWorkoutId
         self.completedSessionId = completedSessionId
+        self.host = host
+        self.finishRequestedAt = finishRequestedAt
     }
+
+    /// La seance Sante est tenue par la montre : l'iPhone n'a aucune
+    /// `HKWorkoutSession` a retrouver, terminer ou abandonner lui-meme.
+    public var isHostedByWatch: Bool { host == .watch }
 }
 
 /// Que faire d'une seance Sante retrouvee au lancement ?
