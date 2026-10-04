@@ -7,6 +7,12 @@ options:
   knownRegions: [fr, en, Base]
   deploymentTarget:
     iOS: "18.0"
+# Equipe de signature (equipe personnelle de Cyril Feltrin). Commune a
+# toutes les cibles : sans elle, chaque `xcodegen generate` oblige a
+# reselectionner l'equipe dans Xcode pour l'app, les widgets et la montre.
+settings:
+  base:
+    DEVELOPMENT_TEAM: G46ZU254KU
 packages:
   MuscuEngine:
     path: Packages/MuscuEngine
