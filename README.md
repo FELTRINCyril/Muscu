@@ -185,8 +185,20 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   n'apparaît que pour une série classique dont la charge et les répétitions
   sont connues ; sinon le bouton ouvre l'application. Les widgets lisent un
   instantané qui ne contient que ce qu'ils affichent.
-- **Apple Watch** : enregistrez vos séries au poignet ; la séance part vers
-  l'iPhone dès qu'il est joignable et rejoint l'historique **une seule fois**.
+- **Apple Watch** : la séance en cours sur l'iPhone se suit au poignet —
+  exercice, série n/N, charge × répétitions prévues (unité du profil), série
+  suivante, repos en décompte puis en dépassement — avec « Valider la série »
+  (charge et répétitions ajustables à la Digital Crown), « Passer » et
+  « +30 s », exécutés sur l'iPhone par le même chemin que ses boutons ;
+  iPhone injoignable, la commande est refusée plutôt que différée. Démarrez
+  la prochaine séance ou une séance libre depuis la montre : elle démarre sur
+  l'iPhone et se suit en miroir. Vibration aux trois dernières secondes et à
+  la fin du repos. Si Santé est active, la montre enregistre la séance Santé
+  (fréquence cardiaque, kcal, durée) — un seul entraînement par séance, relié
+  à l'historique avec la FC moyenne / min. / max. Sans iPhone, la montre
+  enregistre seule, sous le vrai nom des exercices de la prochaine séance ; la
+  séance part dès qu'il est joignable et rejoint l'historique **une seule
+  fois**. Complication : séance en cours ou prochaine séance.
 - **Raccourcis et Siri** : démarrer la prochaine séance, ouvrir un programme ou
   un exercice, enregistrer le poids corporel (avec confirmation), lancer un
   minuteur de repos, afficher le résumé de la semaine, « Quel est mon 1RM ? »
@@ -309,7 +321,8 @@ App/
     Assets.xcassets  Icône de l'app
 Shared/             Code partagé app / widgets / Watch (App Group, instantané)
 Widgets/            Extension WidgetKit et Live Activity
-Watch/              Application watchOS à cible unique
+Watch/              Application watchOS à cible unique (miroir, séance Santé)
+WatchWidgets/       Complication de la montre (WidgetKit)
 Packages/
   MuscuEngine/       Package SPM : catalogue, générateur de programme, 1RM,
                      pyramide, intervalles, échauffement, règles du modèle v3

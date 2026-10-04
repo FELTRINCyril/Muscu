@@ -41,6 +41,18 @@ screen. Rewritten for Muscu (no code copied) in `Shared/LiveActivityIntents.swif
 `Widgets/WorkoutLiveActivity.swift` and
 `Packages/MuscuEngine/Sources/MuscuEngine/Runner/LiveActivityPlanning.swift`.
 
+Adapted from Ischys (`frontend/targets/ischys-watch/WorkoutManager.swift`,
+`PhoneLink.swift`, `ischysWatchApp.swift`, `RestView.swift`,
+`ActiveSetView.swift`): the Watch workout session lifecycle
+(`HKWorkoutSession` + `HKLiveWorkoutBuilder`, phone-launched workouts through
+`WKApplicationDelegate.handle(_:)`, orphaned session recovery, discard instead
+of save), the phone-owns-the-state mirror with commands sent back over
+WatchConnectivity, live metrics pushed to the phone, and the rest banner /
+Digital Crown set layout. Rewritten for Muscu (state ownership, set identity
+guard, single Health host, set linking) in `Watch/WatchHealthSession.swift`,
+`Watch/WatchConnectivityService.swift`, `Watch/WatchMirrorView.swift` and
+`Shared/WatchMirror.swift`.
+
 ```
 MIT License
 

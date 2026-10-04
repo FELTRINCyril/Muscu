@@ -478,6 +478,7 @@ struct HomeView: View {
             // Seance Sante rattachee apres un arret brutal : abandonnee avec
             // la seance, rien n'est enregistre.
             Task { await LiveHealthWorkoutController.shared.discard() }
+            WatchMirrorPublisher.publishIdle()
         }
     }
 

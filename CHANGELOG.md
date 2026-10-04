@@ -92,6 +92,24 @@
   « Terminer la séance » et « Abandonner la séance » (confirmation, refus
   propre sans séance en cours ou sans série enregistrée). « Démarrer la
   prochaine séance » ouvre désormais l'écran de préparation.
+- Apple Watch (lot 7) : séance en miroir — l'iPhone pousse à chaque
+  transition l'état de la Live Activity (exercice, série n/N, charge ×
+  répétitions prévues, série suivante, repos en décompte puis dépassement) ;
+  « Valider la série » (ajustement à la Digital Crown), « Passer », « +30 s »
+  et « Passer l'échauffement » exécutés sur l'iPhone par le chemin des boutons
+  de l'application, refusés clairement si l'iPhone est injoignable, protégés
+  contre le double tap et l'état périmé (identité de série). Démarrage de la
+  prochaine séance ou d'une séance libre depuis la montre (sur l'iPhone, puis
+  miroir). Mode autonome conservé, avec le vrai nom de l'exercice choisi dans
+  la prochaine séance. Vibrations des trois dernières secondes et de fin de
+  repos. Séance Santé au poignet (`HKWorkoutSession` + `HKLiveWorkoutBuilder`,
+  `startWatchApp`, partage avec l'iPhone) : un seul hôte par séance — la
+  montre si elle est appairée et équipée, sinon l'iPhone (iOS 26+), sinon
+  écriture après coup — et un seul entraînement, relié avec FC moyenne / min.
+  / max. et kcal (décision 0017). Complication rectangulaire et circulaire.
+- Correction : une séance faite à la montre seule était refusée par l'iPhone
+  (dates encodées en secondes, lues en ISO 8601). Les deux formats sont
+  désormais acceptés.
 
 ### Écosystème Apple (phase 7)
 

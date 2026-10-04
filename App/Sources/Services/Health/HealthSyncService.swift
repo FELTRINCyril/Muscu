@@ -467,10 +467,19 @@ enum HealthSyncService {
         cardio: SessionCardio,
         in context: ModelContext,
         store: HealthStoring,
-        now: Date = .now
+        now: Date = .now,
+        source: String = "iphone-live"
     ) async -> Bool {
         let descriptor = FetchDescriptor<CompletedSession>(predicate: #Predicate { $0.id == sessionId })
         guard let session = try? context.fetch(descriptor).first else { return false }
+
+        // Deja relie (confirmation de la montre rejouee) : rien a refaire,
+        // et surtout pas retirer l'entrainement de Sante.
+        if links(in: context).contains(where: {
+            $0.completedSessionId == sessionId && $0.deletedAt == nil && $0.healthKitWorkoutIdentifier == identifier
+        }) {
+            return true
+        }
 
         session.apply(cardio)
 
@@ -490,7 +499,7 @@ enum HealthSyncService {
             link.updatedAt = now
         }
 
-        let link = insertLink(for: syncSession(session), workoutIdentifier: identifier, source: "iphone-live", in: context, now: now)
+        let link = insertLink(for: syncSession(session), workoutIdentifier: identifier, source: source, in: context, now: now)
         await writeEffort(session.effortRating, on: link, store: store, outcome: &outcome)
         return PersistenceSupport.save(context, action: "Séance Santé en direct")
     }

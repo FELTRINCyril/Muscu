@@ -3,16 +3,16 @@
   "strings": {
     "%@ %@": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ %2$@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ %2$@"
           }
         }
       }
@@ -24,6 +24,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ kg"
+          }
+        }
+      }
+    },
+    "%@ · %@ %@ × %lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · %2$@ %3$@ × %4$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · %@ %@ × %lld"
+          }
+        }
+      }
+    },
+    "%lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
+          }
+        }
+      }
+    },
+    "%lld kcal": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld kcal"
           }
         }
       }
@@ -48,6 +84,26 @@
         }
       }
     },
+    "+%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+%@"
+          }
+        }
+      }
+    },
+    "+30 s": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+30 s"
+          }
+        }
+      }
+    },
     "Aucune séance connue": {
       "localizations": {
         "en": {
@@ -58,12 +114,52 @@
         }
       }
     },
+    "Aucune séance de programme à démarrer.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No program workout to start."
+          }
+        }
+      }
+    },
+    "Aucune séance en cours sur l’iPhone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No workout in progress on the iPhone."
+          }
+        }
+      }
+    },
     "Cette semaine": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "This week"
+          }
+        }
+      }
+    },
+    "Cette série se saisit sur l’iPhone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log this set on the iPhone."
+          }
+        }
+      }
+    },
+    "Cette étape se saisit sur l’iPhone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log this step on the iPhone."
           }
         }
       }
@@ -88,12 +184,82 @@
         }
       }
     },
+    "Ensuite : %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next: %@"
+          }
+        }
+      }
+    },
     "Envoyée": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Sent"
+          }
+        }
+      }
+    },
+    "Exercice": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exercise"
+          }
+        }
+      }
+    },
+    "Exercice libre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other exercise"
+          }
+        }
+      }
+    },
+    "La communication avec l’iPhone n’est pas disponible sur cet appareil.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Communication with the iPhone isn’t available on this device."
+          }
+        }
+      }
+    },
+    "La séance a avancé sur l’iPhone : rien n’a été validé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The workout moved on on the iPhone: nothing was logged."
+          }
+        }
+      }
+    },
+    "La séance démarre sur l’iPhone et se suit ici.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The workout starts on the iPhone and is followed here."
+          }
+        }
+      }
+    },
+    "La séance n’a pas pu être préparée pour l’envoi.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The workout couldn’t be prepared for sending."
           }
         }
       }
@@ -118,6 +284,36 @@
         }
       }
     },
+    "Le repos est déjà terminé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The rest is already over."
+          }
+        }
+      }
+    },
+    "L’iPhone n’a pas pu enregistrer : rien n’a été validé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The iPhone couldn’t save: nothing was logged."
+          }
+        }
+      }
+    },
+    "Mettez Muscu à jour sur l’iPhone et la montre.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Muscu on the iPhone and the watch."
+          }
+        }
+      }
+    },
     "Muscu": {
       "localizations": {
         "en": {
@@ -138,12 +334,82 @@
         }
       }
     },
+    "PDC": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "BW"
+          }
+        }
+      }
+    },
+    "Passer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip"
+          }
+        }
+      }
+    },
+    "Passer l’échauffement": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skip warm-up"
+          }
+        }
+      }
+    },
     "Prochaine séance": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Next workout"
+          }
+        }
+      }
+    },
+    "Repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest"
+          }
+        }
+      }
+    },
+    "Repos terminé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest over"
+          }
+        }
+      }
+    },
+    "Santé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health"
+          }
+        }
+      }
+    },
+    "Santé n’est pas autorisée sur la montre : la séance continue sans fréquence cardiaque.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health isn’t allowed on the watch: the workout continues without heart rate."
           }
         }
       }
@@ -158,18 +424,29 @@
         }
       }
     },
-    "Série %lld · %@ %@ × %lld": {
+    "Séance libre": {
       "localizations": {
-        "fr": {
+        "en": {
           "stringUnit": {
-            "state": "new",
-            "value": "Série %1$lld · %2$@ %3$@ × %4$lld"
+            "state": "translated",
+            "value": "Free workout"
           }
-        },
+        }
+      }
+    },
+    "Série %lld · %@ %@ × %lld": {
+      "extractionState": "stale",
+      "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Set %lld · %@ %@ × %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Série %1$lld · %2$@ %3$@ × %4$lld"
           }
         }
       }
@@ -187,6 +464,22 @@
           "stringUnit": {
             "state": "new",
             "value": "Série %1$lld · %2$@ kg × %3$lld"
+          }
+        }
+      }
+    },
+    "Série %lld/%lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Série %1$lld/%2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set %lld/%lld"
           }
         }
       }
@@ -211,12 +504,112 @@
         }
       }
     },
+    "Terminez la séance sur l’iPhone pour noter l’effort.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish the workout on the iPhone to rate the effort."
+          }
+        }
+      }
+    },
+    "Touchez la charge ou les répétitions, puis tournez la Digital Crown.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tap the weight or the reps, then turn the Digital Crown."
+          }
+        }
+      }
+    },
+    "Toutes les séries sont faites.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All sets are done."
+          }
+        }
+      }
+    },
+    "Une séance est déjà en cours sur l’iPhone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A workout is already in progress on the iPhone."
+          }
+        }
+      }
+    },
+    "Valeurs hors limites : rien n’a été validé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Values out of range: nothing was logged."
+          }
+        }
+      }
+    },
     "Valider la série": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Confirm the set"
+          }
+        }
+      }
+    },
+    "iPhone injoignable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone unreachable"
+          }
+        }
+      }
+    },
+    "iPhone injoignable : la séance sera enregistrée à la montre puis envoyée.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone unreachable: the workout will be recorded on the watch, then sent."
+          }
+        }
+      }
+    },
+    "iPhone injoignable : rien n’a été envoyé.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone unreachable: nothing was sent."
+          }
+        }
+      }
+    },
+    "Échauffement sur l’iPhone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warm-up on the iPhone"
+          }
+        }
+      }
+    },
+    "×": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "×"
           }
         }
       }

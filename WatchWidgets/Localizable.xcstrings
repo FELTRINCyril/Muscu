@@ -1,0 +1,82 @@
+{
+  "sourceLanguage": "fr",
+  "strings": {
+    "%lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld"
+          }
+        }
+      }
+    },
+    "Aucune séance connue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No known workout"
+          }
+        }
+      }
+    },
+    "La séance en cours, ou la prochaine.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The current workout, or the next one."
+          }
+        }
+      }
+    },
+    "Muscu": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muscu"
+          }
+        }
+      }
+    },
+    "Prochaine séance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Next workout"
+          }
+        }
+      }
+    },
+    "Séance en cours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Workout in progress"
+          }
+        }
+      }
+    },
+    "Série %lld/%lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Série %1$lld/%2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set %lld/%lld"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

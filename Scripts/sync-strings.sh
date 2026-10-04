@@ -66,6 +66,8 @@ sync_catalog Widgets/Localizable.xcstrings \
   "$BUILD_ROOT/Muscu.build/Debug-iphonesimulator/MuscuWidgets.build/Objects-normal"
 sync_catalog Watch/Localizable.xcstrings \
   "$BUILD_ROOT/Muscu.build/Debug-watchsimulator/MuscuWatch.build/Objects-normal"
+sync_catalog WatchWidgets/Localizable.xcstrings \
+  "$BUILD_ROOT/Muscu.build/Debug-watchsimulator/MuscuWatchWidgets.build/Objects-normal"
 
 log "Vérification"
 python3 Scripts/check-localization.py || {

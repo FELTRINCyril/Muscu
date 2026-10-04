@@ -776,6 +776,7 @@ final class WorkoutState: Identifiable {
         guard let workout = activeWorkout else { return }
         workout.phaseRaw = RunnerPhase.running.rawValue
         persistRuntimeState(action: "Fin de l’échauffement")
+        refreshLiveActivity()
     }
 
     func updateWarmupRuntime(_ value: WarmupRuntimeState) {
@@ -1083,6 +1084,8 @@ final class WorkoutState: Identifiable {
         Task { await WorkoutActivityController.end() }
         // Rien n'est enregistre dans Sante pour une seance abandonnee.
         Task { await LiveHealthWorkoutController.shared.discard() }
+        // La montre en miroir revient a l'accueil.
+        WatchMirrorPublisher.publishIdle()
         return true
     }
 
@@ -1132,6 +1135,7 @@ final class WorkoutState: Identifiable {
         // La seance Sante en direct, s'il y en a une, sera reliee a cette
         // seance : la synchronisation ne doit plus l'ecrire apres coup.
         LiveHealthWorkoutController.shared.markFinished(completedSessionId: completedSession.id)
+        WatchMirrorPublisher.publishIdle()
         return completedSession
     }
 
@@ -1211,6 +1215,18 @@ final class WorkoutState: Identifiable {
         return position != before
     }
 
+    /// Valide depuis la montre la serie affichee, avec la charge et les
+    /// repetitions ajustees a la Digital Crown. Memes gardes que la Live
+    /// Activity (identite de serie, serie entierement connue), meme chemin
+    /// que l'ecran de saisie (`logSet`).
+    @discardableResult
+    func logAdjustedSet(slotKey: String, weightKilograms: Double, reps: Int) -> Bool {
+        guard slotKey == liveActivitySlotKey, quickLogProposal() != nil else { return false }
+        let before = position
+        logSet(weight: weightKilograms, reps: reps)
+        return position != before
+    }
+
     /// Etat courant publie sur la Live Activity. Rien de plus que ce que
     /// l'ecran de saisie affiche deja.
     func liveActivityState() -> WorkoutActivityState {
@@ -1276,6 +1292,7 @@ final class WorkoutState: Identifiable {
     }
 
     func startLiveActivity() {
+        WatchMirrorPublisher.publish(self)
         WorkoutActivityController.start(
             sessionName: sessionTitle,
             state: liveActivityState()
@@ -1289,8 +1306,12 @@ final class WorkoutState: Identifiable {
         Task { await LiveHealthWorkoutController.shared.start(activeWorkoutId: id, store: AppServices.healthStore) }
     }
 
+    /// Chaque transition est aussi poussee a la montre (lot 7), que la
+    /// Live Activity tourne ou non : le miroir ne depend pas d'ActivityKit.
     func refreshLiveActivity() {
-        guard WorkoutActivityController.isRunning, !isClosed else { return }
+        guard !isClosed else { return }
+        WatchMirrorPublisher.publish(self)
+        guard WorkoutActivityController.isRunning else { return }
         let state = liveActivityState()
         Task { await WorkoutActivityController.update(state) }
     }
@@ -1298,7 +1319,9 @@ final class WorkoutState: Identifiable {
     /// Meme mise a jour, attendue jusqu'au bout : un bouton de la Live
     /// Activity ne rend la main qu'une fois l'ecran verrouille a jour.
     func refreshLiveActivityNow() async {
-        guard WorkoutActivityController.isRunning, !isClosed else { return }
+        guard !isClosed else { return }
+        WatchMirrorPublisher.publish(self)
+        guard WorkoutActivityController.isRunning else { return }
         await WorkoutActivityController.update(liveActivityState())
     }
 

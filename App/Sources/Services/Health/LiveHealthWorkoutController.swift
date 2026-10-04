@@ -32,9 +32,15 @@ final class LiveHealthWorkoutController {
     private(set) var heartRate: Double?
     /// Energie active cumulee. `nil` = non mesuree.
     private(set) var activeEnergyKilocalories: Double?
+    /// La seance Sante est enregistree par la montre (decision 0017) :
+    /// l'iPhone n'en affiche que les mesures qu'elle lui envoie.
+    private(set) var isHostedByWatch = false
 
     @ObservationIgnored private var activeWorkoutId: UUID?
     @ObservationIgnored private var backend: AnyObject?
+    /// Seance de la montre reflechie sur l'iPhone (iOS 17+), retenue tant
+    /// qu'elle dure.
+    @ObservationIgnored private var mirroredSession: AnyObject?
 
     private init() {}
 
@@ -60,8 +66,16 @@ final class LiveHealthWorkoutController {
     }
 
     /// Seances terminees dont l'entrainement en direct reste a finaliser.
+    /// Une confirmation de la montre attendue au-dela du delai ne bloque
+    /// plus l'ecriture apres coup (decision 0017).
     var recordingSessionIds: Set<UUID> {
-        marker?.completedSessionId.map { [$0] } ?? []
+        guard let marker, let completed = marker.completedSessionId else { return [] }
+        if marker.isHostedByWatch,
+           let requested = marker.finishRequestedAt,
+           Date.now.timeIntervalSince(requested) >= RemoteHealthWorkout.confirmationTimeout {
+            return []
+        }
+        return [completed]
     }
 
     // MARK: - Disponibilite
@@ -73,6 +87,20 @@ final class LiveHealthWorkoutController {
 #else
         guard #available(iOS 26.0, *) else { return false }
         return HKHealthStore.isHealthDataAvailable()
+#endif
+    }
+
+    /// Sante active, ecriture des seances active et autorisee : la montre
+    /// peut enregistrer la seance. Independant d'iOS 26, puisque c'est la
+    /// montre qui enregistre. Jamais de demande d'autorisation ici.
+    static func isAllowedForWatch(store: HealthStoring) -> Bool {
+#if targetEnvironment(macCatalyst)
+        return false
+#else
+        return HKHealthStore.isHealthDataAvailable()
+            && HealthSettings.isEnabled
+            && HealthSettings.writesWorkouts
+            && store.authorizationStatus() == .authorized
 #endif
     }
 
@@ -88,15 +116,40 @@ final class LiveHealthWorkoutController {
     // MARK: - Cycle de vie
 
     /// Demarre (ou reprend) la seance Sante de la seance en cours.
+    ///
+    /// L'hote est choisi par `HealthWorkoutCoordination` (decision 0017) :
+    /// la montre si elle est appairee et equipee, sinon l'iPhone (iOS 26+),
+    /// sinon personne — la seance est alors ecrite apres coup. Il ne change
+    /// plus ensuite.
     func start(activeWorkoutId: UUID, store: HealthStoring) async {
+        if let marker, marker.isHostedByWatch, marker.activeWorkoutId == activeWorkoutId,
+           marker.completedSessionId == nil {
+            resume()
+            return
+        }
         if self.activeWorkoutId == activeWorkoutId, backend != nil {
             resume()
             return
         }
         // Une autre seance Sante restee ouverte : elle ne correspond plus a
         // rien, elle n'est pas enregistree.
-        if backend != nil { await discard() }
-        guard Self.isAllowed(store: store) else { return }
+        if backend != nil || (marker?.isHostedByWatch == true && marker?.completedSessionId == nil) {
+            await discard()
+        }
+
+        let connectivity = PhoneConnectivityService.shared
+        let context = HealthWorkoutCoordination.Context(
+            healthAllowed: Self.isAllowedForWatch(store: store),
+            watchPaired: connectivity?.isWatchPaired ?? false,
+            watchAppInstalled: connectivity?.isWatchAppAvailable ?? false,
+            phoneLiveSupported: Self.isSupported
+        )
+        var host = HealthWorkoutCoordination.host(for: context)
+        if host == .watch {
+            if await launchWatch(activeWorkoutId: activeWorkoutId) { return }
+            host = HealthWorkoutCoordination.fallbackHost(for: context)
+        }
+        guard host == .phone, Self.isAllowed(store: store) else { return }
 
 #if !targetEnvironment(macCatalyst)
         guard #available(iOS 26.0, *) else { return }
@@ -122,6 +175,12 @@ final class LiveHealthWorkoutController {
     /// « Reprendre plus tard » : la seance Muscu est mise de cote, la seance
     /// Sante aussi.
     func pause() {
+        if isHostedByWatch {
+            guard let activeWorkoutId, !isPaused else { return }
+            PhoneConnectivityService.shared?.send(.pause(activeWorkoutId: activeWorkoutId))
+            isPaused = true
+            return
+        }
 #if !targetEnvironment(macCatalyst)
         guard #available(iOS 26.0, *), let session = backend as? LiveWorkoutSession, !isPaused else { return }
         session.pause()
@@ -130,6 +189,12 @@ final class LiveHealthWorkoutController {
     }
 
     func resume() {
+        if isHostedByWatch {
+            guard let activeWorkoutId, isPaused else { return }
+            PhoneConnectivityService.shared?.send(.resume(activeWorkoutId: activeWorkoutId))
+            isPaused = false
+            return
+        }
 #if !targetEnvironment(macCatalyst)
         guard #available(iOS 26.0, *), let session = backend as? LiveWorkoutSession, isPaused else { return }
         session.resume()
@@ -141,7 +206,17 @@ final class LiveHealthWorkoutController {
     /// synchronisation ne l'ecrit plus apres coup. Synchrone, pour qu'aucune
     /// synchronisation ne s'intercale avant `finishRecording`.
     func markFinished(completedSessionId: UUID) {
-        guard backend != nil, let activeWorkoutId else { return }
+        guard let activeWorkoutId else { return }
+        if isHostedByWatch {
+            marker = LiveWorkoutMarker(
+                activeWorkoutId: activeWorkoutId,
+                completedSessionId: completedSessionId,
+                host: .watch,
+                finishRequestedAt: .now
+            )
+            return
+        }
+        guard backend != nil else { return }
         marker = LiveWorkoutMarker(activeWorkoutId: activeWorkoutId, completedSessionId: completedSessionId)
     }
 
@@ -149,10 +224,14 @@ final class LiveHealthWorkoutController {
     /// range le cardio mesure. En cas d'echec, la seance redevient une
     /// seance ordinaire, ecrite apres coup.
     func finishRecording(in context: ModelContext, store: HealthStoring) async {
-        guard marker?.completedSessionId != nil else { return }
+        guard let marker, let completedSessionId = marker.completedSessionId else { return }
+        if marker.isHostedByWatch {
+            requestWatchFinish(marker: marker, completedSessionId: completedSessionId, in: context)
+            return
+        }
 #if !targetEnvironment(macCatalyst)
-        if #available(iOS 26.0, *), let sessionId = marker?.completedSessionId, let session = backend as? LiveWorkoutSession {
-            await finish(session, completedSessionId: sessionId, in: context, store: store)
+        if #available(iOS 26.0, *), let session = backend as? LiveWorkoutSession {
+            await finish(session, completedSessionId: completedSessionId, in: context, store: store)
         }
 #endif
         clearState()
@@ -160,6 +239,15 @@ final class LiveHealthWorkoutController {
 
     /// Abandon de la seance : rien n'est enregistre dans Sante.
     func discard() async {
+        if let marker, marker.isHostedByWatch {
+            // Une seance terminee attend la confirmation de la montre : un
+            // abandon ulterieur ne la concerne pas.
+            if marker.completedSessionId == nil {
+                PhoneConnectivityService.shared?.send(.discard(activeWorkoutId: marker.activeWorkoutId))
+                clearState()
+            }
+            return
+        }
 #if !targetEnvironment(macCatalyst)
         if #available(iOS 26.0, *), let session = backend as? LiveWorkoutSession {
             await session.discard()
@@ -173,6 +261,10 @@ final class LiveHealthWorkoutController {
     /// seance Muscu est devenue.
     func recover(in context: ModelContext, store: HealthStoring) async {
         guard backend == nil else { return }
+        if let marker, marker.isHostedByWatch {
+            recoverWatchHosted(marker: marker, in: context)
+            return
+        }
 #if targetEnvironment(macCatalyst)
         marker = nil
 #else
@@ -216,6 +308,210 @@ final class LiveHealthWorkoutController {
             clearState()
         }
 #endif
+    }
+
+    // MARK: - Seance Sante tenue par la montre (decision 0017)
+
+    /// La montre enregistre la seance Sante de cette seance Muscu : demarree
+    /// depuis la montre, ou lancee par l'iPhone (`startWatchApp`).
+    func adoptWatchHost(activeWorkoutId: UUID) {
+        if backend != nil {
+            // Jamais deux seances Sante : celle de l'iPhone n'est pas
+            // enregistree.
+            Task { await discardLocalBackend() }
+        }
+        marker = LiveWorkoutMarker(activeWorkoutId: activeWorkoutId, host: .watch)
+        self.activeWorkoutId = activeWorkoutId
+        isHostedByWatch = true
+        isActive = true
+        isPaused = false
+        heartRate = nil
+        activeEnergyKilocalories = nil
+    }
+
+    /// Hote annonce a la montre pour cette seance.
+    func watchHealthHost(forActiveWorkoutId id: UUID) -> WatchHealthHost {
+        guard isActive, activeWorkoutId == id else { return .afterTheFact }
+        return isHostedByWatch ? .watch : .phone
+    }
+
+    /// Mesures en direct envoyees par la montre.
+    func receiveWatchMetrics(_ metrics: WatchLiveMetrics) {
+        guard isHostedByWatch, metrics.activeWorkoutId == activeWorkoutId else { return }
+        if let bpm = metrics.heartRate, bpm.isFinite, SessionCardio.heartRateRange.contains(bpm) {
+            heartRate = bpm.rounded()
+        } else {
+            heartRate = nil
+        }
+        if let kcal = metrics.activeEnergyKilocalories, kcal.isFinite, SessionCardio.energyRange.contains(kcal) {
+            activeEnergyKilocalories = kcal.rounded()
+        }
+    }
+
+    /// Reponse de la montre a la demande de fin.
+    func receiveWatchResult(_ result: WatchHealthResult, in context: ModelContext, store: HealthStoring) async {
+        if marker?.completedSessionId == result.completedSessionId {
+            marker = nil
+            mirroredSession = nil
+        }
+        guard let identifier = result.workoutIdentifier else {
+            // Rien n'a ete enregistre a la montre : la seance est ecrite
+            // apres coup, sans attendre le delai.
+            await HealthSyncService.synchronize(in: context, store: store)
+            return
+        }
+        await attachWatchWorkout(
+            identifier: identifier,
+            completedSessionId: result.completedSessionId,
+            cardio: result.cardio,
+            in: context,
+            store: store
+        )
+    }
+
+    /// Relie un entrainement enregistre par la montre a sa seance, et y
+    /// range le cardio. Idempotent : un transfert rejoue ne change rien.
+    func attachWatchWorkout(
+        identifier: String,
+        completedSessionId: UUID,
+        cardio: WatchCardio,
+        in context: ModelContext,
+        store: HealthStoring
+    ) async {
+        let existing = Set(((try? context.fetch(FetchDescriptor<CompletedSession>())) ?? [])
+            .filter { $0.deletedAt == nil && $0.id == completedSessionId }
+            .map(\.id))
+        guard RemoteHealthWorkout.acceptsConfirmation(
+            completedSessionId: completedSessionId,
+            existingCompletedSessionIds: existing
+        ) else {
+            // Seance supprimee entre-temps : son entrainement ne doit pas
+            // lui survivre (decision 0009).
+            try? await store.deleteWorkout(identifier: identifier)
+            return
+        }
+        await HealthSyncService.attachLiveWorkout(
+            identifier: identifier,
+            to: completedSessionId,
+            cardio: SessionCardio(
+                averageHeartRate: cardio.averageHeartRate,
+                minimumHeartRate: cardio.minimumHeartRate,
+                maximumHeartRate: cardio.maximumHeartRate,
+                activeEnergyKilocalories: cardio.activeEnergyKilocalories
+            ),
+            in: context,
+            store: store,
+            source: "watch"
+        )
+    }
+
+    /// Pose le gestionnaire des seances reflechies (iOS 17+) : la seance
+    /// Sante de la montre est partagee avec l'iPhone, qui la retient tant
+    /// qu'elle dure.
+    func installWatchMirroring() {
+#if !targetEnvironment(macCatalyst)
+        Self.mirroringStore.workoutSessionMirroringStartHandler = { session in
+            let box = MirroredSessionBox(session: session)
+            Task { @MainActor in
+                LiveHealthWorkoutController.shared.retainMirrored(box)
+            }
+        }
+#endif
+    }
+
+    private func retainMirrored(_ box: MirroredSessionBox) {
+        // Une seance reflechie hors d'une seance confiee a la montre (mode
+        // autonome) n'est pas retenue : elle se termine a la montre.
+        guard isHostedByWatch else { return }
+        mirroredSession = box
+    }
+
+    /// Lance l'application de la montre dans la seance (`startWatchApp`).
+    /// `false` si la montre n'a pas pu etre lancee : l'iPhone prend le
+    /// relais selon la regle de repli.
+    private func launchWatch(activeWorkoutId: UUID) async -> Bool {
+#if targetEnvironment(macCatalyst)
+        return false
+#else
+        // L'hote est publie AVANT le lancement : la montre, a peine lancee,
+        // sait quelle seance elle enregistre.
+        adoptWatchHost(activeWorkoutId: activeWorkoutId)
+        if let workout = LiveWorkoutRegistry.shared.current { WatchMirrorPublisher.publish(workout) }
+
+        let configuration = HKWorkoutConfiguration()
+        configuration.activityType = .traditionalStrengthTraining
+        configuration.locationType = .indoor
+        let launched = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            Self.mirroringStore.startWatchApp(with: configuration) { success, _ in
+                continuation.resume(returning: success)
+            }
+        }
+        guard launched else {
+            clearState()
+            if let workout = LiveWorkoutRegistry.shared.current { WatchMirrorPublisher.publish(workout) }
+            return false
+        }
+        return true
+#endif
+    }
+
+    private func requestWatchFinish(marker: LiveWorkoutMarker, completedSessionId: UUID, in context: ModelContext) {
+        let descriptor = FetchDescriptor<CompletedSession>(predicate: #Predicate { $0.id == completedSessionId })
+        let duration = (try? context.fetch(descriptor).first)?.durationSeconds ?? 0
+        let connectivity = PhoneConnectivityService.shared
+        if LiveWorkoutRecovery.shouldSave(durationSeconds: duration) {
+            connectivity?.send(.finish(
+                activeWorkoutId: marker.activeWorkoutId,
+                completedSessionId: completedSessionId,
+                endDate: .now
+            ))
+            // Le marqueur reste jusqu'a la confirmation (ou au delai) : la
+            // synchronisation n'ecrit pas la seance entre-temps.
+            isActive = false
+            isPaused = false
+            isHostedByWatch = false
+            heartRate = nil
+            activeEnergyKilocalories = nil
+            activeWorkoutId = nil
+        } else {
+            // Trop courte : rien n'est enregistre, ni a la montre ni apres
+            // coup (meme regle que la synchronisation).
+            connectivity?.send(.discard(activeWorkoutId: marker.activeWorkoutId))
+            clearState()
+        }
+    }
+
+    private func recoverWatchHosted(marker: LiveWorkoutMarker, in context: ModelContext) {
+        let pending = Set(((try? context.fetch(FetchDescriptor<ActiveWorkout>())) ?? []).map(\.id))
+        let completed = Set(((try? context.fetch(FetchDescriptor<CompletedSession>())) ?? [])
+            .filter { $0.deletedAt == nil && $0.id == marker.completedSessionId }
+            .map(\.id))
+        switch RemoteHealthWorkout.resolve(
+            marker: marker,
+            pendingActiveWorkoutIds: pending,
+            existingCompletedSessionIds: completed,
+            now: .now
+        ) {
+        case .keepWaiting:
+            guard marker.completedSessionId == nil else { return }
+            activeWorkoutId = marker.activeWorkoutId
+            isHostedByWatch = true
+            isActive = true
+        case .discardOnWatch:
+            PhoneConnectivityService.shared?.send(.discard(activeWorkoutId: marker.activeWorkoutId))
+            clearState()
+        case .giveUp:
+            clearState()
+        }
+    }
+
+    private func discardLocalBackend() async {
+#if !targetEnvironment(macCatalyst)
+        if #available(iOS 26.0, *), let session = backend as? LiveWorkoutSession {
+            await session.discard()
+        }
+#endif
+        backend = nil
     }
 
     // MARK: - Prive
@@ -264,12 +560,31 @@ final class LiveHealthWorkoutController {
 
     private func clearState() {
         backend = nil
+        mirroredSession = nil
+        isHostedByWatch = false
         activeWorkoutId = nil
         marker = nil
         isActive = false
         isPaused = false
         heartRate = nil
         activeEnergyKilocalories = nil
+    }
+}
+
+#if !targetEnvironment(macCatalyst)
+extension LiveHealthWorkoutController {
+    /// Magasin dedie au lancement de la montre et aux seances reflechies.
+    fileprivate static let mirroringStore = HKHealthStore()
+}
+#endif
+
+/// Seance reflechie recue hors de l'acteur principal. `HKWorkoutSession`
+/// n'est pas `Sendable` ; elle n'est que retenue, jamais manipulee.
+private final class MirroredSessionBox: @unchecked Sendable {
+    let session: AnyObject
+
+    init(session: AnyObject) {
+        self.session = session
     }
 }
 

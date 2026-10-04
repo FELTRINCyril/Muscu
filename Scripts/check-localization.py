@@ -21,6 +21,7 @@ CATALOGS = [
     Path("App/Resources/Localizable.xcstrings"),
     Path("Widgets/Localizable.xcstrings"),
     Path("Watch/Localizable.xcstrings"),
+    Path("WatchWidgets/Localizable.xcstrings"),
 ]
 LANGUAGES = ["en"]
 SPECIFIER = re.compile(r"%(?:\d+\$)?[.0-9]*[@a-zA-Z]+|%%")

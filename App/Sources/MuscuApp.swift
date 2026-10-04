@@ -108,6 +108,10 @@ struct MuscuApp: App {
                     // La montre recoit le meme instantane que les widgets :
                     // un seul calcul, donc aucun risque de divergence.
                     phoneConnectivity.publish(WidgetSnapshotStore.read())
+                    phoneConnectivity.publish(WatchMirrorPublisher.planSummary(in: container.mainContext))
+                    if phoneConnectivity.isWatchAppAvailable {
+                        phoneConnectivity.publishMirror(WatchMirrorPublisher.currentState())
+                    }
                 }
                 .environment(phoneConnectivity)
                 .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name.NSSystemTimeZoneDidChange)) { _ in
@@ -130,6 +134,9 @@ struct MuscuApp: App {
     private static func installOutsideActions(container: ModelContainer) {
         IntentStore.register(container)
         LiveWorkoutActions.install(container: container)
+        // Seance Sante de la montre reflechie sur l'iPhone (iOS 17+) : le
+        // gestionnaire doit etre pose avant que la montre ne la partage.
+        LiveHealthWorkoutController.shared.installWatchMirroring()
     }
 
     @MainActor

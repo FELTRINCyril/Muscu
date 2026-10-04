@@ -33,6 +33,10 @@ struct LiveHealthCard: View {
                 Group {
                     if controller.isPaused {
                         Label("Santé · en pause", systemImage: "heart.text.square")
+                    } else if controller.isHostedByWatch {
+                        // La seance Sante est enregistree par la montre
+                        // (decision 0017).
+                        Label("Santé · montre", systemImage: "applewatch")
                     } else {
                         Label("Santé", systemImage: "heart.text.square")
                     }

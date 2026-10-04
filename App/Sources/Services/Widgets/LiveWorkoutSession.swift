@@ -98,6 +98,36 @@ enum LiveWorkoutActions {
         )
     }
 
+    /// Contexte de l'application, pour ce qui agit hors de l'interface.
+    static var modelContext: ModelContext? { container?.mainContext }
+
+    /// Demarre une seance demandee depuis la montre : la prochaine seance du
+    /// programme actif (celle du bouton « Commencer » de l'accueil) ou une
+    /// seance libre. `nil` si une seance est deja en cours, s'il n'y a pas
+    /// de prochaine seance, ou si l'enregistrement a echoue.
+    static func startWorkout(free: Bool) -> WorkoutState? {
+        guard let container else { return nil }
+        let context = container.mainContext
+        // Une seule seance active a la fois, comme sur l'accueil.
+        guard WorkoutState.pendingActiveWorkout(modelContext: context) == nil else { return nil }
+        let catalog = catalogStore ?? CatalogStore()
+        catalogStore = catalog
+
+        let state: WorkoutState
+        if free {
+            state = WorkoutState(freeSessionWith: context, catalogStore: catalog, restTimer: RestTimer())
+        } else {
+            guard let session = WatchMirrorPublisher.nextProgramSession(in: context) else { return nil }
+            state = WorkoutState(programSession: session, modelContext: context, catalogStore: catalog, restTimer: RestTimer())
+        }
+        guard state.activeWorkout != nil else {
+            // Demarrage non enregistre : rien ne doit rester en memoire.
+            LiveWorkoutRegistry.shared.unregister(state)
+            return nil
+        }
+        return state
+    }
+
     /// Bouton de la Live Activity : meme action que le bouton equivalent de
     /// l'application, puis mise a jour de l'activite.
     static func perform(_ action: LiveActivityAction) async {

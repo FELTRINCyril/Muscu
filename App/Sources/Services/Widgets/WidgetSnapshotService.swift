@@ -23,6 +23,12 @@ enum WidgetSnapshotService {
         let snapshot = makeSnapshot(in: context, catalogStore: catalogStore, now: now)
         WidgetSnapshotStore.write(snapshot)
         WidgetCenter.shared.reloadAllTimelines()
+        // La montre recoit le meme instantane, et la prochaine seance avec
+        // ses exercices (demarrage, mode autonome) : un seul calcul.
+        if let connectivity = PhoneConnectivityService.shared {
+            connectivity.publish(snapshot)
+            connectivity.publish(WatchMirrorPublisher.planSummary(in: context))
+        }
     }
 
     static func makeSnapshot(

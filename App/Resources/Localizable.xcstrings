@@ -347,16 +347,16 @@
     },
     "%@ · série %lld/%lld": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ · série %2$lld/%3$lld"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ · set %lld/%lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · série %2$lld/%3$lld"
           }
         }
       }
@@ -459,16 +459,16 @@
     },
     "%@, %@ : %@ (%@)": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@, %2$@ : %3$@ (%4$@)"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@, %@: %@ (%@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@, %2$@ : %3$@ (%4$@)"
           }
         }
       }
@@ -1324,16 +1324,16 @@
     },
     "1RM de référence pour %@ : %@, enregistré le %@. Aucune estimation dans l’historique.": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "1RM de référence pour %1$@ : %2$@, enregistré le %3$@. Aucune estimation dans l’historique."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Reference 1RM for %@: %@, recorded on %@. No estimate in your history."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "1RM de référence pour %1$@ : %2$@, enregistré le %3$@. Aucune estimation dans l’historique."
           }
         }
       }
@@ -1402,32 +1402,32 @@
     },
     "1RM estimé pour %@ : %@, le %@.": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "1RM estimé pour %1$@ : %2$@, le %3$@."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Estimated 1RM for %@: %@, on %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "1RM estimé pour %1$@ : %2$@, le %3$@."
           }
         }
       }
     },
     "1RM estimé pour %@ : %@, le %@. 1RM de référence : %@, enregistré le %@.": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "1RM estimé pour %1$@ : %2$@, le %3$@. 1RM de référence : %4$@, enregistré le %5$@."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Estimated 1RM for %@: %@, on %@. Reference 1RM: %@, recorded on %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "1RM estimé pour %1$@ : %2$@, le %3$@. 1RM de référence : %4$@, enregistré le %5$@."
           }
         }
       }
@@ -1514,16 +1514,16 @@
     },
     "Abandonner « %@ » ? Les %lld série(s) enregistrée(s) seront supprimées et rien ne sera ajouté à l’historique.": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Abandonner « %1$@ » ? Les %2$lld série(s) enregistrée(s) seront supprimées et rien ne sera ajouté à l’historique."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Discard “%@”? The %lld logged set(s) will be deleted and nothing will be added to your history."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Abandonner « %1$@ » ? Les %2$lld série(s) enregistrée(s) seront supprimées et rien ne sera ajouté à l’historique."
           }
         }
       }
@@ -9814,6 +9814,16 @@
         }
       }
     },
+    "Santé · montre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health · watch"
+          }
+        }
+      }
+    },
     "Schéma": {
       "localizations": {
         "en": {
@@ -10375,16 +10385,16 @@
     },
     "Séance enregistrée : %lld série(s) de travail en %lld min.": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Séance enregistrée : %1$lld série(s) de travail en %2$lld min."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Workout saved: %lld working set(s) in %lld min."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Séance enregistrée : %1$lld série(s) de travail en %2$lld min."
           }
         }
       }
@@ -10780,16 +10790,16 @@
     },
     "Terminer « %@ » ? %lld série(s) de travail enregistrée(s).": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Terminer « %1$@ » ? %2$lld série(s) de travail enregistrée(s)."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Finish “%@”? %lld working set(s) logged."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Terminer « %1$@ » ? %2$lld série(s) de travail enregistrée(s)."
           }
         }
       }
@@ -12058,16 +12068,16 @@
     },
     "« %@ » du %@": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "« %1$@ » du %2$@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "“%@” from %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "« %1$@ » du %2$@"
           }
         }
       }

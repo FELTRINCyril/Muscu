@@ -29,6 +29,12 @@ struct WatchSessionPayload: Codable, Equatable, Sendable, Identifiable {
     var startedAt: Date
     var durationSeconds: Int
     var sets: [WatchSetPayload]
+    /// Entrainement enregistre dans Sante par la montre pendant cette
+    /// seance (lot 7). Facultatif : absent d'une montre plus ancienne, ou
+    /// sans seance Sante. L'iPhone le relie a la seance importee pour ne
+    /// jamais l'ecrire une seconde fois.
+    var healthWorkoutIdentifier: String?
+    var cardio: WatchCardio?
 
     init(
         version: Int = WatchSessionPayload.currentVersion,
@@ -36,7 +42,9 @@ struct WatchSessionPayload: Codable, Equatable, Sendable, Identifiable {
         sessionName: String,
         startedAt: Date,
         durationSeconds: Int,
-        sets: [WatchSetPayload]
+        sets: [WatchSetPayload],
+        healthWorkoutIdentifier: String? = nil,
+        cardio: WatchCardio? = nil
     ) {
         self.version = version
         self.id = id
@@ -44,6 +52,8 @@ struct WatchSessionPayload: Codable, Equatable, Sendable, Identifiable {
         self.startedAt = startedAt
         self.durationSeconds = durationSeconds
         self.sets = sets
+        self.healthWorkoutIdentifier = healthWorkoutIdentifier
+        self.cardio = cardio
     }
 }
 
@@ -53,4 +63,21 @@ enum WatchTransferKey {
     static let snapshot = "snapshot"
     /// Seance envoyee de la montre vers le telephone.
     static let session = "session"
+    /// Etat de la seance en cours (`WatchMirrorState`), telephone vers
+    /// montre, dans le contexte et en message.
+    static let mirror = "mirror"
+    /// Prochaine seance et ses exercices (`WatchPlanSummary`), dans le
+    /// contexte.
+    static let plan = "plan"
+    /// Commande de la montre (`WatchCommandEnvelope`).
+    static let command = "command"
+    /// Reponse a une commande (`WatchCommandReply`).
+    static let reply = "reply"
+    /// Commande Sante du telephone a la montre hote (`WatchHealthCommand`).
+    static let healthCommand = "healthCommand"
+    /// Confirmation d'un entrainement enregistre par la montre
+    /// (`WatchHealthResult`).
+    static let healthResult = "healthResult"
+    /// Mesures en direct de la montre (`WatchLiveMetrics`).
+    static let metrics = "metrics"
 }

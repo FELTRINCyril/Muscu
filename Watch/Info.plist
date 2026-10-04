@@ -27,6 +27,17 @@
 	<string>com.cyril.Muscu</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
 	<true/>
+	<!-- Seance Sante au poignet (lot 7) : l'application reste active
+	     pendant une seance, et l'iPhone peut la lancer dans une seance
+	     (HKHealthStore.startWatchApp). -->
+	<key>WKBackgroundModes</key>
+	<array>
+		<string>workout-processing</string>
+	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Muscu lit la fréquence cardiaque et l’énergie active mesurées pendant vos séances, pour les afficher au poignet et les ranger avec la séance. Uniquement si vous avez activé Santé dans Muscu.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Muscu enregistre dans l’app Santé les séances suivies à la montre, avec leur fréquence cardiaque et leur énergie active. Uniquement si vous avez activé Santé dans Muscu.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
