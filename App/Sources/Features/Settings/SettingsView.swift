@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MuscuEngine
 import UniformTypeIdentifiers
 
 // Onglet Reglages : chrono, cache d'images, export/import des donnees,
@@ -11,6 +12,13 @@ struct SettingsView: View {
     @AppStorage("soundEnabled") private var soundEnabled = true
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("defaultRestSeconds") private var defaultRestSeconds = 90
+    /// Sans valeur enregistree, le repos « barre » suit celui des autres
+    /// exercices (voir `WorkoutSettings.restDefaults`) : un defaut statique
+    /// d'`@AppStorage` afficherait 90 s alors que le deroule utiliserait
+    /// autre chose. D'ou une lecture par `WorkoutSettings`.
+    @AppStorage(WorkoutSettings.barbellRestKey) private var storedBarbellRestSeconds: Int?
+    @AppStorage(WorkoutSettings.keepsScreenAwakeKey) private var keepsScreenAwake = true
+    @AppStorage(WorkoutSettings.oneRepMaxMaximumRepsKey) private var oneRepMaxMaximumReps = OneRepMaxEstimation.defaultMaximumReps
 
     @State private var cacheSizeBytes: Int64 = 0
     @State private var isDownloadingImages = false
@@ -192,22 +200,48 @@ struct SettingsView: View {
     }
 
     private var chronoSection: some View {
-        Section("Chrono") {
+        Section {
             Toggle("Sons", isOn: $soundEnabled)
             Toggle("Vibrations", isOn: $hapticsEnabled)
             Stepper(
-                "Repos par défaut : \(Self.formatDuration(defaultRestSeconds))",
+                "Repos haltères et machines : \(Self.formatDuration(defaultRestSeconds))",
                 value: $defaultRestSeconds,
                 in: 15...300,
                 step: 15
             )
+            Stepper(
+                "Repos à la barre : \(Self.formatDuration(barbellRestSeconds.wrappedValue))",
+                value: barbellRestSeconds,
+                in: 15...300,
+                step: 15
+            )
+            .accessibilityIdentifier("settings.barbellRest")
+            Toggle("Écran allumé pendant la séance", isOn: $keepsScreenAwake)
+                .accessibilityIdentifier("settings.keepScreenAwake")
+            Stepper(
+                "1RM estimé jusqu’à \(oneRepMaxMaximumReps) répétitions",
+                value: $oneRepMaxMaximumReps,
+                in: OneRepMaxEstimation.allowedMaximumReps
+            )
+            .accessibilityIdentifier("settings.oneRepMaxReps")
             NavigationLink {
                 PlateInventoryView()
             } label: {
                 Text("Disques et barre")
             }
             .accessibilityIdentifier("settings.plates")
+        } header: {
+            Text("Chrono")
+        } footer: {
+            Text("Le repos par défaut s’applique quand l’exercice n’en prescrit pas. Au-delà du plafond de répétitions, une série n’estime plus de 1RM : la formule devient trop imprécise.")
         }
+    }
+
+    private var barbellRestSeconds: Binding<Int> {
+        Binding(
+            get: { storedBarbellRestSeconds ?? defaultRestSeconds },
+            set: { storedBarbellRestSeconds = $0 }
+        )
     }
 
     // MARK: - Images

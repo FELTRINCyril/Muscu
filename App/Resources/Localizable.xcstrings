@@ -321,32 +321,32 @@
     },
     "%@ — 1RM estimé %@ (avant %@)": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ — 1RM estimé %2$@ (avant %3$@)"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ — estimated 1RM %@ (was %@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ — 1RM estimé %2$@ (avant %3$@)"
           }
         }
       }
     },
     "%@ — charge %@ (avant %@)": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ — charge %2$@ (avant %3$@)"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ — load %@ (was %@)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ — charge %2$@ (avant %3$@)"
           }
         }
       }
@@ -385,16 +385,16 @@
     },
     "%@, %@ répétitions": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@, %2$@ répétitions"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@, %@ reps"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@, %2$@ répétitions"
           }
         }
       }
@@ -1161,6 +1161,16 @@
         }
       }
     },
+    "1RM estimé jusqu’à %lld répétitions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Estimated 1RM up to %lld reps"
+          }
+        }
+      }
+    },
     "30-30": {
       "localizations": {
         "en": {
@@ -1669,16 +1679,16 @@
     },
     "Arrondis au palier chargeable le plus proche (%@ %@).": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Arrondis au palier chargeable le plus proche (%1$@ %2$@)."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Rounded to the nearest loadable step (%@ %@)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Arrondis au palier chargeable le plus proche (%1$@ %2$@)."
           }
         }
       }
@@ -5335,6 +5345,16 @@
         }
       }
     },
+    "Le repos par défaut s’applique quand l’exercice n’en prescrit pas. Au-delà du plafond de répétitions, une série n’estime plus de 1RM : la formule devient trop imprécise.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The default rest applies when the exercise does not prescribe one. Beyond the rep cap, a set no longer estimates a 1RM: the formula becomes too imprecise."
+          }
+        }
+      }
+    },
     "Le serveur n’a pas renvoyé une image valide.": {
       "localizations": {
         "en": {
@@ -7813,6 +7833,16 @@
         }
       }
     },
+    "Repos haltères et machines : %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dumbbell and machine rest: %@"
+          }
+        }
+      }
+    },
     "Repos maxi : %lld s": {
       "localizations": {
         "en": {
@@ -7834,11 +7864,22 @@
       }
     },
     "Repos par défaut : %@": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Default rest: %@"
+          }
+        }
+      }
+    },
+    "Repos à la barre : %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Barbell rest: %@"
           }
         }
       }
@@ -10316,6 +10357,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deadline: %@"
+          }
+        }
+      }
+    },
+    "Écran allumé pendant la séance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep screen on during workouts"
           }
         }
       }
