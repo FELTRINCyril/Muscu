@@ -19,7 +19,7 @@ public enum SessionDuration {
         switch exercise.format {
         case .classic:
             let sets = max(1, exercise.setCount)
-            return sets * workSecondsPerSet + max(0, sets - 1) * max(0, exercise.restSeconds)
+            return sets * classicWorkSeconds(for: exercise) + max(0, sets - 1) * max(0, exercise.restSeconds)
 
         case .dropset:
             let sets = max(1, exercise.setCount)
@@ -96,11 +96,22 @@ public enum SessionDuration {
         return max(5, Int((minutes / 5.0).rounded()) * 5)
     }
 
+    /// Travail d'une serie classique : la duree visee pour une serie au
+    /// temps (gainage), sinon l'estimation forfaitaire.
+    private static func classicWorkSeconds(for exercise: WorkoutExercisePlan) -> Int {
+        if exercise.effectiveMeasure.measuresDuration, let target = exercise.targetDurationSeconds, target > 0 {
+            return target
+        }
+        return workSecondsPerSet
+    }
+
     /// Travail d'un seul passage sur l'exercice, sans son repos propre :
     /// dans un groupe, c'est le groupe qui pilote les repos.
     private static func singleRoundSeconds(for exercise: WorkoutExercisePlan) -> Int {
         switch exercise.format {
-        case .classic, .dropset, .restPause, .myoReps:
+        case .classic:
+            return classicWorkSeconds(for: exercise)
+        case .dropset, .restPause, .myoReps:
             return workSecondsPerSet
         case .pyramid:
             return workSecondsPerStep

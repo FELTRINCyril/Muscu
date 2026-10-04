@@ -181,6 +181,13 @@ public struct WorkoutExercisePlan: Codable, Equatable, Sendable, Identifiable {
     public var amrapSeconds: Int
     public var capSeconds: Int
 
+    /// Ce que mesure une serie classique. `nil` = poids x repetitions, ce
+    /// qui garde lisibles les deroules persistes avant l'ajout de ce champ.
+    public var measure: SetMeasure?
+    /// Duree et distance visees par serie, quand la mesure les demande.
+    public var targetDurationSeconds: Int?
+    public var targetDistanceMeters: Double?
+
     public init(
         id: UUID = UUID(),
         exerciseId: String,
@@ -209,7 +216,10 @@ public struct WorkoutExercisePlan: Codable, Equatable, Sendable, Identifiable {
         intervalRounds: Int = 0,
         countdownSeconds: Int = 0,
         amrapSeconds: Int = 0,
-        capSeconds: Int = 0
+        capSeconds: Int = 0,
+        measure: SetMeasure? = nil,
+        targetDurationSeconds: Int? = nil,
+        targetDistanceMeters: Double? = nil
     ) {
         self.id = id
         self.exerciseId = exerciseId
@@ -239,6 +249,9 @@ public struct WorkoutExercisePlan: Codable, Equatable, Sendable, Identifiable {
         self.countdownSeconds = countdownSeconds
         self.amrapSeconds = amrapSeconds
         self.capSeconds = capSeconds
+        self.measure = measure
+        self.targetDurationSeconds = targetDurationSeconds
+        self.targetDistanceMeters = targetDistanceMeters
     }
 
     /// Objectif lisible du format, par exemple « Pyramide 2-4-6-4-2 » ou
