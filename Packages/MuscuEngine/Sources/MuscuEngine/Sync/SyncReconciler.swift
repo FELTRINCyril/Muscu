@@ -11,7 +11,8 @@ import Foundation
 /// 2. une suppression ne gagne que si elle est plus recente que la
 ///    modification concurrente ;
 /// 3. une seance terminee est immuable : elle ne peut qu'apparaitre, jamais
-///    etre reecrite par un autre appareil.
+///    etre reecrite par un autre appareil — sauf correction explicite de
+///    l'utilisateur, ou la plus recente gagne (`SyncRecord.editedAt`).
 public enum SyncReconciler {
     public static func decide(local: SyncRecord?, remote: SyncRecord) -> SyncDecision {
         guard let local else {
@@ -33,9 +34,10 @@ public enum SyncReconciler {
         }
 
         // L'historique termine est immuable : une fois cree, il ne change
-        // plus, sauf suppression explicite plus recente.
+        // plus, sauf suppression explicite plus recente ou CORRECTION
+        // explicite par l'utilisateur — la correction la plus recente gagne.
         if local.kind.isImmutableOnceCreated, !remote.isDeleted, !local.isDeleted {
-            return .noChange
+            return correctionDecision(local: local.editedAt, remote: remote.editedAt)
         }
 
         // « Maximum des performances comparables, PUIS date la plus
@@ -66,6 +68,24 @@ public enum SyncReconciler {
             // Contenus identiques ecrits au meme moment : ce n'est pas un
             // vrai conflit, inutile de deranger l'utilisateur.
             return local.hasSameContent(as: remote) ? .noChange : .conflict
+        }
+    }
+
+    /// Seance terminee des deux cotes : seule une correction fait bouger.
+    /// Sans correction plus recente d'un cote ou de l'autre, rien ne change —
+    /// la regle d'immuabilite d'origine.
+    static func correctionDecision(local: Date?, remote: Date?) -> SyncDecision {
+        switch (local, remote) {
+        case (nil, nil):
+            return .noChange
+        case (nil, .some):
+            return .applyRemote
+        case (.some, nil):
+            return .keepLocal
+        case (let local?, let remote?):
+            if remote > local { return .applyRemote }
+            if local > remote { return .keepLocal }
+            return .noChange
         }
     }
 

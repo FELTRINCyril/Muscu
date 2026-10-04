@@ -49,9 +49,9 @@ public enum SyncEntityKind: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    /// Une seance terminee ne se modifie jamais : une correction produit une
-    /// revision, pas une reecriture. Utile pour refuser tot une mise a jour
-    /// distante incoherente.
+    /// Une seance terminee ne se modifie pas au gre des appareils : seule une
+    /// correction explicite de l'utilisateur (`SyncRecord.editedAt`) peut la
+    /// reecrire. Utile pour refuser tot une mise a jour distante incoherente.
     public var isImmutableOnceCreated: Bool {
         mergeStrategy == .immutableByIdentifier
     }
@@ -76,17 +76,28 @@ public struct SyncRecord: Codable, Equatable, Sendable {
     /// `nil` pour toutes les autres natures : elles n'ont pas de performance
     /// a comparer, et la date reste le bon depart.
     public var comparableValue: Double?
+    /// Derniere correction d'une seance terminee par l'utilisateur
+    /// (`CompletedSession.editedAt`). `nil` = jamais corrigee, et pour toutes
+    /// les autres natures.
+    ///
+    /// Une seance terminee est immuable pour la synchronisation, SAUF
+    /// correction explicite : la correction la plus recente gagne. Cle
+    /// facultative : un appareil anterieur l'ignore et garde sa version
+    /// (cf. decision 0014).
+    public var editedAt: Date?
 
     public init(
         kind: SyncEntityKind,
         metadata: SyncMetadata,
         payload: Data,
-        comparableValue: Double? = nil
+        comparableValue: Double? = nil,
+        editedAt: Date? = nil
     ) {
         self.kind = kind
         self.metadata = metadata
         self.payload = payload
         self.comparableValue = comparableValue
+        self.editedAt = editedAt
     }
 
     public var identifier: UUID { metadata.identifier }

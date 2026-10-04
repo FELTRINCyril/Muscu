@@ -8,19 +8,23 @@ public struct HealthSyncSession: Equatable, Sendable, Identifiable {
     public let activeEnergyKilocalories: Double?
     /// Seance supprimee cote Muscu : son entrainement Sante doit suivre.
     public let isDeleted: Bool
+    /// Derniere correction par l'utilisateur. `nil` = jamais corrigee.
+    public let editedAt: Date?
 
     public init(
         id: UUID,
         startDate: Date,
         durationSeconds: Int,
         activeEnergyKilocalories: Double? = nil,
-        isDeleted: Bool = false
+        isDeleted: Bool = false,
+        editedAt: Date? = nil
     ) {
         self.id = id
         self.startDate = startDate
         self.durationSeconds = durationSeconds
         self.activeEnergyKilocalories = activeEnergyKilocalories
         self.isDeleted = isDeleted
+        self.editedAt = editedAt
     }
 }
 
@@ -29,11 +33,27 @@ public struct HealthSyncLink: Equatable, Sendable {
     public let completedSessionId: UUID
     public let workoutIdentifier: String
     public let isDeleted: Bool
+    /// Date d'ecriture de l'entrainement dans Sante. `nil` = inconnue.
+    public let writtenAt: Date?
 
-    public init(completedSessionId: UUID, workoutIdentifier: String, isDeleted: Bool = false) {
+    public init(completedSessionId: UUID, workoutIdentifier: String, isDeleted: Bool = false, writtenAt: Date? = nil) {
         self.completedSessionId = completedSessionId
         self.workoutIdentifier = workoutIdentifier
         self.isDeleted = isDeleted
+        self.writtenAt = writtenAt
+    }
+}
+
+/// Entrainement Sante a remplacer : la seance a ete corrigee apres son
+/// ecriture (horaires, duree). HealthKit ne permet pas de modifier un
+/// entrainement enregistre ; on retire l'ancien et on ecrit le nouveau.
+public struct HealthSyncReplacement: Equatable, Sendable {
+    public let session: HealthSyncSession
+    public let previousWorkoutIdentifier: String
+
+    public init(session: HealthSyncSession, previousWorkoutIdentifier: String) {
+        self.session = session
+        self.previousWorkoutIdentifier = previousWorkoutIdentifier
     }
 }
 
@@ -45,13 +65,21 @@ public struct HealthSyncPlan: Equatable, Sendable {
     public let toDelete: [String]
     /// Seances deja ecrites : rien a faire. Conserve pour rendre compte.
     public let alreadyWritten: [UUID]
+    /// Seances corrigees apres leur ecriture : entrainement a remplacer.
+    public let toReplace: [HealthSyncReplacement]
 
-    public var isEmpty: Bool { toWrite.isEmpty && toDelete.isEmpty }
+    public var isEmpty: Bool { toWrite.isEmpty && toDelete.isEmpty && toReplace.isEmpty }
 
-    public init(toWrite: [HealthSyncSession], toDelete: [String], alreadyWritten: [UUID]) {
+    public init(
+        toWrite: [HealthSyncSession],
+        toDelete: [String],
+        alreadyWritten: [UUID],
+        toReplace: [HealthSyncReplacement] = []
+    ) {
         self.toWrite = toWrite
         self.toDelete = toDelete
         self.alreadyWritten = alreadyWritten
+        self.toReplace = toReplace
     }
 }
 
@@ -79,6 +107,7 @@ public enum HealthSyncPlanner {
         var toWrite: [HealthSyncSession] = []
         var toDelete: [String] = []
         var alreadyWritten: [UUID] = []
+        var toReplace: [HealthSyncReplacement] = []
 
         for session in sessions {
             let link = linkBySession[session.id]
@@ -90,7 +119,22 @@ public enum HealthSyncPlanner {
                 continue
             }
 
-            if link != nil {
+            if let link {
+                // Corrigee APRES l'ecriture : l'entrainement Sante ne decrit
+                // plus la seance. Une correction anterieure a l'ecriture est
+                // deja dedans.
+                if let editedAt = session.editedAt, let writtenAt = link.writtenAt, editedAt > writtenAt {
+                    if session.durationSeconds >= minimumDurationSeconds {
+                        toReplace.append(HealthSyncReplacement(
+                            session: session,
+                            previousWorkoutIdentifier: link.workoutIdentifier
+                        ))
+                    } else {
+                        // Devenue trop courte pour etre un entrainement.
+                        toDelete.append(link.workoutIdentifier)
+                    }
+                    continue
+                }
                 alreadyWritten.append(session.id)
                 continue
             }
@@ -109,7 +153,8 @@ public enum HealthSyncPlanner {
         return HealthSyncPlan(
             toWrite: toWrite.sorted { $0.startDate < $1.startDate },
             toDelete: toDelete.sorted(),
-            alreadyWritten: alreadyWritten
+            alreadyWritten: alreadyWritten,
+            toReplace: toReplace.sorted { $0.session.startDate < $1.session.startDate }
         )
     }
 }
