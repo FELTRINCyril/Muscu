@@ -25,6 +25,25 @@ Skulpt sont sous GPL-3.0 : **idées uniquement, aucune ligne de code reprise**.
 | 7 | Apple Watch : vraie séance (HKWorkoutSession, cardio), exercice courant reçu de l'iPhone, repos au poignet, synchro dans les deux sens | les quatre |
 | 8 | Bibliothèque et analyses : fusion de doublons, exercices habituels en tête, score de force et records du mois, statistiques par exercice, lien de démo personnel ; sauvegardes automatiques avec restauration ; test de rejeu de la progression | Ischys, UpLift, Skulpt, Iron |
 
+## État final (04/10/2026)
+
+Les huit lots sont livrés sur la branche, chacun avec sa décision
+d'architecture, ses tests (moteur et tests unitaires de l'application) et son
+entrée dans `CHANGELOG.md`. « À vérifier sur appareil » désigne ce que le
+simulateur ne sait pas démontrer : le code est compilé et testé, son
+comportement réel reste à constater.
+
+| Lot | État | Décision | Ce qui reste |
+|---|---|---|---|
+| 1 | **Livré** | 0011 | — Schéma v7 (dix attributs facultatifs, migration légère) et corrections rapides. |
+| 2 | **Livré** | 0012 | Bips de fin de repos joués application ouverte seulement (en arrière-plan, la notification de fin de repos prend le relais). |
+| 3 | **Livré** | 0013 | Limite assumée : le chronomètre d'une série au temps n'est pas persisté (un arrêt brutal perd le temps écoulé, saisie manuelle possible) ; le repos réel inclut l'exécution de la série précédente. |
+| 4 | **Livré** | 0014 | Suppression d'une séance toujours physique (non propagée par la synchronisation) ; temps actif approché (début réel d'une série inconnu). |
+| 5 | **Livré — à vérifier sur appareil** | 0015 | Séance Santé en direct (iOS 26+), fréquence cardiaque d'un capteur, reprise après arrêt brutal, enregistrement écran verrouillé : à constater sur un iPhone sous iOS 26 avec montre ou capteur. |
+| 6 | **Livré — à vérifier sur appareil** | 0016 | Boutons de la Live Activity (écran verrouillé, Dynamic Island, relance en arrière-plan), péremption, phrases Siri et liens des widgets : à constater sur appareil. |
+| 7 | **Livré — à vérifier sur appareil** | 0017 | Tout l'échange iPhone ↔ montre (messages, `startWatchApp`, partage de la séance Santé, cardio réel, Digital Crown, complication) : à constater avec un iPhone et une Apple Watch appairés. |
+| 8 | **Livré** | 0018 | Sauvegardes visibles dans Fichiers et écriture au passage en arrière-plan à constater sur appareil ; « même identifiant d'import » interprété comme la convention de nom « Exercice (Matériel) », Muscu ne stockant pas d'identifiant d'import par exercice ; aucun niveau de force (novice / élite) faute de table de référence sourcée. |
+
 ## Écarté
 
 - **Carte musculaire du corps** : demande des silhouettes anatomiques dessinées ;

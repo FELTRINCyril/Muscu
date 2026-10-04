@@ -151,6 +151,24 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   filtres cumulables (muscle, matériel, catégorie, difficulté, tags, lieu),
   favoris, tags personnels et collections. Les annotations personnelles vivent
   à part du catalogue, qui reste en lecture seule.
+  - **Habituels** en tête de la bibliothèque et du sélecteur d'exercice :
+    classés selon la fréquence et la récence de vos séances (une séance d'il y
+    a 30 jours compte pour moitié) ; l'ordre alphabétique reste inchangé
+    dessous.
+  - **Doublons** : un exercice personnalisé ou importé qui recoupe le
+    catalogue ou un autre exercice (même nom, même nom d'import « Exercice
+    (Matériel) », noms proches) est proposé à la fusion, paire par paire et
+    après confirmation. Tout l'historique rejoint l'exercice conservé (séries,
+    records — le meilleur des deux —, programmes, modèles, favoris, tags,
+    collections, objectifs) ; le doublon est masqué et redirigé, jamais
+    supprimé brutalement, et la redirection voyage par l'export et la
+    synchronisation.
+  - **Fiche exercice** : statistiques sur 4 / 12 semaines ou tout l'historique
+    (meilleur 1RM estimé, force relative au poids de corps connu à la date,
+    intensité moyenne en % du 1RM, charge moyenne), formules affichées, sans
+    niveau « débutant / élite » inventé ; **lien de démonstration personnel**
+    (http/https uniquement) ouvert dans le navigateur, la recherche vidéo
+    restant proposée en repli.
 - **Modèles** : enregistrer une séance ou un programme comme modèle, y compris
   depuis une séance terminée — sans recopier les charges ni les répétitions
   réalisées. Duplication, versions, archivage et partage par fichier.
@@ -219,6 +237,12 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
     **unité, sa période, sa formule** et le nombre de séries dont la donnée
     manque — « zéro » et « donnée absente » ne sont jamais confondus. Chacun
     expose une alternative textuelle lue par VoiceOver.
+  - **Indice de force** : somme des meilleurs 1RM estimés de vos cinq
+    exercices principaux sur la période, tendance ↑ / ↓ / = (zone neutre de
+    ±1 %) face à la période précédente sur les exercices présents dans les
+    deux ; un exercice sans donnée est exclu et nommé, jamais compté à zéro.
+  - **Records du mois** : chaque exercice chargé du mois avec une barre
+    « meilleure charge du mois / record historique », records battus en tête.
   - **Mesures corporelles** : poids, tours de taille/poitrine/bras/cuisse et
     autres, avec date, unité, source et commentaire.
   - **Objectifs** : fréquence, séries hebdomadaires par muscle ou poids visé,
@@ -235,6 +259,12 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   - L'import propose **Fusionner** ou **Remplacer**. Le remplacement crée
     d'abord une sauvegarde de sécurité et restaure automatiquement si l'import
     échoue : rien n'est irréversible.
+  - **Sauvegardes automatiques** (désactivées par défaut) : au plus une fois
+    par jour, au passage en arrière-plan ou après une séance terminée, l'export
+    JSON complet est écrit dans l'app Fichiers (Sur mon iPhone › Muscu ›
+    Sauvegardes) ; les sept plus récentes sont gardées. Écran « Sauvegardes »
+    avec date, taille, **Restaurer** (import en mode Remplacer) et
+    **Partager**. Les photos de progression en restent exclues.
 - **Multi-appareils** : application universelle iPhone / iPad / Mac Catalyst,
   avec onglets en largeur compacte et barre latérale en largeur régulière
   (raccourcis ⌘1–⌘5). Les deux présentations affichent les mêmes écrans.

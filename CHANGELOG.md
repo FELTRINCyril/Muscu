@@ -110,6 +110,34 @@
 - Correction : une séance faite à la montre seule était refusée par l'iPhone
   (dates encodées en secondes, lues en ISO 8601). Les deux formats sont
   désormais acceptés.
+- Bibliothèque (lot 8) : section « Habituels » en tête de la bibliothèque et
+  du sélecteur d'exercice, classée par fréquence × récence (demi-vie de
+  30 jours). Les favoris ne changent pas.
+- Fusion des exercices en double (lot 8) : détection par même nom normalisé,
+  même nom d'import « Exercice (Matériel) » ou noms proches ; écran
+  « Doublons » avec confirmation par paire, choix de l'exercice conservé entre
+  deux exercices personnalisés, paire écartable. La fusion réaffecte séries,
+  records (le meilleur des deux, sans régression), prescriptions, modèles,
+  annotations de bibliothèque, collections, objectifs, exclusions du profil
+  et journal d'adaptation, en une sauvegarde ; le doublon est redirigé
+  (`mergedIntoExerciseId`), et la redirection est réappliquée après une
+  synchronisation, un import et au lancement (décision 0018).
+- Graphiques (lot 8) : cartes « Indice de force » (somme des meilleurs 1RM
+  estimés des exercices principaux, tendance ±1 %, exercices sans donnée
+  exclus et annoncés) et « Records du mois » (barre meilleure charge du mois /
+  record historique).
+- Fiche exercice (lot 8) : statistiques (meilleur 1RM estimé, force relative
+  au poids de corps à la date, intensité moyenne, charge moyenne, formules et
+  période affichées) et lien de démonstration personnel validé (http/https),
+  la recherche vidéo restant en repli.
+- Sauvegardes automatiques (lot 8, désactivées par défaut) : export JSON
+  complet écrit au plus une fois par jour dans le dossier Documents (visible
+  dans Fichiers), rotation des sept dernières, écran « Sauvegardes » avec
+  Restaurer (import Remplacer, sauvegarde de sécurité préalable) et Partager.
+- Outil de développement (lot 8) : rejeu de `ProgressionEngine` sur
+  plusieurs semaines d'un athlète simulé (déterministe), invariants vérifiés
+  par les tests (aucune hausse > 10 %, aucune hausse après un échec, décharge
+  au 3e échec) et taux de hausses mesuré.
 
 ### Écosystème Apple (phase 7)
 

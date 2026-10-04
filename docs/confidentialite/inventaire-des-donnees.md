@@ -4,7 +4,7 @@ Ce document décrit ce que Muscu enregistre, où, pourquoi et pour combien de
 temps. Il doit rester **fidèle au code** : toute donnée ajoutée au modèle y est
 ajoutée ici, et la fiche de confidentialité App Store en découle.
 
-Dernière vérification : 04/10/2026, modèle v7 (lot 5 : Santé).
+Dernière vérification : 04/10/2026, modèle v7 (lot 8 : sauvegardes automatiques).
 
 ## Principe
 
@@ -29,6 +29,9 @@ Aucun SDK publicitaire, aucun traqueur, aucun service d'analyse tiers.
 | Journal d'adaptation | Base locale | Rendre chaque progression explicable et annulable | Idem |
 | **Photos de progression** | **Fichiers, hors base** | Suivi visuel | Jusqu'à suppression ; dossier exclu de la sauvegarde iCloud |
 | Cache d'images d'exercices | Fichiers | Affichage hors ligne | Borné à 250 Mo, vidable depuis Réglages |
+| **Sauvegardes automatiques** (export JSON complet, **sans les photos**) | Dossier Documents, **visible dans l'app Fichiers** (`Sauvegardes`) ; inclus dans la sauvegarde de l'appareil comme la base | Pouvoir revenir en arrière sans export manuel | **Désactivées par défaut** ; au plus une par jour, les 7 plus récentes gardées ; supprimables depuis Fichiers |
+| Sauvegardes de sécurité avant un import « Remplacer » | Application Support, hors de Fichiers | Restaurer si l'import échoue | Les 5 plus récentes |
+| Lien de démonstration personnel d'un exercice, paires de doublons écartées | Base locale / `UserDefaults` | Ouvrir sa vidéo de référence ; ne plus reproposer une paire | Jusqu'à suppression |
 | Instantané des widgets | Groupe d'applications | Alimenter les widgets et la montre | Réécrit à chaque changement, effacé avec les données |
 | Rappels programmés | Centre de notifications + base locale | Ne pas reprogrammer un rappel supprimé | Jusqu'à désactivation |
 | Liens vers l'app Santé (identifiant de l'entraînement, horaires et note d'effort écrits, identifiant de l'échantillon d'effort) | Base locale, non synchronisés | Éviter d'écrire deux fois la même séance ; mettre à jour la note d'effort | Jusqu'à suppression |
@@ -43,6 +46,8 @@ Aucun SDK publicitaire, aucun traqueur, aucun service d'analyse tiers.
 | Destination | Contenu | Condition |
 | --- | --- | --- |
 | Fichier d'export JSON | Tout le modèle **sauf les photos** | Action explicite (Réglages → Exporter) |
+| Sauvegarde automatique (même contenu que l'export) | Reste sur l'appareil, dans Fichiers ; ne part ailleurs que si l'utilisateur la partage | Réglage « Sauvegarde automatique » activé (désactivé par défaut) ; « Partager » est une action explicite |
+| Lien de démonstration | Ouvert dans le navigateur (`http`/`https` uniquement) | Tap explicite sur « Ma démonstration » |
 | Fichiers CSV | Séances, séries, mesures, check-in | Action explicite |
 | App Santé (écriture) | Séances terminées (en direct sur iOS 26+, après coup sinon), note d'effort reliée à l'entraînement, poids corporel (si activé), fréquence cardiaque et énergie active mesurées par un capteur pendant une séance en direct | Interrupteur activé **et** autorisation système accordée, type par type |
 | App Calendrier | Titre et horaire des séances planifiées | Action explicite, calendrier choisi par l'utilisateur |
@@ -98,7 +103,9 @@ Deux limites, dites explicitement dans l'interface :
   l'utilisateur ;
 - `NSPrivacyTrackingDomains` : vide ;
 - `NSPrivacyAccessedAPITypes` : `UserDefaults` avec la raison `CA92.1`
-  (préférences de l'application elle-même).
+  (préférences de l'application elle-même) et dates de fichiers avec la raison
+  `C617.1` (fichiers du conteneur de l'app : classement des sauvegardes,
+  automatiques comprises).
 
 HealthKit, les notifications, le calendrier et la photothèque ne figurent pas
 dans les API à raison déclarée : ils sont encadrés par des autorisations

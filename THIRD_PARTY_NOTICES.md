@@ -53,6 +53,21 @@ guard, single Health host, set linking) in `Watch/WatchHealthSession.swift`,
 `Watch/WatchConnectivityService.swift`, `Watch/WatchMirrorView.swift` and
 `Shared/WatchMirror.swift`.
 
+Adapted from Ischys (`frontend/src/lib/mergeDuplicates.ts`,
+`app/merge-duplicates.tsx`, `src/domain/exerciseRanking.ts`): duplicate
+exercise detection reasons (same normalized name, shared import identity,
+similar name gated by equipment and muscles, token subset), survivor choice
+(catalog first, then more history), best-of record reconciliation with ties
+kept by the survivor, per-pair manual confirmation, and the frequency ×
+recency "usual exercises" ranking with exponential half-life decay. Rewritten
+for Muscu (catalog entries are never merged, only targets; merged exercises
+are redirected rather than deleted; Damerau-Levenshtein and the existing
+import naming convention; half-life of 30 days summed per session) in
+`Packages/MuscuEngine/Sources/MuscuEngine/Library/DuplicateExercises.swift`,
+`Library/ExerciseMerge.swift`, `Library/ExerciseRanking.swift`,
+`App/Sources/Services/ExerciseMergeService.swift` and
+`App/Sources/Features/Exercises/MergeDuplicatesView.swift`.
+
 ```
 MIT License
 
@@ -104,6 +119,19 @@ deployment (iOS 26+ availability checks, Mac Catalyst excluded), crash
 recovery (`recoverActiveWorkoutSession`), linking to the existing duplicate
 protection, and hiding the heart rate instead of showing zero.
 
+Inspired by UpLift (`ViewModels/ProgressDashboardViewModel.swift`,
+`Views/Progress/PRsThisMonthCard.swift`, `progression-lab/Simulation/ReplayEngine.swift`):
+the strength score as a sum of best estimated one-rep maxes with a trend
+against the previous period, the "PRs this month" card, and replaying the
+progression algorithm over a history with the history available before each
+session. Rewritten for Muscu in kilograms (no code copied) with the existing
+`SetMetrics` eligibility rules, a ±1 % neutral zone, explicit exclusion of
+exercises without data, and a deterministic simulated athlete with safety
+invariants, in
+`Packages/MuscuEngine/Sources/MuscuEngine/Analytics/StrengthDashboard.swift`,
+`Packages/MuscuEngine/Sources/MuscuEngine/Programming/ProgressionReplay.swift`
+and `App/Sources/Features/Progress/ChartsView.swift`.
+
 ```
 MIT License
 
@@ -127,3 +155,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Ideas only (GPL-3.0, no code)
+
+Iron and Skulpt are GPL-3.0 licensed. Muscu reuses **ideas only** from them,
+never code: automatic daily backups with rotation and restore (Iron), and
+per-exercise relative strength, average intensity and average load
+statistics (Skulpt). These features were written from scratch in
+`Packages/MuscuEngine/Sources/MuscuEngine/Backup/AutoBackupPolicy.swift`,
+`App/Sources/Services/AutoBackupService.swift`,
+`Packages/MuscuEngine/Sources/MuscuEngine/Analytics/ExerciseStatistics.swift`
+and `App/Sources/Features/Exercises/ExerciseInsightsViews.swift`.
