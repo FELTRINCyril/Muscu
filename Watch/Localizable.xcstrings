@@ -30,16 +30,16 @@
     },
     "%@ · %@ %@ × %lld": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ · %2$@ %3$@ × %4$lld"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ · %@ %@ × %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · %2$@ %3$@ × %4$lld"
           }
         }
       }
@@ -85,6 +85,7 @@
       }
     },
     "+%@": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -94,12 +95,33 @@
         }
       }
     },
+    "+15 s": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+15 s"
+          }
+        }
+      }
+    },
     "+30 s": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "+30 s"
+          }
+        }
+      }
+    },
+    "Ajouter 15 secondes au repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add 15 seconds to the rest"
           }
         }
       }
@@ -385,11 +407,22 @@
       }
     },
     "Repos terminé": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Rest over"
+          }
+        }
+      }
+    },
+    "Retirer 15 secondes au repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove 15 seconds from the rest"
           }
         }
       }
@@ -470,16 +503,16 @@
     },
     "Série %lld/%lld": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Série %1$lld/%2$lld"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Set %lld/%lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Série %1$lld/%2$lld"
           }
         }
       }
@@ -610,6 +643,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "×"
+          }
+        }
+      }
+    },
+    "−15 s": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "−15 s"
           }
         }
       }

@@ -2,13 +2,22 @@ import Foundation
 
 /// Ce que la Live Activity d'une seance en cours peut proposer.
 ///
-/// Un bouton « Valider la série » sur l'ecran verrouille valide SANS saisie.
-/// Il n'est donc propose que lorsque la serie est entierement connue
-/// d'avance : serie classique poids x repetitions, charge ET repetitions
-/// proposees. Dans tous les autres cas (palier de dropset, mini-serie,
-/// serie au temps, charge inconnue, 1RM manquant...), la Live Activity
-/// propose d'ouvrir l'application plutot que d'enregistrer une valeur
-/// inventee.
+/// « Valider » sur l'ecran verrouille enregistre EXACTEMENT ce que l'ecran
+/// de saisie de l'application pre-remplit : l'utilisateur qui veut autre
+/// chose ouvre l'application (un tap sur le bandeau suffit). Le bouton est
+/// donc propose des qu'une serie est a faire et que la saisie de
+/// l'application se valide sans rien taper :
+///
+/// - serie classique, dropset, rest-pause, myo-reps (paliers compris) :
+///   charge et repetitions pre-remplies, telles quelles. Une charge que
+///   l'application laisse a zero (aucune charge connue, 1RM manquant) est
+///   validee a zero, comme le ferait « Valider » dans l'application ;
+///   l'utilisateur la corrige dans l'historique ;
+/// - pyramide : les repetitions du palier courant, fixees a la creation, au
+///   poids du corps (meme chemin que `logPyramidStep`) ;
+/// - serie au temps ou a la distance, formats chronometres (intervalles,
+///   EMOM, AMRAP, For Time) : rien, il n'y a pas de valeur a valider sans
+///   saisie. Aucun bouton n'est alors affiche.
 ///
 /// Idee de la validation depuis l'ecran verrouille : Ischys (MIT). Aucun
 /// code repris, la logique est propre a Muscu.
@@ -17,47 +26,52 @@ public enum LiveActivityPlanning {
     public struct SetProposal: Equatable, Sendable {
         public var weightKilograms: Double
         public var reps: Int
+        /// Palier de pyramide : enregistre par le chemin de la pyramide.
+        public var isPyramidStep: Bool
 
-        public init(weightKilograms: Double, reps: Int) {
+        public init(weightKilograms: Double, reps: Int, isPyramidStep: Bool = false) {
             self.weightKilograms = weightKilograms
             self.reps = reps
+            self.isPyramidStep = isPyramidStep
         }
     }
 
-    /// Serie validable d'un tap, ou `nil` si une saisie est necessaire.
+    /// Serie validable d'un tap, ou `nil` si la serie ne se valide pas sans
+    /// saisie (temps, distance, format chronometre).
     ///
     /// - Parameters:
-    ///   - proposedWeightKilograms: charge que l'application pre-remplirait.
-    ///     `nil` = charge inconnue, jamais confondue avec zero.
-    ///   - proposedReps: repetitions que l'application pre-remplirait,
-    ///     `nil` si elles ne sont pas connues.
-    ///   - needsReferenceValue: la charge ou les repetitions dependent d'un
-    ///     1RM ou d'un maximum de repetitions qui n'a pas ete renseigne.
+    ///   - prefillWeightKilograms: charge pre-remplie par l'ecran de saisie
+    ///     (`WorkoutState.prefillWeight`), zero compris.
+    ///   - prefillReps: repetitions pre-remplies (`WorkoutState.prefillReps`).
     public static func quickLogProposal(
         for target: WorkoutSetTarget,
-        proposedWeightKilograms: Double?,
-        proposedReps: Int?,
-        needsReferenceValue: Bool
+        prefillWeightKilograms: Double,
+        prefillReps: Int
     ) -> SetProposal? {
         let exercise = target.exercise
-        guard exercise.format == .classic,
-              !target.isSubSet,
-              exercise.effectiveMeasure == .weightReps,
-              !needsReferenceValue,
-              let reps = proposedReps, reps > 0 else { return nil }
-
-        // Au poids du corps, zero est la charge attendue : c'est une valeur,
-        // pas une absence. Partout ailleurs, une charge nulle signifie
-        // qu'aucune charge n'est connue.
-        switch exercise.loadKind {
-        case .bodyweight:
-            let weight = proposedWeightKilograms ?? 0
-            guard weight >= 0, weight.isFinite else { return nil }
-            return SetProposal(weightKilograms: weight, reps: reps)
-        case .external, .weighted, .assisted, .unknown:
-            guard let weight = proposedWeightKilograms, weight > 0, weight.isFinite else { return nil }
-            return SetProposal(weightKilograms: weight, reps: reps)
+        switch exercise.format {
+        case .intervals, .emom, .amrap, .forTime:
+            return nil
+        case .pyramid:
+            // Les repetitions du palier sont celles de la pyramide : le
+            // deroule les affiche et les pre-remplit, sans charge.
+            let reps = target.targetRepsLower
+            guard reps > 0 else { return nil }
+            return SetProposal(weightKilograms: 0, reps: reps, isPyramidStep: true)
+        case .classic, .dropset, .restPause, .myoReps:
+            guard exercise.effectiveMeasure == .weightReps,
+                  prefillReps > 0,
+                  prefillWeightKilograms >= 0, prefillWeightKilograms.isFinite else { return nil }
+            return SetProposal(weightKilograms: prefillWeightKilograms, reps: prefillReps)
         }
+    }
+
+    /// Palier de montee en charge a valider pendant l'echauffement guide :
+    /// le premier qui n'est pas encore coche, comme la liste de l'ecran
+    /// d'echauffement. `nil` si tout est fait (ou rien n'est prevu).
+    public static func nextWarmupRampIndex(rampCount: Int, loggedIndexes: Set<Int>) -> Int? {
+        guard rampCount > 0 else { return nil }
+        return (0..<rampCount).first { !loggedIndexes.contains($0) }
     }
 
     /// Etape qui suivra la validation de la serie courante.

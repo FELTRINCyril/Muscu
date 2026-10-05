@@ -86,9 +86,12 @@ enum WorkoutActivityController {
     }
 
     /// Pendant un repos, l'activite devient « perimee » a la fin prevue :
-    /// le systeme la redessine alors, et elle passe du decompte au
-    /// depassement (« +0:12 ») meme si l'application est suspendue. Hors
-    /// repos, la peremption de quatre heures s'applique.
+    /// le systeme la redessine alors et retire la ligne du repos, meme si
+    /// l'application est suspendue. Ce redessin peut tarder de quelques
+    /// secondes : le contenu affiche pendant le repos reste donc juste
+    /// jusque-la (serie suivante et « Valider » deja visibles, decompte
+    /// arrete a 0:00). Hors repos, la peremption de quatre heures
+    /// s'applique.
     static func staleDate(for state: WorkoutActivityState, now: Date) -> Date? {
         if let restEndsAt = state.restEndsAt, restEndsAt > now {
             return restEndsAt

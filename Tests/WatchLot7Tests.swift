@@ -113,12 +113,16 @@ final class WatchLot7Tests: XCTestCase {
         XCTAssertEqual(mirror.healthHost, .afterTheFact)
     }
 
-    func testAnUnknownLoadIsNeverProposedAtTheWrist() throws {
+    func testAnUnknownLoadIsProposedAsTheLoggerPrefillsIt() throws {
         let session = try makeSession()
         let state = makeState(session)
         let mirror = WatchMirrorPublisher.state(for: state)
-        XCTAssertNil(mirror.plannedWeightKilograms)
-        XCTAssertFalse(mirror.canLogFromWatch)
+        // Meme valeur que la saisie de l'application : champ a zero.
+        let target = try XCTUnwrap(state.currentTarget)
+        XCTAssertEqual(state.prefillWeight(for: target), 0)
+        XCTAssertEqual(mirror.plannedWeightKilograms, 0)
+        XCTAssertEqual(mirror.plannedReps, 10)
+        XCTAssertTrue(mirror.canLogFromWatch)
     }
 
     func testTheWarmupAndTheEndAreSaidAsSuch() throws {
@@ -181,9 +185,17 @@ final class WatchLot7Tests: XCTestCase {
         XCTAssertTrue(state.logProposedSet(slotKey: state.liveActivitySlotKey))
         let end = try XCTUnwrap(restTimer.endDate)
 
-        let extended = await WatchCommandHandler.handle(envelope(.extendRest(seconds: 30)))
+        let extended = await WatchCommandHandler.handle(envelope(.adjustRest(seconds: 15)))
         XCTAssertNil(extended.rejection)
-        XCTAssertEqual(try XCTUnwrap(restTimer.endDate).timeIntervalSince(end), 30, accuracy: 1)
+        XCTAssertEqual(try XCTUnwrap(restTimer.endDate).timeIntervalSince(end), 15, accuracy: 1)
+
+        let shortened = await WatchCommandHandler.handle(envelope(.adjustRest(seconds: -15)))
+        XCTAssertNil(shortened.rejection)
+        XCTAssertEqual(try XCTUnwrap(restTimer.endDate).timeIntervalSince(end), 0, accuracy: 1)
+
+        let refused = await WatchCommandHandler.handle(envelope(.adjustRest(seconds: 30)))
+        XCTAssertEqual(refused.rejection, .invalidValues)
+        XCTAssertEqual(try XCTUnwrap(restTimer.endDate).timeIntervalSince(end), 0, accuracy: 1)
 
         let skipped = await WatchCommandHandler.handle(envelope(.skipRest))
         XCTAssertNil(skipped.rejection)
@@ -193,12 +205,17 @@ final class WatchLot7Tests: XCTestCase {
         XCTAssertEqual(again.rejection, .noRest)
     }
 
-    func testAnUnknownLoadIsRefusedRatherThanLoggedAtZero() async throws {
+    func testAnUnknownLoadIsLoggedLikeTheAppButton() async throws {
         let session = try makeSession()
         let state = makeState(session)
         let reply = await WatchCommandHandler.handle(envelope(.logSet(slotKey: state.liveActivitySlotKey, weightKilograms: 0, reps: 10)))
-        XCTAssertEqual(reply.rejection, .needsPhone)
-        XCTAssertTrue(state.loggedSets.isEmpty)
+        XCTAssertNil(reply.rejection)
+        XCTAssertEqual(state.loggedSets.first?.weight, 0)
+        XCTAssertEqual(state.loggedSets.first?.reps, 10)
+    }
+
+    func testAStepOfTheWatchMatchesTheEngine() {
+        XCTAssertEqual(WatchCommandPolicy.restStepSeconds, RestAdjustment.stepSeconds)
     }
 
     func testTheWarmupCanBeSkippedFromTheWatch() async throws {
@@ -255,7 +272,7 @@ final class WatchLot7Tests: XCTestCase {
         slot: String = "slot",
         canQuickLog: Bool = true,
         resting: Bool = false,
-        canExtend: Bool = false,
+        canAdjust: Bool = false,
         hasNext: Bool = true
     ) -> WatchCommandContext {
         WatchCommandContext(
@@ -264,7 +281,7 @@ final class WatchLot7Tests: XCTestCase {
             slotKey: slot,
             canQuickLog: canQuickLog,
             isResting: resting,
-            canExtendRest: canExtend,
+            canAdjustRest: canAdjust,
             hasNextSession: hasNext
         )
     }
@@ -291,9 +308,11 @@ final class WatchLot7Tests: XCTestCase {
 
         XCTAssertEqual(WatchCommandPolicy.evaluate(envelope(.skipRest), in: context(resting: true)), .perform)
         XCTAssertEqual(WatchCommandPolicy.evaluate(envelope(.skipRest), in: context()), .reject(.noRest))
-        XCTAssertEqual(WatchCommandPolicy.evaluate(envelope(.extendRest(seconds: 30)), in: context(resting: true, canExtend: true)), .perform)
-        XCTAssertEqual(WatchCommandPolicy.evaluate(envelope(.extendRest(seconds: 30)), in: context(resting: true)), .reject(.noRest))
-        XCTAssertEqual(WatchCommandPolicy.evaluate(envelope(.extendRest(seconds: 90)), in: context(canExtend: true)), .reject(.invalidValues))
+        XCTAssertEqual(WatchCommandPolicy.evaluate(envelope(.adjustRest(seconds: 15)), in: context(resting: true, canAdjust: true)), .perform)
+        XCTAssertEqual(WatchCommandPolicy.evaluate(envelope(.adjustRest(seconds: -15)), in: context(resting: true, canAdjust: true)), .perform)
+        XCTAssertEqual(WatchCommandPolicy.evaluate(envelope(.adjustRest(seconds: 15)), in: context(resting: true)), .reject(.noRest))
+        XCTAssertEqual(WatchCommandPolicy.evaluate(envelope(.adjustRest(seconds: 30)), in: context(canAdjust: true)), .reject(.invalidValues))
+        XCTAssertEqual(WatchCommandPolicy.evaluate(envelope(.adjustRest(seconds: 90)), in: context(canAdjust: true)), .reject(.invalidValues))
         XCTAssertEqual(WatchCommandPolicy.evaluate(envelope(.finishWarmup), in: context(phase: .warmup)), .perform)
         XCTAssertEqual(WatchCommandPolicy.evaluate(envelope(.finishWarmup), in: context()), .reject(.staleSet))
 

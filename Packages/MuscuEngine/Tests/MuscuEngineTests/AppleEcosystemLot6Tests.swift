@@ -41,63 +41,119 @@ private func target(for exercise: WorkoutExercisePlan, setNumber: Int = 1, subSe
 
 @Suite("Live Activity : validation d'un tap")
 struct LiveActivityQuickLogTests {
-    @Test("Série classique connue : validable avec les valeurs proposées")
+    @Test("Série classique : les valeurs pré-remplies par la saisie")
     func classicKnownSet() {
         let proposal = LiveActivityPlanning.quickLogProposal(
             for: target(for: classic("Squat")),
-            proposedWeightKilograms: 100,
-            proposedReps: 8,
-            needsReferenceValue: false
+            prefillWeightKilograms: 100,
+            prefillReps: 8
         )
         #expect(proposal == .init(weightKilograms: 100, reps: 8))
     }
 
-    @Test("Charge inconnue : jamais validée à zéro")
-    func unknownLoadIsNotZero() {
+    @Test("Charge laissée à zéro par la saisie : validée à zéro, comme dans l'application")
+    func unknownLoadKeepsThePrefill() {
         let proposal = LiveActivityPlanning.quickLogProposal(
             for: target(for: classic("Squat")),
-            proposedWeightKilograms: nil,
-            proposedReps: 8,
-            needsReferenceValue: false
+            prefillWeightKilograms: 0,
+            prefillReps: 8
         )
-        #expect(proposal == nil)
-        let zero = LiveActivityPlanning.quickLogProposal(
-            for: target(for: classic("Squat")),
-            proposedWeightKilograms: 0,
-            proposedReps: 8,
-            needsReferenceValue: false
-        )
-        #expect(zero == nil)
+        #expect(proposal == .init(weightKilograms: 0, reps: 8))
     }
 
     @Test("Poids du corps : zéro est une vraie charge")
     func bodyweightZeroIsAValue() {
         let proposal = LiveActivityPlanning.quickLogProposal(
             for: target(for: classic("Tractions", loadKind: .bodyweight)),
-            proposedWeightKilograms: nil,
-            proposedReps: 10,
-            needsReferenceValue: false
+            prefillWeightKilograms: 0,
+            prefillReps: 10
         )
         #expect(proposal == .init(weightKilograms: 0, reps: 10))
     }
 
-    @Test("Répétitions inconnues, 1RM manquant : ouvrir l'application")
-    func missingValuesNeedTheApp() {
+    @Test("Valeurs invalides : rien à valider")
+    func invalidValues() {
         let squat = target(for: classic("Squat"))
-        #expect(LiveActivityPlanning.quickLogProposal(for: squat, proposedWeightKilograms: 100, proposedReps: nil, needsReferenceValue: false) == nil)
-        #expect(LiveActivityPlanning.quickLogProposal(for: squat, proposedWeightKilograms: 100, proposedReps: 0, needsReferenceValue: false) == nil)
-        #expect(LiveActivityPlanning.quickLogProposal(for: squat, proposedWeightKilograms: 100, proposedReps: 8, needsReferenceValue: true) == nil)
+        #expect(LiveActivityPlanning.quickLogProposal(for: squat, prefillWeightKilograms: 100, prefillReps: 0) == nil)
+        #expect(LiveActivityPlanning.quickLogProposal(for: squat, prefillWeightKilograms: -5, prefillReps: 8) == nil)
+        #expect(LiveActivityPlanning.quickLogProposal(for: squat, prefillWeightKilograms: .nan, prefillReps: 8) == nil)
     }
 
-    @Test("Palier, format spécial, série au temps : pas de validation d'un tap")
-    func onlyPlainClassicSets() {
-        let dropset = classic("Curl", format: .dropset)
-        #expect(LiveActivityPlanning.quickLogProposal(for: target(for: dropset), proposedWeightKilograms: 20, proposedReps: 10, needsReferenceValue: false) == nil)
-        let squat = classic("Squat")
-        #expect(LiveActivityPlanning.quickLogProposal(for: target(for: squat, subSetIndex: 1), proposedWeightKilograms: 20, proposedReps: 10, needsReferenceValue: false) == nil)
+    @Test("Dropset, rest-pause, myo-reps : paliers compris, avec la charge pré-remplie")
+    func intensityFormatsAreValidated() {
+        for format in [WorkoutFormat.dropset, .restPause, .myoReps] {
+            let exercise = classic("Curl", format: format)
+            #expect(LiveActivityPlanning.quickLogProposal(for: target(for: exercise), prefillWeightKilograms: 20, prefillReps: 10) == .init(weightKilograms: 20, reps: 10))
+            #expect(LiveActivityPlanning.quickLogProposal(for: target(for: exercise, subSetIndex: 1), prefillWeightKilograms: 16, prefillReps: 10) == .init(weightKilograms: 16, reps: 10))
+        }
+    }
+
+    @Test("Pyramide : les répétitions du palier courant, au poids du corps")
+    func pyramidStepUsesTheStepReps() {
+        var pyramid = classic("Pompes", loadKind: .bodyweight, format: .pyramid)
+        pyramid.pyramidReps = [4, 6, 8]
+        var step = target(for: pyramid, setNumber: 2)
+        step.targetRepsLower = 6
+        step.targetRepsUpper = 6
+        // La saisie classique n'intervient pas : seul le palier compte.
+        let proposal = LiveActivityPlanning.quickLogProposal(for: step, prefillWeightKilograms: 12, prefillReps: 1)
+        #expect(proposal == .init(weightKilograms: 0, reps: 6, isPyramidStep: true))
+        step.targetRepsLower = 0
+        #expect(LiveActivityPlanning.quickLogProposal(for: step, prefillWeightKilograms: 0, prefillReps: 1) == nil)
+    }
+
+    @Test("Série au temps et formats chronométrés : pas de validation sans saisie")
+    func measuredAndTimedFormatsNeedTheApp() {
         var plank = classic("Gainage", loadKind: .bodyweight)
         plank.measure = .duration
-        #expect(LiveActivityPlanning.quickLogProposal(for: target(for: plank), proposedWeightKilograms: 0, proposedReps: 1, needsReferenceValue: false) == nil)
+        #expect(LiveActivityPlanning.quickLogProposal(for: target(for: plank), prefillWeightKilograms: 0, prefillReps: 1) == nil)
+        for format in [WorkoutFormat.intervals, .emom, .amrap, .forTime] {
+            let block = classic("Burpees", loadKind: .bodyweight, format: format)
+            #expect(LiveActivityPlanning.quickLogProposal(for: target(for: block), prefillWeightKilograms: 0, prefillReps: 10) == nil)
+        }
+    }
+
+    @Test("Échauffement : le premier palier de montée en charge non coché")
+    func warmupRamp() {
+        #expect(LiveActivityPlanning.nextWarmupRampIndex(rampCount: 3, loggedIndexes: []) == 0)
+        #expect(LiveActivityPlanning.nextWarmupRampIndex(rampCount: 3, loggedIndexes: [0]) == 1)
+        #expect(LiveActivityPlanning.nextWarmupRampIndex(rampCount: 3, loggedIndexes: [1]) == 0)
+        #expect(LiveActivityPlanning.nextWarmupRampIndex(rampCount: 3, loggedIndexes: [0, 1, 2]) == nil)
+        #expect(LiveActivityPlanning.nextWarmupRampIndex(rampCount: 0, loggedIndexes: []) == nil)
+    }
+}
+
+@Suite("Repos : −15 s / +15 s")
+struct RestAdjustmentTests {
+    let now = Date(timeIntervalSince1970: 1_790_000_000)
+
+    @Test("+15 s et −15 s déplacent la fin et la durée totale")
+    func stepsMoveTheEnd() {
+        let end = now.addingTimeInterval(60)
+        #expect(RestAdjustment.adjust(endDate: end, totalSeconds: 90, by: 15, now: now) == .running(endDate: now.addingTimeInterval(75), totalSeconds: 105))
+        #expect(RestAdjustment.adjust(endDate: end, totalSeconds: 90, by: -15, now: now) == .running(endDate: now.addingTimeInterval(45), totalSeconds: 75))
+    }
+
+    @Test("−15 s ne descend jamais sous zéro : le repos se termine")
+    func neverBelowZero() {
+        #expect(RestAdjustment.adjust(endDate: now.addingTimeInterval(10), totalSeconds: 90, by: -15, now: now) == .finished)
+        #expect(RestAdjustment.adjust(endDate: now.addingTimeInterval(15), totalSeconds: 90, by: -15, now: now) == .finished)
+        #expect(RestAdjustment.adjust(endDate: now.addingTimeInterval(-3), totalSeconds: 90, by: -15, now: now) == .finished)
+    }
+
+    @Test("+15 s est borné")
+    func boundedUpwards() {
+        let end = now.addingTimeInterval(Double(RestAdjustment.maximumRemainingSeconds - 5))
+        #expect(RestAdjustment.adjust(endDate: end, totalSeconds: 1_800, by: 15, now: now)
+            == .running(endDate: now.addingTimeInterval(Double(RestAdjustment.maximumRemainingSeconds)), totalSeconds: 1_805))
+    }
+
+    @Test("Seul le pas de 15 s est accepté")
+    func onlyTheStep() {
+        #expect(RestAdjustment.isAllowed(15))
+        #expect(RestAdjustment.isAllowed(-15))
+        #expect(!RestAdjustment.isAllowed(30))
+        #expect(!RestAdjustment.isAllowed(0))
     }
 }
 

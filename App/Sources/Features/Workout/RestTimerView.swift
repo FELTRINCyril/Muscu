@@ -29,11 +29,11 @@ struct RestTimerView: View {
                             .rotationEffect(.degrees(-90))
                             .animation(.linear(duration: 0.5), value: timer.progress)
 
-                        // Meme libelle que le bandeau du deroule : decompte,
-                        // puis depassement signe en couleur d'alerte.
-                        Text(verbatim: timer.countdown()?.label ?? RestCountdown.clock(timer.remaining))
+                        // Decompte seul : a zero, le repos se termine et cet
+                        // ecran disparait (pas de depassement affiche).
+                        Text(verbatim: RestCountdown.clock(timer.remaining))
                             .timerFont()
-                            .foregroundStyle(timer.isOvertime ? .orange : .white)
+                            .foregroundStyle(.white)
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.4)
@@ -52,12 +52,26 @@ struct RestTimerView: View {
 
                     Spacer()
 
+                    // Memes reglages que la Live Activity et la montre :
+                    // −15 s jusqu'a zero (le repos se termine), +15 s borne.
                     HStack(spacing: 16) {
-                        Button("+30 s") {
-                            timer.addThirtySeconds()
+                        Button("−15 s") {
+                            timer.adjust(by: -RestAdjustment.stepSeconds)
                         }
                         .buttonStyle(.bordered)
                         .tint(Theme.accent)
+                        .monospacedDigit()
+                        .accessibilityLabel(Text("Retirer 15 secondes au repos"))
+                        .accessibilityIdentifier("rest.minus15")
+
+                        Button("+15 s") {
+                            timer.adjust(by: RestAdjustment.stepSeconds)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(Theme.accent)
+                        .monospacedDigit()
+                        .accessibilityLabel(Text("Ajouter 15 secondes au repos"))
+                        .accessibilityIdentifier("rest.plus15")
 
                         Button("Passer") {
                             timer.skip()

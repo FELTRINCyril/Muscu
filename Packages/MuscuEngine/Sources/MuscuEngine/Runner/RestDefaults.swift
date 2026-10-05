@@ -57,9 +57,10 @@ public struct RestDefaults: Equatable, Sendable {
     }
 }
 
-/// Etat affiche d'un repos : temps restant, puis depassement une fois la
-/// fin atteinte. Le depassement continue jusqu'a la serie suivante : il dit
-/// combien de temps le repos a REELLEMENT dure en plus du prevu.
+/// Etat d'un repos a un instant donne : temps restant, puis depassement
+/// une fois la fin atteinte. L'application n'affiche plus le depassement :
+/// le repos se ferme a zero et l'ecran de saisie revient aussitot. Le repos
+/// reellement pris est enregistre avec la serie suivante (`ActualRest`).
 public struct RestCountdown: Equatable, Sendable {
     /// Secondes restantes (>= 0) tant que le repos n'est pas termine.
     public var remainingSeconds: Int

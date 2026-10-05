@@ -140,14 +140,18 @@ enum LiveWorkoutActions {
         switch action {
         case .completeSet(let slotKey):
             // Une serie qui n'est plus celle affichee n'est pas validee :
-            // l'activite est seulement remise a jour.
+            // l'activite est seulement remise a jour. Pendant un repos, la
+            // serie affichee est celle qui suit : le repos s'arrete et elle
+            // est enregistree, comme « Passer » puis « Valider » dans
+            // l'application.
             state.logProposedSet(slotKey: slotKey)
         case .skipRest:
-            // « Passer » de l'ecran de repos, et fin du depassement.
+            // « Passer » de l'ecran de repos.
             state.restTimer.skip()
-        case .extendRest(let seconds):
-            // Seul le +30 s de l'application existe : pas de duree libre.
-            if seconds == 30 { state.restTimer.addThirtySeconds() }
+        case .adjustRest(let seconds):
+            // Seuls les −15 s / +15 s de l'application existent : pas de
+            // duree libre.
+            if RestAdjustment.isAllowed(seconds) { state.restTimer.adjust(by: seconds) }
         }
         await state.refreshLiveActivityNow()
     }

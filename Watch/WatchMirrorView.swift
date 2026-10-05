@@ -5,7 +5,7 @@ import WatchKit
 ///
 /// La montre affiche ce que l'iPhone lui pousse — exercice, série n/N,
 /// charge × répétitions prévues, série suivante, repos — et ne change
-/// jamais l'état elle-même : « Valider », « Passer » et « +30 s » sont des
+/// jamais l'état elle-même : « Valider », « Passer », « −15 s » et « +15 s » sont des
 /// commandes exécutées sur l'iPhone par le chemin des boutons de
 /// l'application. Une commande refusée le dit et ne laisse rien diverger.
 ///
@@ -201,19 +201,13 @@ struct WatchMirrorView: View {
                         .font(.title2.monospacedDigit().weight(.semibold))
                         .foregroundStyle(end.timeIntervalSince(context.date) <= 3 ? .orange : .primary)
                     HStack {
-                        Button("Passer") { connectivity.send(.skipRest) }
-                        Button("+30 s") { connectivity.send(.extendRest(seconds: WatchCommandPolicy.extendSeconds)) }
+                        Button("−15 s") { connectivity.send(.adjustRest(seconds: -WatchCommandPolicy.restStepSeconds)) }
+                            .accessibilityLabel(Text("Retirer 15 secondes au repos"))
+                        Button("+15 s") { connectivity.send(.adjustRest(seconds: WatchCommandPolicy.restStepSeconds)) }
+                            .accessibilityLabel(Text("Ajouter 15 secondes au repos"))
                     }
+                    .monospacedDigit()
                     .disabled(connectivity.mirror.isBusy)
-                }
-            case .overtime(let since):
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Repos terminé")
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                    Text("+\(Self.clock(context.date.timeIntervalSince(since)))")
-                        .font(.title2.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.orange)
                     Button("Passer") { connectivity.send(.skipRest) }
                         .disabled(connectivity.mirror.isBusy)
                 }

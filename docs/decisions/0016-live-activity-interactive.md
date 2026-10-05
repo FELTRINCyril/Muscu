@@ -1,7 +1,9 @@
 # 0016 — Live Activity interactive, dernière séance et Siri
 
 Date : 04/10/2026
-Statut : accepté
+Statut : accepté — points 2 et 4 remplacés par la décision 0020 (plus de
+bouton « Ouvrir », « Valider » avec les valeurs pré-remplies, ±15 s, plus de
+dépassement)
 
 ## Contexte
 

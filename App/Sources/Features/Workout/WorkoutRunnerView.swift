@@ -33,8 +33,8 @@ struct WorkoutRunnerView: View {
             isPresented: Binding(
                 get: { state.restTimer.isRunning },
                 set: { isPresented in
-                    // Une fermeture due a la fin du repos ne doit PAS
-                    // effacer le depassement qui commence.
+                    // Fermeture par le systeme pendant le repos : on le
+                    // termine. A la fin du repos, le chrono est deja arrete.
                     if !isPresented, state.restTimer.isRunning { state.restTimer.skip() }
                 }
             )
@@ -50,9 +50,6 @@ struct WorkoutRunnerView: View {
             state.startLiveActivity()
             state.startHealthWorkout()
         }
-        .onChange(of: state.restTimer.isRunning) { _, _ in state.refreshLiveActivity() }
-        // +30 s et nouveau repos changent la fin sans changer `isRunning`.
-        .onChange(of: state.restTimer.endDate) { _, _ in state.refreshLiveActivity() }
         // Seance terminee ou abandonnee depuis Siri / Raccourcis : le
         // deroule n'a plus rien a montrer.
         .onChange(of: state.endedOutsideRunner) { _, ended in
@@ -86,9 +83,6 @@ struct WorkoutRunnerView: View {
                     WeekScalingBanner(scaling: state.weekScaling)
                 }
                 LiveHealthCard(controller: LiveHealthWorkoutController.shared, startedAt: state.startedAt)
-                if state.restTimer.isOvertime {
-                    RestOvertimeBanner(timer: state.restTimer)
-                }
                 if let node = state.currentNode, node.isGroup, let target = state.currentTarget {
                     GroupOverviewBar(node: node, target: target)
                 }
@@ -368,38 +362,6 @@ struct SessionChronoLabel: View {
 // tour courant, exercice courant et enchainement du groupe. Sans lui, rien
 // a l'ecran ne distingue un superset d'une suite d'exercices independants.
 /// Bandeau d'une semaine allegee : il dit ce qui a change et pourquoi.
-/// Repos depasse : le temps ecoule depuis la fin prevue, en couleur
-/// d'alerte, jusqu'a la serie suivante. Dire combien de temps le repos a
-/// vraiment dure vaut mieux qu'un chrono qui disparait a zero.
-private struct RestOvertimeBanner: View {
-    let timer: RestTimer
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let label = timer.countdown(at: context.date)?.label ?? ""
-            HStack(spacing: 8) {
-                Image(systemName: "timer")
-                Text("Repos dépassé")
-                Spacer()
-                Text(verbatim: label)
-                    .monospacedDigit()
-                    .fontWeight(.semibold)
-                Button("Masquer") { timer.skip() }
-                    .font(.caption)
-                    .buttonStyle(.bordered)
-            }
-            .font(.subheadline)
-            .foregroundStyle(.orange)
-            .padding(.horizontal)
-            .padding(.vertical, 8)
-            .background(Color.orange.opacity(0.12))
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(Text("Repos dépassé de \(label)"))
-            .accessibilityIdentifier("workout.restOvertime")
-        }
-    }
-}
-
 private struct WeekScalingBanner: View {
     let scaling: WeekScaling
 

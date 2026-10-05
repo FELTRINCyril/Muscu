@@ -5,12 +5,13 @@ import AppIntents
 
 /// Action demandee par un bouton de la Live Activity.
 enum LiveActivityAction: Equatable, Sendable {
-    /// Valide la serie identifiee par `slotKey` avec les valeurs proposees.
+    /// Valide la serie identifiee par `slotKey` avec les valeurs proposees
+    /// (pendant un repos : arrete le repos et valide la serie qui suit).
     case completeSet(slotKey: String)
-    /// Termine le repos en cours (ou son depassement).
+    /// Termine le repos en cours.
     case skipRest
-    /// Prolonge le repos en cours.
-    case extendRest(seconds: Int)
+    /// Ajuste le repos en cours : −15 s ou +15 s, rien d'autre.
+    case adjustRest(seconds: Int)
 }
 
 /// Point d'entree des boutons de la Live Activity.
@@ -33,7 +34,7 @@ enum LiveActivityActionCenter {
 // la montre (qui compile aussi ce dossier).
 #if os(iOS) && !targetEnvironment(macCatalyst)
 
-/// « Valider la série » depuis l'ecran verrouille ou la Dynamic Island.
+/// « Valider » depuis l'ecran verrouille ou la Dynamic Island.
 struct CompleteSetActivityIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Valider la série"
     static let description = IntentDescription("Valide la série affichée avec la charge et les répétitions proposées.")
@@ -70,16 +71,24 @@ struct SkipRestActivityIntent: LiveActivityIntent {
     }
 }
 
-/// « +30 s » sur le repos en cours.
-struct ExtendRestActivityIntent: LiveActivityIntent {
-    static let title: LocalizedStringResource = "Prolonger le repos"
-    static let description = IntentDescription("Ajoute trente secondes au repos en cours.")
+/// « −15 s » / « +15 s » sur le repos en cours. Un seul intent parametre :
+/// le gestionnaire refuse toute autre valeur (`RestAdjustment.isAllowed`).
+struct AdjustRestActivityIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Ajuster le repos"
+    static let description = IntentDescription("Retire ou ajoute quinze secondes au repos en cours.")
     static let isDiscoverable = false
+
+    @Parameter(title: "Secondes")
+    var seconds: Int
 
     init() {}
 
+    init(seconds: Int) {
+        self.seconds = seconds
+    }
+
     func perform() async throws -> some IntentResult {
-        await LiveActivityActionCenter.run(.extendRest(seconds: 30))
+        await LiveActivityActionCenter.run(.adjustRest(seconds: seconds))
         return .result()
     }
 }

@@ -20,25 +20,30 @@ struct WorkoutActivityState: Codable, Hashable, Sendable {
     var exerciseName: String
     var setNumber: Int
     var totalSets: Int
-    /// Fin du repos en cours, conservee pendant le depassement (« +0:12 »).
-    /// `nil` = pas de repos.
+    /// Fin du repos en cours. `nil` = pas de repos. Une fin passee vaut
+    /// « pas de repos » : l'activite n'affiche jamais de depassement.
     var restEndsAt: Date?
     var completedSets: Int
     /// Debut du repos, pour la barre de progression. `nil` si inconnu.
     var restStartedAt: Date?
-    /// Serie prevue : « 80 kg × 8 », « × 12 » au poids du corps. `nil` si
-    /// la charge ou les repetitions ne sont pas connues.
+    /// Serie prevue, exactement ce que « Valider » enregistrera : « 80 kg ×
+    /// 8 », « × 12 » sans charge. Pendant un repos, c'est la serie qui suit
+    /// le repos. `nil` s'il n'y a rien a valider sans saisie.
     var plannedSetText: String?
     /// Serie suivante : « Série 3/4 », « Rowing · série 1/3 », « Fin de la
     /// séance ». `nil` si rien n'est prevu apres.
     var nextStepText: String?
     /// La serie courante peut etre validee d'un tap avec `plannedSetText`.
-    /// Faux : le bouton devient « Ouvrir ».
+    /// Faux (serie au temps, format chronometre) : aucun bouton de
+    /// validation ; un tap sur le bandeau ouvre l'application.
     var canQuickLog: Bool
     /// Identite de la serie affichee. Le bouton « Valider » la renvoie : une
     /// serie n'est validee que si c'est TOUJOURS celle qui est affichee
     /// (double tap, activite en retard sur l'application).
     var slotKey: String
+    /// Echauffement guide : `setNumber` / `totalSets` comptent les paliers
+    /// de montee en charge, et « Valider » coche le palier affiche.
+    var isWarmup: Bool
 
     init(
         exerciseName: String,
@@ -50,7 +55,8 @@ struct WorkoutActivityState: Codable, Hashable, Sendable {
         plannedSetText: String? = nil,
         nextStepText: String? = nil,
         canQuickLog: Bool = false,
-        slotKey: String = ""
+        slotKey: String = "",
+        isWarmup: Bool = false
     ) {
         self.exerciseName = exerciseName
         self.setNumber = setNumber
@@ -62,11 +68,12 @@ struct WorkoutActivityState: Codable, Hashable, Sendable {
         self.nextStepText = nextStepText
         self.canQuickLog = canQuickLog
         self.slotKey = slotKey
+        self.isWarmup = isWarmup
     }
 
     private enum CodingKeys: String, CodingKey {
         case exerciseName, setNumber, totalSets, restEndsAt, completedSets
-        case restStartedAt, plannedSetText, nextStepText, canQuickLog, slotKey
+        case restStartedAt, plannedSetText, nextStepText, canQuickLog, slotKey, isWarmup
     }
 
     init(from decoder: Decoder) throws {
@@ -81,33 +88,50 @@ struct WorkoutActivityState: Codable, Hashable, Sendable {
         nextStepText = try container.decodeIfPresent(String.self, forKey: .nextStepText)
         canQuickLog = try container.decodeIfPresent(Bool.self, forKey: .canQuickLog) ?? false
         slotKey = try container.decodeIfPresent(String.self, forKey: .slotKey) ?? ""
+        isWarmup = try container.decodeIfPresent(Bool.self, forKey: .isWarmup) ?? false
     }
-
-    /// Au-dela, un depassement n'a plus de sens : meme borne que le chrono
-    /// de l'application (`RestCountdown.maximumOvertimeSeconds`).
-    static let maximumOvertimeSeconds: TimeInterval = 3_600
 
     /// Etat du repos a l'instant `now`.
     enum RestPhase: Equatable {
         case none
         /// Decompte jusqu'a la fin prevue.
         case counting(endsAt: Date)
-        /// Repos termine : depassement compte depuis la fin prevue.
-        case overtime(since: Date)
     }
 
+    /// Le repos s'arrete a sa fin prevue : il n'y a pas de depassement. Un
+    /// rendu fait apres la fin, avant que l'application n'ait pousse la mise
+    /// a jour, montre donc deja la serie suivante sans repos.
     func restPhase(at now: Date) -> RestPhase {
-        guard let restEndsAt else { return .none }
-        if restEndsAt > now { return .counting(endsAt: restEndsAt) }
-        guard now.timeIntervalSince(restEndsAt) <= Self.maximumOvertimeSeconds else { return .none }
-        return .overtime(since: restEndsAt)
+        guard let restEndsAt, restEndsAt > now else { return .none }
+        return .counting(endsAt: restEndsAt)
     }
 
-    /// Le repos en cours peut etre prolonge de 30 s (pas pendant un
-    /// depassement : comme dans l'application).
-    func canExtendRest(at now: Date) -> Bool {
-        if case .counting = restPhase(at: now) { return true }
-        return false
+    /// Le repos en cours peut etre ajuste de ±15 s.
+    func canAdjustRest(at now: Date) -> Bool {
+        restPhase(at: now) != .none
+    }
+
+    /// Ce que la Live Activity affiche a l'instant `now`.
+    struct Controls: Equatable {
+        /// Decompte, « −15 s », « +15 s », « Passer ».
+        var showsRest: Bool
+        /// « Valider » : la serie affichee (celle qui suit le repos pendant
+        /// un repos), avec les valeurs de `plannedSetText`.
+        var showsValidate: Bool
+        /// « Ensuite : … », hors repos (le repos occupe la ligne).
+        var showsNextStep: Bool
+    }
+
+    /// Jamais de bouton « Ouvrir » : un tap sur le bandeau ouvre deja
+    /// l'application. « Valider » est le meme pendant et hors repos : la fin
+    /// du repos ne change que la ligne du repos.
+    func controls(at now: Date) -> Controls {
+        let resting = restPhase(at: now) != .none
+        return Controls(
+            showsRest: resting,
+            showsValidate: canQuickLog && !slotKey.isEmpty,
+            showsNextStep: !resting && nextStepText != nil
+        )
     }
 }
 

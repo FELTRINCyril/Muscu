@@ -149,16 +149,16 @@
     },
     "%@ : %@": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ : %2$@"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ : %2$@"
           }
         }
       }
@@ -1420,7 +1420,18 @@
         }
       }
     },
+    "+15 s": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "+15 s"
+          }
+        }
+      }
+    },
     "+30 s": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -1995,6 +2006,7 @@
       }
     },
     "Ajoute trente secondes au repos en cours.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -2030,6 +2042,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add"
+          }
+        }
+      }
+    },
+    "Ajouter 15 secondes au repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add 15 seconds to the rest"
           }
         }
       }
@@ -2176,6 +2198,16 @@
           "stringUnit": {
             "state": "new",
             "value": "Ajouté : %1$@ (%2$lld séries)"
+          }
+        }
+      }
+    },
+    "Ajuster le repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjust rest"
           }
         }
       }
@@ -5264,16 +5296,16 @@
     },
     "Ensuite : palier %lld sur %lld · %lld reps": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Ensuite : palier %1$lld sur %2$lld · %3$lld reps"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Next: step %lld of %lld · %lld reps"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Ensuite : palier %1$lld sur %2$lld · %3$lld reps"
           }
         }
       }
@@ -7613,6 +7645,7 @@
       }
     },
     "Masquer": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -8777,64 +8810,64 @@
     },
     "Palier %lld sur %lld": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Palier %1$lld sur %2$lld"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Step %lld of %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Palier %1$lld sur %2$lld"
           }
         }
       }
     },
     "Palier %lld sur %lld, %lld reps, en cours": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Palier %1$lld sur %2$lld, %3$lld reps, en cours"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Step %lld of %lld, %lld reps, in progress"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Palier %1$lld sur %2$lld, %3$lld reps, en cours"
           }
         }
       }
     },
     "Palier %lld sur %lld, %lld reps, fait": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Palier %1$lld sur %2$lld, %3$lld reps, fait"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Step %lld of %lld, %lld reps, done"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Palier %1$lld sur %2$lld, %3$lld reps, fait"
           }
         }
       }
     },
     "Palier %lld sur %lld, %lld reps, à venir": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Palier %1$lld sur %2$lld, %3$lld reps, à venir"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Step %lld of %lld, %lld reps, upcoming"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Palier %1$lld sur %2$lld, %3$lld reps, à venir"
           }
         }
       }
@@ -9524,6 +9557,7 @@
       }
     },
     "Prolonger le repos": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10203,6 +10237,7 @@
       }
     },
     "Repos dépassé": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10213,6 +10248,7 @@
       }
     },
     "Repos dépassé de %@": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -10455,6 +10491,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Restoring replaces all data on this device with the backup’s. A safety backup of the current state is created first, and brought back if the restore fails."
+          }
+        }
+      }
+    },
+    "Retire ou ajoute quinze secondes au repos en cours.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removes or adds fifteen seconds to the current rest."
+          }
+        }
+      }
+    },
+    "Retirer 15 secondes au repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove 15 seconds from the rest"
           }
         }
       }
@@ -13654,6 +13710,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "… and %lld more."
+          }
+        }
+      }
+    },
+    "−15 s": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "−15 s"
           }
         }
       }

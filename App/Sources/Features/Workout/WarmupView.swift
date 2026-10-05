@@ -20,7 +20,6 @@ struct WarmupView: View {
 
     @State private var step: Step = .choice
     @State private var cardioMinutesChoice: Int = Warmup.cardioMinutes
-    @State private var checkedRamps: Set<Int> = []
 
     init(state: WorkoutState) {
         self.state = state
@@ -58,7 +57,6 @@ struct WarmupView: View {
             }
         }
         .onAppear {
-            restoreCheckedRamps()
             persistStep()
         }
         .onChange(of: cardioMinutesChoice) { _, _ in persistStep() }
@@ -233,6 +231,10 @@ struct WarmupView: View {
                     .font(.headline)
             }
 
+            // Paliers coches = paliers enregistres : lus dans la seance, ils
+            // restent justes apres une reprise ET quand un palier est valide
+            // depuis la Live Activity.
+            let checkedRamps = state.loggedWarmupRampIndexes()
             ForEach(Array(rampSets.enumerated()), id: \.offset) { index, ramp in
                 HStack {
                     Text("\(WeightFormatter.string(kilograms: ramp.weight, unit: massUnit)) x \(ramp.reps)")
@@ -240,7 +242,6 @@ struct WarmupView: View {
                     Spacer()
                     Button {
                         state.logWarmupSet(ramp, rampIndex: index)
-                        checkedRamps.insert(index)
                     } label: {
                         Image(systemName: checkedRamps.contains(index) ? "checkmark.circle.fill" : "circle")
                             .font(.title2)
@@ -290,22 +291,6 @@ struct WarmupView: View {
             .controlSize(.large)
             .padding()
         }
-    }
-
-    // MARK: - Reprise apres kill+resume
-
-    // Reconstruit checkedRamps depuis les series deja persistees : necessaire
-    // apres un kill+resume en pleine echauffement, sinon ce @State frais
-    // repart a vide (toutes les cases redeviennent decochees) alors que
-    // logWarmupSet a deja loggee ces paliers - source de doublons a la
-    // reprise si on retapait sur une case deja validee.
-    private func restoreCheckedRamps() {
-        guard let target = state.warmupTargetExercise(),
-              let targetIndex = state.exercises.firstIndex(where: { $0.id == target.id }) else { return }
-        let loggedRampIndexes = state.loggedSets
-            .filter { $0.isWarmup && $0.orderIndex == targetIndex }
-            .map(\.setIndex)
-        checkedRamps = Set(loggedRampIndexes)
     }
 
     private func transition(to newStep: Step) {

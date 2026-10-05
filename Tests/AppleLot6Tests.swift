@@ -104,22 +104,99 @@ final class AppleLot6Tests: XCTestCase {
         XCTAssertEqual(state.prefillReps(for: target), 10)
     }
 
-    func testAnUnknownLoadOpensTheAppInsteadOfLoggingZero() throws {
+    /// Choix documente (decision 0020) : sans charge connue, l'ecran de
+    /// saisie laisse le champ a zero ; « Valider » enregistre la meme valeur
+    /// que le bouton de l'application, l'utilisateur corrige dans
+    /// l'historique.
+    func testAnUnknownLoadIsValidatedAsTheLoggerPrefillsIt() throws {
         let session = try makeSession()
         let state = makeState(session)
+        let target = try XCTUnwrap(state.currentTarget)
+        XCTAssertEqual(state.prefillWeight(for: target), 0)
 
         let activity = state.liveActivityState()
-        XCTAssertFalse(activity.canQuickLog)
-        XCTAssertNil(state.quickLogProposal())
-        XCTAssertEqual(activity.plannedSetText, "10 reps")
+        XCTAssertTrue(activity.canQuickLog)
+        XCTAssertEqual(state.quickLogProposal(), .init(weightKilograms: 0, reps: 10))
+        XCTAssertEqual(activity.plannedSetText, "× 10")
+        XCTAssertTrue(state.logProposedSet(slotKey: activity.slotKey))
+        XCTAssertEqual(state.loggedSets.first?.weight, 0)
+        XCTAssertEqual(state.loggedSets.first?.reps, 10)
     }
 
-    func testTheWarmupIsNeverValidatedFromTheLockScreen() throws {
+    func testTheWarmupChoiceScreensHaveNothingToValidate() throws {
         let session = try makeSession()
         _ = try addPastSession(daysAgo: 3, weight: 80, reps: 8)
         let state = makeState(session, skipWarmup: false)
         XCTAssertEqual(state.phase, .warmup)
-        XCTAssertFalse(state.liveActivityState().canQuickLog)
+        let activity = state.liveActivityState()
+        XCTAssertFalse(activity.canQuickLog)
+        XCTAssertTrue(activity.isWarmup)
+        XCTAssertFalse(state.logProposedSet(slotKey: activity.slotKey))
+        XCTAssertTrue(state.loggedSets.isEmpty)
+    }
+
+    func testTheWarmupRampIsValidatedStepByStepLikeTheAppCheckbox() throws {
+        let session = try makeSession()
+        _ = try addPastSession(daysAgo: 3, weight: 80, reps: 8)
+        let state = makeState(session, skipWarmup: false)
+        // Ecran « Échauffement libre » : la montee en charge est affichee.
+        state.updateWarmupRuntime(WarmupRuntimeState(stepRaw: "free", startedAt: .now))
+        let ramps = state.warmupRampSets()
+        XCTAssertFalse(ramps.isEmpty)
+
+        let activity = state.liveActivityState()
+        XCTAssertTrue(activity.isWarmup)
+        XCTAssertTrue(activity.canQuickLog)
+        XCTAssertEqual(activity.setNumber, 1)
+        XCTAssertEqual(activity.totalSets, ramps.count)
+        XCTAssertEqual(activity.exerciseName, "Développé couché")
+        XCTAssertEqual(activity.plannedSetText, LiveSessionText.set(weightKilograms: ramps[0].weight, reps: ramps[0].reps, unit: .kilograms))
+
+        // Meme chemin que la case de l'ecran : `logWarmupSet`.
+        XCTAssertTrue(state.logProposedSet(slotKey: activity.slotKey))
+        XCTAssertEqual(state.loggedWarmupRampIndexes(), [0])
+        XCTAssertEqual(state.loggedSets.first?.role, .warmup)
+        XCTAssertEqual(state.loggedSets.first?.weight, ramps[0].weight)
+        XCTAssertEqual(state.phase, .warmup)
+        // Double tap : rien de plus.
+        XCTAssertFalse(state.logProposedSet(slotKey: activity.slotKey))
+        XCTAssertEqual(state.loggedSets.count, 1)
+        XCTAssertEqual(state.liveActivityState().setNumber, 2)
+    }
+
+    func testAPyramidStepIsValidatedWithTheStepReps() throws {
+        let program = Program(name: "Pyramides", isActive: true)
+        let session = ProgramSession(name: "Tractions", orderIndex: 0)
+        let pyramid = PrescribedExercise(
+            exerciseId: "pullups",
+            displayName: "Tractions",
+            orderIndex: 0,
+            formatRaw: SetFormat.pyramid.rawValue,
+            pyramidReps: [2, 4, 6],
+            pyramidMinRest: 45,
+            pyramidMaxRest: 150
+        )
+        pyramid.session = session
+        session.exercises = [pyramid]
+        session.program = program
+        program.sessions = [session]
+        context.insert(program)
+        try context.save()
+        let state = makeState(session)
+
+        let first = state.liveActivityState()
+        XCTAssertTrue(first.canQuickLog)
+        XCTAssertEqual(first.plannedSetText, "× 2")
+        XCTAssertTrue(state.logProposedSet(slotKey: first.slotKey))
+        XCTAssertEqual(state.loggedSets.first?.reps, 2)
+        XCTAssertEqual(state.loggedSets.first?.weight, 0)
+        // Repos du palier lance, palier suivant deja affiche avec « Valider ».
+        XCTAssertTrue(restTimer.isRunning)
+        let resting = state.liveActivityState()
+        XCTAssertEqual(resting.setNumber, 2)
+        XCTAssertEqual(resting.plannedSetText, "× 4")
+        XCTAssertTrue(resting.controls(at: .now).showsValidate)
+        XCTAssertTrue(resting.controls(at: .now).showsRest)
     }
 
     func testTheLastSetAnnouncesTheEndOfTheSession() throws {
@@ -180,24 +257,82 @@ final class AppleLot6Tests: XCTestCase {
         XCTAssertTrue(((try? context.fetch(FetchDescriptor<ActiveWorkout>())) ?? []).isEmpty)
     }
 
-    // MARK: - Repos : décompte puis dépassement
+    // MARK: - Repos : décompte, sans dépassement
 
-    func testRestPhasesMatchTheAppTimer() {
+    func testTheRestStopsAtItsEnd() {
         let now = Date(timeIntervalSince1970: 1_790_000_000)
         var state = WorkoutActivityState(exerciseName: "Squat", setNumber: 1, totalSets: 3)
         XCTAssertEqual(state.restPhase(at: now), .none)
 
         state.restEndsAt = now.addingTimeInterval(45)
         XCTAssertEqual(state.restPhase(at: now), .counting(endsAt: now.addingTimeInterval(45)))
-        XCTAssertTrue(state.canExtendRest(at: now))
+        XCTAssertTrue(state.canAdjustRest(at: now))
 
+        // Fin passee : plus de repos, jamais de « Repos dépassé ».
         state.restEndsAt = now.addingTimeInterval(-12)
-        XCTAssertEqual(state.restPhase(at: now), .overtime(since: now.addingTimeInterval(-12)))
-        XCTAssertFalse(state.canExtendRest(at: now))
-
-        // Meme borne que `RestCountdown` : au-dela d'une heure, plus rien.
-        state.restEndsAt = now.addingTimeInterval(-Double(RestCountdown.maximumOvertimeSeconds) - 1)
         XCTAssertEqual(state.restPhase(at: now), .none)
+        XCTAssertFalse(state.canAdjustRest(at: now))
+    }
+
+    /// Le contenu affiche pendant un repos reste juste a sa fin, AVANT toute
+    /// mise a jour : seule la ligne du repos disparait, « Valider » et la
+    /// serie suivante ne bougent pas. Jamais de bouton « Ouvrir ».
+    func testTheRestContentIsRightWithoutAnUpdateAtItsEnd() {
+        let now = Date(timeIntervalSince1970: 1_790_000_000)
+        let resting = WorkoutActivityState(
+            exerciseName: "Squat",
+            setNumber: 2,
+            totalSets: 3,
+            restEndsAt: now.addingTimeInterval(30),
+            restStartedAt: now.addingTimeInterval(-60),
+            plannedSetText: "100 kg × 5",
+            nextStepText: "Série 3/3",
+            canQuickLog: true,
+            slotKey: "slot"
+        )
+        let during = resting.controls(at: now)
+        XCTAssertEqual(during, .init(showsRest: true, showsValidate: true, showsNextStep: false))
+
+        let after = resting.controls(at: now.addingTimeInterval(31))
+        XCTAssertEqual(after, .init(showsRest: false, showsValidate: true, showsNextStep: true))
+
+        // Serie au temps : ni « Valider » ni « Ouvrir ».
+        var timed = resting
+        timed.canQuickLog = false
+        timed.plannedSetText = nil
+        XCTAssertFalse(timed.controls(at: now).showsValidate)
+        XCTAssertTrue(timed.controls(at: now).showsRest)
+    }
+
+    func testValidatingDuringTheRestStopsItAndLogsTheNextSet() throws {
+        let session = try makeSession(sets: 2)
+        _ = try addPastSession(daysAgo: 3, weight: 80, reps: 8)
+        let state = makeState(session)
+        XCTAssertTrue(state.logProposedSet(slotKey: state.liveActivitySlotKey))
+        XCTAssertTrue(restTimer.isRunning)
+
+        // Pendant le repos, la Live Activity montre deja la serie 2.
+        let resting = state.liveActivityState()
+        XCTAssertEqual(resting.setNumber, 2)
+        XCTAssertEqual(resting.plannedSetText, "80 kg × 10")
+        XCTAssertTrue(resting.controls(at: .now).showsValidate)
+
+        // Derniere serie : pas de nouveau repos, et l'ancien est arrete.
+        XCTAssertTrue(state.logProposedSet(slotKey: resting.slotKey))
+        XCTAssertEqual(state.loggedSets.filter { $0.role == .working }.count, 2)
+        XCTAssertFalse(restTimer.isRunning)
+        XCTAssertNil(state.liveActivityState().restEndsAt)
+        XCTAssertTrue(state.isSessionComplete)
+    }
+
+    func testAnEndedRestIsNeverPublished() throws {
+        let session = try makeSession()
+        _ = try addPastSession(daysAgo: 3, weight: 80, reps: 8)
+        let state = makeState(session)
+        XCTAssertTrue(state.logProposedSet(slotKey: state.liveActivitySlotKey))
+        let end = try XCTUnwrap(restTimer.endDate)
+        XCTAssertEqual(state.liveActivityState(now: end.addingTimeInterval(-1)).restEndsAt, end)
+        XCTAssertNil(state.liveActivityState(now: end.addingTimeInterval(1)).restEndsAt)
     }
 
     func testTheActivityIsRedrawnWhenTheRestEnds() {

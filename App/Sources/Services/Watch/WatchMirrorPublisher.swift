@@ -7,7 +7,7 @@ import MuscuEngine
 /// L'etat reprend EXACTEMENT ce que montre la Live Activity
 /// (`liveActivityState`) : un seul calcul, donc la montre, l'ecran
 /// verrouille et l'application ne peuvent pas se contredire. Il est pousse
-/// a chaque transition (serie validee, repos lance, passe ou prolonge,
+/// a chaque transition (serie validee, repos lance, passe ou ajuste,
 /// echauffement termine, fin, abandon).
 @MainActor
 enum WatchMirrorPublisher {
@@ -160,8 +160,9 @@ enum WatchCommandHandler {
             return reply(to: envelope, rejection: logged ? nil : .saveFailed, workout: workout)
         case .skipRest:
             workout?.restTimer.skip()
-        case .extendRest:
-            workout?.restTimer.addThirtySeconds()
+        case .adjustRest(let seconds):
+            // Valeur deja verifiee par la politique (±15 s).
+            workout?.restTimer.adjust(by: seconds)
         case .finishWarmup:
             workout?.finishWarmup()
         }
@@ -178,7 +179,7 @@ enum WatchCommandHandler {
                 slotKey: "",
                 canQuickLog: false,
                 isResting: false,
-                canExtendRest: false,
+                canAdjustRest: false,
                 hasNextSession: hasNext
             )
         }
@@ -190,7 +191,7 @@ enum WatchCommandHandler {
             slotKey: state.activity?.slotKey ?? "",
             canQuickLog: state.canLogFromWatch,
             isResting: state.activity.map { $0.restPhase(at: now) != .none } ?? false,
-            canExtendRest: state.activity?.canExtendRest(at: now) ?? false,
+            canAdjustRest: state.activity?.canAdjustRest(at: now) ?? false,
             hasNextSession: hasNext
         )
     }

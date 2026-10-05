@@ -651,8 +651,10 @@ final class WorkoutState: Identifiable {
     ) {
         guard !isClosed, let target = currentTarget, weight >= 0, weight.isFinite, reps > 0 else { return }
         let exercise = target.exercise
-        // La serie suivante est saisie : le depassement de repos s'arrete.
-        restTimer.endOvertime()
+        // La serie suivante est saisie : un repos encore en cours s'arrete
+        // (validation depuis la Live Activity ou la montre pendant le
+        // repos, comme « Passer » puis « Valider » dans l'application).
+        restTimer.stopIfRunning()
         let resolvedLoadKind = ExerciseClassification.resolvedLoadKind(base: exercise.loadKind, enteredWeight: weight)
 
         let newSet = insertCompletedSet(
@@ -693,7 +695,7 @@ final class WorkoutState: Identifiable {
     // Un bloc d'intervalles / EMOM / AMRAP / For Time = une seule saisie.
     func logTimedBlock(totalReps: Int, durationSeconds: Int? = nil) {
         guard !isClosed, case .timedBlock(let exercise) = currentStep else { return }
-        restTimer.endOvertime()
+        restTimer.stopIfRunning()
         let clamped = WorkoutStateMachine.clamp(position, in: plan)
         let target = WorkoutSetTarget(
             exercise: exercise,
@@ -766,6 +768,7 @@ final class WorkoutState: Identifiable {
             format: target.format
         )
         _ = PersistenceSupport.save(modelContext, action: "Enregistrement de l’échauffement")
+        refreshLiveActivity()
     }
 
     // Passe en phase normale, que l'echauffement ait ete fait entierement,
@@ -780,8 +783,12 @@ final class WorkoutState: Identifiable {
     }
 
     func updateWarmupRuntime(_ value: WarmupRuntimeState) {
+        let stepChanged = runtimeState.warmup.stepRaw != value.stepRaw
         runtimeState.warmup = value
         persistRuntimeState(action: "Progression de l’échauffement")
+        // L'ecran « Échauffement libre » propose la montee en charge : la
+        // Live Activity aussi, tant qu'il est affiche.
+        if stepChanged { refreshLiveActivity() }
     }
 
     func updateIntervalRuntime(_ value: IntervalRuntimeState?) {
@@ -1017,7 +1024,7 @@ final class WorkoutState: Identifiable {
         guard !isClosed, let target = currentTarget,
               result.isValid(for: target.exercise.effectiveMeasure),
               weight >= 0, weight.isFinite else { return }
-        restTimer.endOvertime()
+        restTimer.stopIfRunning()
         let exercise = target.exercise
         let loadKind = ExerciseClassification.resolvedLoadKind(base: exercise.loadKind, enteredWeight: weight)
         let newSet = insertCompletedSet(
@@ -1048,7 +1055,6 @@ final class WorkoutState: Identifiable {
     /// attend l'exercice suivant.
     func requestEnd() {
         guard isFreeSession else { return }
-        restTimer.endOvertime()
         restTimer.skip()
         endRequested = true
     }
@@ -1064,7 +1070,6 @@ final class WorkoutState: Identifiable {
     @discardableResult
     func discard(outsideRunner: Bool = false) -> Bool {
         guard let workout = activeWorkout else { return false }
-        restTimer.endOvertime()
         modelContext.delete(workout)
         guard PersistenceSupport.save(modelContext, action: "Abandon de la séance") else { return false }
         activeWorkout = nil
@@ -1089,7 +1094,6 @@ final class WorkoutState: Identifiable {
     // (historique), supprime l'ActiveWorkout, sauvegarde.
     func finish(effortRating: Int? = nil, outsideRunner: Bool = false) -> CompletedSession? {
         guard !isClosed else { return nil }
-        restTimer.endOvertime()
         let duration = Int(Date.now.timeIntervalSince(startedAt))
         // Une seance libre rejoint l'historique comme une autre, sans
         // programme : elle ne fait donc pas avancer la rotation.
@@ -1171,18 +1175,40 @@ final class WorkoutState: Identifiable {
 
     // MARK: - Live Activity
 
-    /// Serie validable d'un tap depuis la Live Activity, avec les valeurs
-    /// que l'ecran de saisie pre-remplit. `nil` des qu'une saisie est
-    /// necessaire (echauffement, palier, serie au temps, charge inconnue).
+    /// Serie validable d'un tap depuis la Live Activity ou la montre, avec
+    /// EXACTEMENT les valeurs que l'ecran de saisie pre-remplit
+    /// (`prefillWeight`, `prefillReps` ; le palier pour une pyramide).
+    /// `nil` si la serie ne se valide pas sans saisie (temps, distance,
+    /// format chronometre) ou s'il n'y a pas de serie a faire. Pendant un
+    /// repos, c'est la serie qui suit le repos (la position a deja avance).
     func quickLogProposal() -> LiveActivityPlanning.SetProposal? {
         guard !isClosed, phase == .running, !isSessionComplete, let target = currentTarget else { return nil }
-        let exercise = target.exercise
         return LiveActivityPlanning.quickLogProposal(
             for: target,
-            proposedWeightKilograms: exercise.targetWeight ?? suggestedWeight(for: exercise),
-            proposedReps: proposedReps(for: target),
-            needsReferenceValue: needsOneRepMax(for: exercise) || needsMaxReps(for: exercise)
+            prefillWeightKilograms: prefillWeight(for: target),
+            prefillReps: prefillReps(for: target)
         )
+    }
+
+    /// Palier de montee en charge que « Valider » cocherait pendant
+    /// l'echauffement guide : le premier non coche de la liste affichee par
+    /// l'ecran « Échauffement libre ». `nil` sur les autres ecrans
+    /// d'echauffement (choix, cardio) : il n'y a rien a valider.
+    func warmupQuickLog() -> (index: Int, set: WarmupSet, count: Int)? {
+        guard !isClosed, phase == .warmup, runtimeState.warmup.stepRaw == "free" else { return nil }
+        let ramps = warmupRampSets()
+        guard let index = LiveActivityPlanning.nextWarmupRampIndex(
+            rampCount: ramps.count,
+            loggedIndexes: loggedWarmupRampIndexes()
+        ) else { return nil }
+        return (index, ramps[index], ramps.count)
+    }
+
+    /// Paliers de montee en charge deja enregistres (sur l'exercice cible).
+    func loggedWarmupRampIndexes() -> Set<Int> {
+        guard let target = warmupTargetExercise(),
+              let targetIndex = exercises.firstIndex(where: { $0.id == target.id }) else { return [] }
+        return Set(loggedSets.filter { $0.isWarmup && $0.orderIndex == targetIndex }.map(\.setIndex))
     }
 
     /// Identite de la serie affichee : seance, position, nombre de series
@@ -1198,14 +1224,27 @@ final class WorkoutState: Identifiable {
     }
 
     /// Valide la serie affichee par la Live Activity, par le MEME chemin que
-    /// le bouton « Valider la série » de l'ecran de saisie (`logSet`) :
-    /// persistance d'abord, repos ensuite, record celebre. Rien n'est fait si
-    /// la serie affichee n'est plus la serie courante.
+    /// le bouton de l'ecran de saisie : `logSet` (ou `logPyramidStep`,
+    /// `logWarmupSet` pendant l'echauffement) — persistance d'abord, repos
+    /// ensuite, record celebre. Pendant un repos, le repos s'arrete et la
+    /// serie qui le suit est enregistree. Rien n'est fait si la serie
+    /// affichee n'est plus la serie courante (double tap, activite en
+    /// retard).
     @discardableResult
     func logProposedSet(slotKey: String) -> Bool {
-        guard slotKey == liveActivitySlotKey, let proposal = quickLogProposal() else { return false }
+        guard slotKey == liveActivitySlotKey else { return false }
+        if let ramp = warmupQuickLog() {
+            let before = loggedSets.count
+            logWarmupSet(ramp.set, rampIndex: ramp.index)
+            return loggedSets.count != before
+        }
+        guard let proposal = quickLogProposal() else { return false }
         let before = position
-        logSet(weight: proposal.weightKilograms, reps: proposal.reps)
+        if proposal.isPyramidStep {
+            logPyramidStep(reps: proposal.reps)
+        } else {
+            logSet(weight: proposal.weightKilograms, reps: proposal.reps)
+        }
         // Un echec d'ecriture laisse la position en place : rien n'a ete
         // valide, et la Live Activity continue d'afficher la meme serie.
         return position != before
@@ -1213,8 +1252,8 @@ final class WorkoutState: Identifiable {
 
     /// Valide depuis la montre la serie affichee, avec la charge et les
     /// repetitions ajustees a la Digital Crown. Memes gardes que la Live
-    /// Activity (identite de serie, serie entierement connue), meme chemin
-    /// que l'ecran de saisie (`logSet`).
+    /// Activity (identite de serie, serie validable sans saisie), meme
+    /// chemin que l'ecran de saisie (`logSet`).
     @discardableResult
     func logAdjustedSet(slotKey: String, weightKilograms: Double, reps: Int) -> Bool {
         guard slotKey == liveActivitySlotKey, quickLogProposal() != nil else { return false }
@@ -1225,27 +1264,40 @@ final class WorkoutState: Identifiable {
 
     /// Etat courant publie sur la Live Activity. Rien de plus que ce que
     /// l'ecran de saisie affiche deja.
-    func liveActivityState() -> WorkoutActivityState {
-        let target = currentTarget
+    func liveActivityState(now: Date = .now) -> WorkoutActivityState {
         let unit = ProfileStore.massUnit(in: modelContext)
-        let proposal = quickLogProposal()
-        let restEnd = restTimer.endDate
+        let completed = loggedSets.filter { $0.role.countsAsWorkingSet }.count
+        // Un repos dont la fin est passee n'est plus un repos : l'activite
+        // n'affiche jamais de depassement.
+        let restEnd = restTimer.endDate.flatMap { $0 > now ? $0 : nil }
+        let restStart = restEnd.flatMap { end in
+            restTimer.totalSeconds > 0 ? end.addingTimeInterval(-Double(restTimer.totalSeconds)) : nil
+        }
 
-        var plannedSetText: String?
+        if phase == .warmup {
+            // Echauffement guide : la montee en charge, palier par palier.
+            let ramp = warmupQuickLog()
+            return WorkoutActivityState(
+                exerciseName: ramp != nil ? (warmupTargetExercise()?.displayName ?? sessionTitle) : String(localized: "Échauffement"),
+                setNumber: ramp.map { $0.index + 1 } ?? 0,
+                totalSets: ramp?.count ?? 0,
+                restEndsAt: restEnd,
+                completedSets: completed,
+                restStartedAt: restStart,
+                plannedSetText: ramp.map { LiveSessionText.set(weightKilograms: $0.set.weight, reps: $0.set.reps, unit: unit) },
+                nextStepText: nil,
+                canQuickLog: ramp != nil,
+                slotKey: liveActivitySlotKey,
+                isWarmup: true
+            )
+        }
+
+        let target = currentTarget
+        let proposal = quickLogProposal()
         var nextStepText: String?
-        if let target, phase == .running {
-            let exercise = target.exercise
-            let reps = proposedReps(for: target)
-            if exercise.effectiveMeasure == .weightReps, let reps {
-                let weight = exercise.targetWeight ?? suggestedWeight(for: exercise)
-                if let weight, weight > 0 || exercise.loadKind == .bodyweight {
-                    plannedSetText = LiveSessionText.set(weightKilograms: weight, reps: reps, unit: unit)
-                } else {
-                    plannedSetText = String(localized: "\(reps) reps")
-                }
-            }
+        if let target {
             let outcome = WorkoutSetOutcome(
-                reps: proposal?.reps ?? reps ?? 0,
+                reps: proposal?.reps ?? proposedReps(for: target) ?? 0,
                 weightKilograms: proposal?.weightKilograms ?? 0
             )
             nextStepText = Self.nextStepText(
@@ -1258,14 +1310,11 @@ final class WorkoutState: Identifiable {
             exerciseName: target?.exercise.displayName ?? currentExercise?.displayName ?? sessionTitle,
             setNumber: target?.setNumber ?? 0,
             totalSets: target?.totalSets ?? 0,
-            // Conservee pendant le depassement : la Live Activity affiche
-            // alors « +0:12 », comme le bandeau de l'application.
             restEndsAt: restEnd,
-            completedSets: loggedSets.filter { $0.role.countsAsWorkingSet }.count,
-            restStartedAt: restEnd.flatMap { end in
-                restTimer.totalSeconds > 0 ? end.addingTimeInterval(-Double(restTimer.totalSeconds)) : nil
-            },
-            plannedSetText: plannedSetText,
+            completedSets: completed,
+            restStartedAt: restStart,
+            // Exactement ce que « Valider » enregistrera.
+            plannedSetText: proposal.map { LiveSessionText.set(weightKilograms: $0.weightKilograms, reps: $0.reps, unit: unit) },
             nextStepText: nextStepText,
             canQuickLog: proposal != nil,
             slotKey: liveActivitySlotKey
@@ -1506,6 +1555,11 @@ final class WorkoutState: Identifiable {
             self.runtimeState.restEndDate = endDate
             self.runtimeState.restTotalSeconds = totalSeconds
             self.persistRuntimeState(action: "Chronomètre de repos")
+            // Nouveau repos, ajustement, « Passer » et FIN du repos : la Live
+            // Activity et la montre suivent aussitot, interface affichee ou
+            // non (application en arriere-plan avec une seance Sante, bouton
+            // de la Live Activity).
+            self.refreshLiveActivity()
         }
     }
 

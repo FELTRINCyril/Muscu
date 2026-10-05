@@ -3,16 +3,16 @@
   "strings": {
     "%@ · %lld séries": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ · %2$lld séries"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "%@ · %lld sets"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ · %2$lld séries"
           }
         }
       }
@@ -60,6 +60,7 @@
       }
     },
     "%lld série(s)": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -98,6 +99,7 @@
       }
     },
     "+30 s": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -118,11 +120,32 @@
       }
     },
     "Ajoute trente secondes au repos en cours.": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Adds thirty seconds to the current rest."
+          }
+        }
+      }
+    },
+    "Ajouter 15 secondes au repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add 15 seconds to the rest"
+          }
+        }
+      }
+    },
+    "Ajuster le repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adjust rest"
           }
         }
       }
@@ -218,6 +241,7 @@
       }
     },
     "Ouvrir": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -258,6 +282,7 @@
       }
     },
     "Prolonger le repos": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -268,6 +293,7 @@
       }
     },
     "Prolonger le repos de 30 secondes": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -289,21 +315,22 @@
     },
     "Records : %@ +%lld": {
       "localizations": {
-        "fr": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Records : %1$@ +%2$lld"
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Records: %@ +%lld"
           }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Records : %1$@ +%2$lld"
+          }
         }
       }
     },
     "Repos dépassé": {
+      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -330,6 +357,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rest until %@"
+          }
+        }
+      }
+    },
+    "Retire ou ajoute quinze secondes au repos en cours.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Removes or adds fifteen seconds to the current rest."
+          }
+        }
+      }
+    },
+    "Retirer 15 secondes au repos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove 15 seconds from the rest"
+          }
+        }
+      }
+    },
+    "Secondes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seconds"
           }
         }
       }
@@ -420,6 +477,16 @@
         }
       }
     },
+    "Valider": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm"
+          }
+        }
+      }
+    },
     "Valider la série": {
       "localizations": {
         "en": {
@@ -436,6 +503,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Your last workout, one tap to repeat it."
+          }
+        }
+      }
+    },
+    "Échauffement %lld/%lld": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Échauffement %1$lld/%2$lld"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warm-up %lld/%lld"
           }
         }
       }

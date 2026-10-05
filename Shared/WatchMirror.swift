@@ -101,8 +101,9 @@ struct WatchMirrorState: Codable, Equatable, Sendable {
     var hasWorkout: Bool { phase != .idle && activeWorkoutId != nil }
 
     /// La serie affichee peut etre validee depuis la montre : meme regle que
-    /// le bouton de la Live Activity (serie classique, charge et repetitions
-    /// connues).
+    /// le bouton « Valider » de la Live Activity (serie a faire, valeurs
+    /// pre-remplies par la saisie de l'application ; pas de serie au temps
+    /// ni de format chronometre).
     var canLogFromWatch: Bool {
         phase == .running && activity?.canQuickLog == true && plannedReps != nil && plannedWeightKilograms != nil
     }
@@ -117,7 +118,8 @@ enum WatchCommand: Codable, Equatable, Sendable {
     /// la Digital Crown (kilogrammes).
     case logSet(slotKey: String, weightKilograms: Double, reps: Int)
     case skipRest
-    case extendRest(seconds: Int)
+    /// −15 s ou +15 s sur le repos en cours (`WatchCommandPolicy.restStepSeconds`).
+    case adjustRest(seconds: Int)
     /// « Passer l'échauffement ».
     case finishWarmup
     /// Demarre la prochaine seance du programme sur l'iPhone.
@@ -189,7 +191,7 @@ struct WatchCommandContext: Equatable, Sendable {
     var slotKey: String
     var canQuickLog: Bool
     var isResting: Bool
-    var canExtendRest: Bool
+    var canAdjustRest: Bool
     var hasNextSession: Bool
 }
 
@@ -203,8 +205,10 @@ enum WatchCommandPolicy {
 
     static let weightRange: ClosedRange<Double> = 0...1_000
     static let repsRange: ClosedRange<Int> = 1...200
-    /// Seul le +30 s de l'application existe : pas de duree libre.
-    static let extendSeconds = 30
+    /// Seuls les −15 s / +15 s de l'application existent : pas de duree
+    /// libre (meme pas que `RestAdjustment.stepSeconds` du moteur, que la
+    /// montre ne lie pas ; un test le verifie).
+    static let restStepSeconds = 15
 
     static func evaluate(_ envelope: WatchCommandEnvelope, in context: WatchCommandContext) -> Decision {
         guard envelope.version <= WatchCommandEnvelope.currentVersion else { return .reject(.unsupported) }
@@ -215,7 +219,7 @@ enum WatchCommandPolicy {
             guard context.activeWorkoutId == nil else { return .reject(.workoutAlreadyRunning) }
             if envelope.command == .startNext, !context.hasNextSession { return .reject(.noNextSession) }
             return .perform
-        case .logSet, .skipRest, .extendRest, .finishWarmup:
+        case .logSet, .skipRest, .adjustRest, .finishWarmup:
             break
         }
 
@@ -236,9 +240,9 @@ enum WatchCommandPolicy {
             return .perform
         case .skipRest:
             return context.isResting ? .perform : .reject(.noRest)
-        case .extendRest(let seconds):
-            guard seconds == extendSeconds else { return .reject(.invalidValues) }
-            return context.canExtendRest ? .perform : .reject(.noRest)
+        case .adjustRest(let seconds):
+            guard seconds == restStepSeconds || seconds == -restStepSeconds else { return .reject(.invalidValues) }
+            return context.canAdjustRest ? .perform : .reject(.noRest)
         case .finishWarmup:
             return context.phase == .warmup ? .perform : .reject(.staleSet)
         case .requestState, .startNext, .startFree:
@@ -403,7 +407,7 @@ struct RestHapticTracker: Equatable, Sendable {
 
     mutating func cues(at now: Date, restEndsAt: Date?) -> [RestHapticCue] {
         if restEndsAt != self.restEndsAt {
-            // Nouveau repos, +30 s ou repos passe : on repart de zero.
+            // Nouveau repos, ±15 s ou repos passe : on repart de zero.
             self.restEndsAt = restEndsAt
             lastFiredSecond = nil
             finishedFired = false

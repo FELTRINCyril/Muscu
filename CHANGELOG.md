@@ -4,6 +4,21 @@
 
 ### Inspirations open source
 
+- Live Activity et fin du repos, d'après une vraie séance : plus de bouton
+  « Ouvrir » (un tap sur le bandeau ouvre l'application). « Valider » est
+  toujours proposé quand une série est à faire, avec exactement les valeurs
+  que la saisie pré-remplit — palier courant d'une pyramide, charge laissée à
+  zéro si la saisie la laisse à zéro, palier de montée en charge pendant
+  l'échauffement libre ; aucun bouton pour une série au temps ou un format
+  chronométré. Pendant un repos, la série suivante et son « Valider » sont
+  déjà affichés (valider arrête le repos), avec « −15 s », « +15 s » et
+  « Passer » ; « +30 s » disparaît partout (application, Live Activity,
+  montre). Plus de « Repos dépassé » : le repos se termine à zéro, l'écran de
+  saisie revient sans délai ni animation, la Live Activity et la montre sont
+  mises à jour aussitôt (y compris application en arrière-plan) et leur
+  contenu reste juste même avant cette mise à jour. Le repos réellement pris
+  reste enregistré. La copie de secours de la base vise enfin le bon fichier
+  (conteneur du groupe d'applications). Décision 0020.
 - Pyramide : le repos annoncé pendant la séance est exactement celui qui est
   lancé (un seul calcul, référencé sur le plus haut palier ; plus de repos
   après le dernier palier). Nouveau mode « Par palier » pour choisir chaque
@@ -22,9 +37,9 @@
 - Écran maintenu allumé pendant une séance (réglage, activé par défaut).
 - Toutes les charges affichées suivent l'unité choisie, y compris sur la
   montre ; la saisie se fait dans cette unité.
-- Le repos ne s'arrête plus à zéro : son dépassement s'affiche (« +0:12 »)
-  jusqu'à la série suivante. Repos par défaut distincts pour la barre et pour
-  les haltères / machines.
+- Repos par défaut distincts pour la barre et pour les haltères / machines.
+  (L'affichage du dépassement « +0:12 », un temps livré ici, est retiré :
+  voir la Live Activity ci-dessus.)
 - Plafond de répétitions réglable pour le 1RM estimé, appliqué aux records,
   graphiques et suggestions.
 - Séance en direct : valeur précédente par série (tap pour recopier),

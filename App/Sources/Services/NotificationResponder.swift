@@ -19,7 +19,11 @@ final class NotificationResponder: NSObject, UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .sound]
+        // Fin de repos, application ouverte : le chrono a deja joue son son
+        // et l'ecran de saisie est revenu. Une banniere par-dessus ne dirait
+        // rien de plus.
+        if notification.request.identifier == RestTimer.notificationIdentifier { return [] }
+        return [.banner, .sound]
     }
 
     func userNotificationCenter(

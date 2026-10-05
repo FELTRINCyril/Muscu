@@ -64,9 +64,10 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
 - **Séances en direct** : saisie rapide poids/répétitions, chrono de repos
   automatique avec notifications, reprise après interruption (kill de l'app en
   pleine séance). Les +/- de charge suivent le pas réellement disponible, le
-  dépassement du repos s'affiche jusqu'à la série suivante, le repos par
-  défaut distingue la barre des haltères / machines, et l'écran reste allumé
-  pendant la séance (réglable).
+  repos s'ajuste par « −15 s » / « +15 s » et se ferme à zéro sur l'écran de
+  saisie de la série suivante (le repos réellement pris est enregistré), le
+  repos par défaut distingue la barre des haltères / machines, et l'écran
+  reste allumé pendant la séance (réglable).
   - **Valeur précédente par série** (« Préc. 80 kg × 8 ») : la même série de
     travail lors de la dernière séance comparable ; un tap recopie charge et
     répétitions sans valider.
@@ -200,16 +201,19 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
   (date, durée, séries, tonnage, record ; un tap propose de la refaire) sur
   l'écran d'accueil. Sur l'écran verrouillé et dans la Dynamic Island, la
   séance en cours est interactive : exercice, série n/N, charge × répétitions
-  prévues, série suivante, repos en décompte puis en dépassement (« +0:12 »),
-  et les boutons « Valider la série », « Passer » et « +30 s ». « Valider »
-  n'apparaît que pour une série classique dont la charge et les répétitions
-  sont connues ; sinon le bouton ouvre l'application. Les widgets lisent un
-  instantané qui ne contient que ce qu'ils affichent.
+  prévues, série suivante, repos en décompte, et les boutons « Valider »,
+  « −15 s », « +15 s » et « Passer ». « Valider » enregistre exactement ce que
+  l'écran de saisie pré-remplit (le palier courant d'une pyramide, le palier
+  de montée en charge pendant l'échauffement libre) ; pendant un repos, il
+  arrête le repos et valide la série qui suit, déjà affichée. Pas de bouton
+  pour une série au temps ou un format chronométré ; un tap sur le bandeau
+  ouvre l'application. Les widgets lisent un instantané qui ne contient que
+  ce qu'ils affichent.
 - **Apple Watch** : la séance en cours sur l'iPhone se suit au poignet —
   exercice, série n/N, charge × répétitions prévues (unité du profil), série
-  suivante, repos en décompte puis en dépassement — avec « Valider la série »
-  (charge et répétitions ajustables à la Digital Crown), « Passer » et
-  « +30 s », exécutés sur l'iPhone par le même chemin que ses boutons ;
+  suivante, repos en décompte — avec « Valider la série » (charge et
+  répétitions ajustables à la Digital Crown), « −15 s », « +15 s » et
+  « Passer », exécutés sur l'iPhone par le même chemin que ses boutons ;
   iPhone injoignable, la commande est refusée plutôt que différée. Démarrez
   la prochaine séance ou une séance libre depuis la montre : elle démarre sur
   l'iPhone et se suit en miroir. Vibration aux trois dernières secondes et à

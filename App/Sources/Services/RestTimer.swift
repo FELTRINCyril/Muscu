@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import UserNotifications
 import AudioToolbox
 import MuscuEngine
@@ -6,22 +7,25 @@ import MuscuEngine
 // Chrono de repos fiable, base sur une date de fin absolue (jamais un compteur
 // decrementant) : le temps restant survit a une suspension de l'app.
 //
-// Une fois la fin atteinte, le chrono ne s'arrete pas : il passe en
-// DEPASSEMENT (« +0:12 ») jusqu'a la serie suivante. `isRunning` redevient
-// faux — l'ecran de repos se ferme comme avant — mais `isOvertime` reste vrai
-// tant que `skip()` ou un nouveau `start` n'a pas eu lieu.
+// A la fin prevue, le repos est TERMINE : plus de fin ni de duree, l'ecran
+// de repos se ferme et l'ecran de saisie de la serie suivante est la. Il n'y
+// a pas de « depassement » affiche : le repos reellement pris est enregistre
+// avec la serie suivante (`ActualRest`), independamment de ce chrono.
 @Observable
 @MainActor
 final class RestTimer {
-    private static let notificationIdentifier = "com.cyril.muscu.rest-timer"
+    nonisolated static let notificationIdentifier = "com.cyril.muscu.rest-timer"
     private static var didRequestAuthorization = false
 
     private(set) var endDate: Date?
     private(set) var totalSeconds: Int = 0
-    /// Repos termine, depassement en cours d'affichage.
-    private(set) var isOvertime = false
 
+    /// Fin du repos, quelle qu'en soit la cause (fin prevue, « Passer »,
+    /// « −15 s » jusqu'a zero).
     var onFinished: (() -> Void)?
+    /// Toute modification de la fin : nouveau repos, ajustement, fin. Appele
+    /// aussi application en arriere-plan (seance Sante active) : c'est ce
+    /// qui met a jour la Live Activity a la fin du repos.
     var onStateChange: ((Date?, Int) -> Void)?
 
     private var expiryTask: Task<Void, Never>?
@@ -30,18 +34,12 @@ final class RestTimer {
     private var beepTask: Task<Void, Never>?
 
     var isRunning: Bool {
-        endDate != nil && !isOvertime
+        endDate != nil
     }
 
     var remaining: Int {
         guard let endDate else { return 0 }
         return RestCountdown(endDate: endDate, now: .now).remainingSeconds
-    }
-
-    /// Etat affiche a l'instant `now` : decompte, puis depassement.
-    func countdown(at now: Date = .now) -> RestCountdown? {
-        guard let endDate else { return nil }
-        return RestCountdown(endDate: endDate, now: now)
     }
 
     var progress: Double {
@@ -53,7 +51,6 @@ final class RestTimer {
     func start(seconds: Int) {
         requestAuthorizationIfNeeded()
 
-        isOvertime = false
         totalSeconds = seconds
         endDate = Date.now.addingTimeInterval(Double(seconds))
         onStateChange?(endDate, totalSeconds)
@@ -61,18 +58,40 @@ final class RestTimer {
         scheduleExpiryDetection()
     }
 
-    func addThirtySeconds() {
-        guard let currentEnd = endDate, !isOvertime else { return }
-        endDate = currentEnd.addingTimeInterval(30)
-        totalSeconds += 30
-        onStateChange?(endDate, totalSeconds)
-        guard let endDate else { return }
-        let remainingSeconds = max(1, Int(endDate.timeIntervalSinceNow.rounded(.up)))
-        scheduleNotification(seconds: remainingSeconds)
-        scheduleExpiryDetection()
+    /// « −15 s » / « +15 s » (`RestAdjustment`) : le temps restant ne passe
+    /// jamais sous zero ; s'il l'atteint, le repos se termine comme avec
+    /// « Passer ». Toute autre valeur est ignoree.
+    func adjust(by seconds: Int, now: Date = .now) {
+        guard let currentEnd = endDate, RestAdjustment.isAllowed(seconds) else { return }
+        switch RestAdjustment.adjust(endDate: currentEnd, totalSeconds: totalSeconds, by: seconds, now: now) {
+        case .finished:
+            skip()
+        case .running(let newEnd, let newTotal):
+            endDate = newEnd
+            totalSeconds = newTotal
+            onStateChange?(endDate, totalSeconds)
+            let remainingSeconds = max(1, Int(newEnd.timeIntervalSince(now).rounded(.up)))
+            scheduleNotification(seconds: remainingSeconds)
+            scheduleExpiryDetection()
+        }
     }
 
     func skip() {
+        let wasRunning = endDate != nil
+        clear()
+        onStateChange?(nil, 0)
+        if wasRunning { onFinished?() }
+    }
+
+    /// Arrete le repos en cours, s'il y en a un : la serie suivante est
+    /// validee (dans l'application, depuis la Live Activity ou la montre).
+    /// Sans repos en cours, rien n'est ecrit.
+    func stopIfRunning() {
+        guard endDate != nil else { return }
+        skip()
+    }
+
+    private func clear() {
         cancelNotification()
         expiryTask?.cancel()
         expiryTask = nil
@@ -80,36 +99,15 @@ final class RestTimer {
         beepTask = nil
         endDate = nil
         totalSeconds = 0
-        isOvertime = false
-        onStateChange?(nil, 0)
-    }
-
-    /// Ferme un depassement en cours (serie suivante saisie, seance
-    /// terminee). Sans effet pendant un repos qui n'est pas termine.
-    func endOvertime() {
-        guard isOvertime else { return }
-        skip()
     }
 
     func restore(endDate: Date, totalSeconds: Int) {
-        guard totalSeconds > 0 else {
+        // Repos termine pendant que l'app etait fermee : il n'y a plus rien
+        // a afficher, la serie suivante attend.
+        guard totalSeconds > 0, endDate > .now else {
             skip()
             return
         }
-        guard endDate > .now else {
-            // Repos termine pendant que l'app etait fermee : on reprend le
-            // depassement s'il reste plausible, sinon on l'oublie.
-            let overtime = RestCountdown(endDate: endDate, now: .now).overtimeSeconds
-            guard overtime <= RestCountdown.maximumOvertimeSeconds else {
-                skip()
-                return
-            }
-            self.endDate = endDate
-            self.totalSeconds = totalSeconds
-            isOvertime = true
-            return
-        }
-        isOvertime = false
         self.endDate = endDate
         self.totalSeconds = totalSeconds
         let remainingSeconds = max(1, Int(endDate.timeIntervalSinceNow.rounded(.up)))
@@ -131,7 +129,7 @@ final class RestTimer {
 
     /// Trois bips courts aux trois dernieres secondes, avec une vibration
     /// legere, quand les sons sont actives. Recalcules a chaque changement
-    /// de fin (+30 s, reprise) : un bip deja passe n'est jamais rejoue.
+    /// de fin (±15 s, reprise) : un bip deja passe n'est jamais rejoue.
     private func scheduleBeeps() {
         beepTask?.cancel()
         beepTask = nil
@@ -155,15 +153,19 @@ final class RestTimer {
     private static let beepSoundID: SystemSoundID = 1103
 
     private func handleExpiry() {
-        guard endDate != nil, !isOvertime else { return }
-        cancelNotification()
-        // La date de fin est conservee : c'est elle qui mesure le
-        // depassement. L'etat persiste ne change donc pas.
-        isOvertime = true
-
+        guard endDate != nil else { return }
         FeedbackSettings.playSound(1007)
         FeedbackSettings.notification(.success)
-
+        // Fin prevue atteinte : l'ecran de repos disparait SANS animation,
+        // l'ecran de saisie de la serie suivante (deja en place dessous) est
+        // aussitot visible. La notification de fin, deja delivree ou sur le
+        // point de l'etre, est retiree par `clear`.
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            clear()
+        }
+        onStateChange?(nil, 0)
         onFinished?()
     }
 
