@@ -43,9 +43,16 @@ public enum SessionDuration {
             return sets * perSet + max(0, sets - 1) * max(0, exercise.restSeconds)
 
         case .pyramid:
+            // Repos prevus par le meme calcul que le deroule, chaque palier
+            // suppose realise tel que prescrit.
             let steps = max(1, exercise.pyramidReps.count)
-            let averageRest = max(0, (exercise.pyramidMinRest + exercise.pyramidMaxRest) / 2)
-            return steps * workSecondsPerStep + max(0, steps - 1) * averageRest
+            let rests = Pyramid.plannedRests(
+                steps: exercise.pyramidReps,
+                stepRests: exercise.pyramidRestSeconds,
+                minRest: exercise.pyramidMinRest,
+                maxRest: exercise.pyramidMaxRest
+            )
+            return steps * workSecondsPerStep + rests.reduce(0, +)
 
         case .intervals, .emom:
             let rounds = max(1, exercise.intervalRounds)

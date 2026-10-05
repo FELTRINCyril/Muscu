@@ -171,6 +171,10 @@ public struct WorkoutExercisePlan: Codable, Equatable, Sendable, Identifiable {
     public var pyramidReps: [Int]
     public var pyramidMinRest: Int
     public var pyramidMaxRest: Int
+    /// Repos choisi apres chaque palier (mode « Par palier »), aligne sur
+    /// `pyramidReps`. Vide = repos adaptatif entre `pyramidMinRest` et
+    /// `pyramidMaxRest`. Voir `Pyramid.restAfterStep`.
+    public var pyramidRestSeconds: [Int]
     public var dropset: DropsetPlan?
     public var restPause: RestPausePlan?
     public var myoReps: MyoRepsPlan?
@@ -208,6 +212,7 @@ public struct WorkoutExercisePlan: Codable, Equatable, Sendable, Identifiable {
         pyramidReps: [Int] = [],
         pyramidMinRest: Int = 0,
         pyramidMaxRest: Int = 0,
+        pyramidRestSeconds: [Int] = [],
         dropset: DropsetPlan? = nil,
         restPause: RestPausePlan? = nil,
         myoReps: MyoRepsPlan? = nil,
@@ -240,6 +245,7 @@ public struct WorkoutExercisePlan: Codable, Equatable, Sendable, Identifiable {
         self.pyramidReps = pyramidReps
         self.pyramidMinRest = pyramidMinRest
         self.pyramidMaxRest = pyramidMaxRest
+        self.pyramidRestSeconds = pyramidRestSeconds
         self.dropset = dropset
         self.restPause = restPause
         self.myoReps = myoReps
@@ -301,6 +307,49 @@ public struct WorkoutExercisePlan: Codable, Equatable, Sendable, Identifiable {
 
 /// Un noeud de la seance : un exercice seul, un groupe d'exercices enchaines
 /// ou un repos explicite.
+extension WorkoutExercisePlan {
+    /// Decodage tolerant : un deroule persiste AVANT l'ajout des repos par
+    /// palier (seance en cours au moment de la mise a jour) ne porte pas
+    /// `pyramidRestSeconds` et doit rester lisible — en mode adaptatif.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            exerciseId: try container.decode(String.self, forKey: .exerciseId),
+            displayName: try container.decode(String.self, forKey: .displayName),
+            format: try container.decode(WorkoutFormat.self, forKey: .format),
+            loadKind: try container.decode(LoadKind.self, forKey: .loadKind),
+            side: try container.decode(SideConvention.self, forKey: .side),
+            setCount: try container.decode(Int.self, forKey: .setCount),
+            repsLower: try container.decode(Int.self, forKey: .repsLower),
+            repsUpper: try container.decode(Int.self, forKey: .repsUpper),
+            restSeconds: try container.decode(Int.self, forKey: .restSeconds),
+            tempo: try container.decodeIfPresent(Tempo.self, forKey: .tempo),
+            targetEffort: try container.decodeIfPresent(EffortRating.self, forKey: .targetEffort),
+            targetWeight: try container.decodeIfPresent(Double.self, forKey: .targetWeight),
+            percentOneRepMax: try container.decodeIfPresent(Double.self, forKey: .percentOneRepMax),
+            percentMaxReps: try container.decodeIfPresent(Double.self, forKey: .percentMaxReps),
+            notes: try container.decode(String.self, forKey: .notes),
+            pyramidReps: try container.decode([Int].self, forKey: .pyramidReps),
+            pyramidMinRest: try container.decode(Int.self, forKey: .pyramidMinRest),
+            pyramidMaxRest: try container.decode(Int.self, forKey: .pyramidMaxRest),
+            pyramidRestSeconds: try container.decodeIfPresent([Int].self, forKey: .pyramidRestSeconds) ?? [],
+            dropset: try container.decodeIfPresent(DropsetPlan.self, forKey: .dropset),
+            restPause: try container.decodeIfPresent(RestPausePlan.self, forKey: .restPause),
+            myoReps: try container.decodeIfPresent(MyoRepsPlan.self, forKey: .myoReps),
+            intervalWorkSeconds: try container.decode(Int.self, forKey: .intervalWorkSeconds),
+            intervalRestSeconds: try container.decode(Int.self, forKey: .intervalRestSeconds),
+            intervalRounds: try container.decode(Int.self, forKey: .intervalRounds),
+            countdownSeconds: try container.decode(Int.self, forKey: .countdownSeconds),
+            amrapSeconds: try container.decode(Int.self, forKey: .amrapSeconds),
+            capSeconds: try container.decode(Int.self, forKey: .capSeconds),
+            measure: try container.decodeIfPresent(SetMeasure.self, forKey: .measure),
+            targetDurationSeconds: try container.decodeIfPresent(Int.self, forKey: .targetDurationSeconds),
+            targetDistanceMeters: try container.decodeIfPresent(Double.self, forKey: .targetDistanceMeters)
+        )
+    }
+}
+
 public struct WorkoutNode: Codable, Equatable, Sendable, Identifiable {
     public var id: UUID
     public var kind: WorkoutGroupKind

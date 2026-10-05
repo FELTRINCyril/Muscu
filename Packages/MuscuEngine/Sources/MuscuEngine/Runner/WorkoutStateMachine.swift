@@ -379,14 +379,10 @@ public enum WorkoutStateMachine {
         let seconds: Int
         switch exercise.format {
         case .pyramid:
-            // Le repos depend de l'intensite relative du palier realise.
-            let maxReps = max(1, exercise.pyramidReps.max() ?? 1)
-            seconds = Pyramid.adaptiveRest(
-                repsDone: outcome.reps,
-                maxReps: maxReps,
-                minRest: exercise.pyramidMinRest,
-                maxRest: exercise.pyramidMaxRest
-            )
+            // Meme calcul que l'apercu du deroule et de l'editeur : le repos
+            // annonce est celui qui est lance. Aucun repos apres le dernier
+            // palier, meme si un exercice suit (decision 0019).
+            seconds = exercise.pyramidRest(afterStep: position.setIndex, repsDone: outcome.reps) ?? 0
         case .classic, .dropset, .restPause, .myoReps:
             seconds = exercise.restSeconds
         case .intervals, .emom, .amrap, .forTime:
