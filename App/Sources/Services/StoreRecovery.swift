@@ -1,16 +1,21 @@
 import Foundation
 import UniformTypeIdentifiers
 import SwiftUI
+import SwiftData
 
 /// Recuperation d'un store local illisible (schema inattendu, fichier
 /// corrompu). Le principe est toujours le meme : ne JAMAIS supprimer le
 /// fichier d'origine, mais permettre a l'utilisateur d'en sortir une copie
 /// avant toute decision.
 enum StoreRecovery {
-    /// Emplacement du store SwiftData par defaut.
+    /// Emplacement REEL du store : celui de la configuration par defaut que
+    /// recoit le `ModelContainer` de l'application. Avec le groupe
+    /// d'applications (`group.com.cyril.Muscu`), SwiftData range la base
+    /// dans le conteneur du groupe (Library/Application Support/
+    /// default.store), pas dans l'Application Support de l'application :
+    /// un chemin recompose a la main viserait un fichier qui n'existe pas.
     static var storeURL: URL {
-        let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return applicationSupport.appendingPathComponent("default.store")
+        ModelConfiguration().url
     }
 
     /// Fichiers reellement presents pour ce store : la base et ses journaux
