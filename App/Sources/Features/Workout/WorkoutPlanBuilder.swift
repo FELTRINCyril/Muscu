@@ -87,6 +87,9 @@ enum WorkoutPlanBuilder {
             pyramidReps: exercise.pyramidReps,
             pyramidMinRest: exercise.pyramidMinRest,
             pyramidMaxRest: exercise.pyramidMaxRest,
+            // Normalise : une liste mal alignee (archive, synchro) ne doit
+            // jamais decaler les repos par rapport aux paliers.
+            pyramidRestSeconds: Pyramid.normalizedRests(exercise.pyramidRestSeconds, stepCount: exercise.pyramidReps.count),
             dropset: dropsetPlan(for: exercise),
             restPause: restPausePlan(for: exercise),
             myoReps: myoRepsPlan(for: exercise),

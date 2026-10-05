@@ -176,7 +176,8 @@ extension PrescribedExercise {
             intervalRest: intervalRest,
             intervalRounds: intervalRounds,
             amrapSeconds: amrapSeconds,
-            notes: notes
+            notes: notes,
+            pyramidRestSeconds: pyramidRestSeconds
         )
     }
 }

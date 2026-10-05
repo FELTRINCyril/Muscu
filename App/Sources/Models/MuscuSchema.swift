@@ -1,19 +1,17 @@
 import Foundation
 import SwiftData
 
-/// Version courante du schema : modele v7 du produit. Ajoute au modele v6
-/// des attributs FACULTATIFS preparant les inspirations open source (document
-/// 10) : note d'effort, cardio et calories d'une seance, date de correction,
-/// repos reellement pris avant une serie, lien de demonstration personnel,
-/// redirection d'un exercice personnalise fusionne et identifiant d'echantillon
-/// Sante d'une mesure importee.
+/// Version courante du schema : modele v8 du produit. Ajoute au modele v7
+/// un seul attribut FACULTATIF : les repos choisis palier par palier d'une
+/// pyramide (`PrescribedExercise.pyramidRestSeconds`, vide = repos
+/// adaptatif, comme avant).
 ///
-/// Contrairement aux versions figees (`MuscuSchemaV1` a `MuscuSchemaV6`),
+/// Contrairement aux versions figees (`MuscuSchemaV1` a `MuscuSchemaV7`),
 /// celle-ci pointe sur les modeles reellement utilises par l'application.
 /// Une evolution future doit d'abord FIGER une copie de ces modeles
 /// (`Scripts/freeze-schema.py`) avant de les modifier ici.
-enum MuscuSchemaV7: VersionedSchema {
-    static let versionIdentifier = Schema.Version(7, 0, 0)
+enum MuscuSchemaV8: VersionedSchema {
+    static let versionIdentifier = Schema.Version(8, 0, 0)
 
     static var models: [any PersistentModel.Type] {
         [
@@ -53,21 +51,21 @@ enum MuscuSchemaV7: VersionedSchema {
 
 /// Schema courant de l'application. Un seul point a changer lors de l'ajout
 /// d'une version ; les tests de migration s'appuient dessus.
-typealias MuscuCurrentSchema = MuscuSchemaV7
+typealias MuscuCurrentSchema = MuscuSchemaV8
 
 enum MuscuMigrationPlan: SchemaMigrationPlan {
     static var schemas: [any VersionedSchema.Type] {
         [
             MuscuSchemaV1.self, MuscuSchemaV2.self, MuscuSchemaV3.self,
             MuscuSchemaV4.self, MuscuSchemaV5.self, MuscuSchemaV6.self,
-            MuscuSchemaV7.self,
+            MuscuSchemaV7.self, MuscuSchemaV8.self,
         ]
     }
 
     static var stages: [MigrationStage] {
         [
             migrateV1toV2, migrateV2toV3, migrateV3toV4, migrateV4toV5,
-            migrateV5toV6, migrateV6toV7,
+            migrateV5toV6, migrateV6toV7, migrateV7toV8,
         ]
     }
 
@@ -122,5 +120,14 @@ enum MuscuMigrationPlan: SchemaMigrationPlan {
     static let migrateV6toV7 = MigrationStage.lightweight(
         fromVersion: MuscuSchemaV6.self,
         toVersion: MuscuSchemaV7.self
+    )
+
+    /// V7 -> V8 : un attribut FACULTATIF sur `PrescribedExercise`,
+    /// `pyramidRestSeconds`, vide par defaut. Une pyramide v7 garde ses
+    /// paliers et ses bornes de repos et reste en repos adaptatif : aucune
+    /// donnee existante n'est relue ni reecrite.
+    static let migrateV7toV8 = MigrationStage.lightweight(
+        fromVersion: MuscuSchemaV7.self,
+        toVersion: MuscuSchemaV8.self
     )
 }

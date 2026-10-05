@@ -140,6 +140,9 @@ enum ExportImport {
         var sideConventionRaw: String?
         var targetDurationSeconds: Int?
         var targetDistanceMeters: Double?
+        /// Champ v8 : repos choisis palier par palier d'une pyramide. Absent
+        /// (archive anterieure) ou vide = repos adaptatif.
+        var pyramidRestSeconds: [Int]? = nil
     }
 
     struct GroupDTO: Codable {
@@ -923,7 +926,8 @@ enum ExportImport {
             loadKindRaw: exercise.loadKindRaw.isEmpty ? nil : exercise.loadKindRaw,
             sideConventionRaw: exercise.sideConventionRaw,
             targetDurationSeconds: exercise.targetDurationSeconds,
-            targetDistanceMeters: exercise.targetDistanceMeters
+            targetDistanceMeters: exercise.targetDistanceMeters,
+            pyramidRestSeconds: exercise.pyramidRestSeconds.isEmpty ? nil : exercise.pyramidRestSeconds
         )
     }
 
@@ -1282,7 +1286,8 @@ enum ExportImport {
             loadKindRaw: dto.loadKindRaw ?? "",
             sideConventionRaw: dto.sideConventionRaw ?? SideConvention.bilateral.rawValue,
             targetDurationSeconds: dto.targetDurationSeconds ?? 0,
-            targetDistanceMeters: dto.targetDistanceMeters ?? 0
+            targetDistanceMeters: dto.targetDistanceMeters ?? 0,
+            pyramidRestSeconds: dto.pyramidRestSeconds ?? []
         )
     }
 
@@ -1920,6 +1925,13 @@ enum ExportImport {
               (0...1_000).contains(exercise.intervalRounds),
               (0...86_400).contains(exercise.amrapSeconds) else {
             throw ImportError.invalidData("prescription hors limites pour \(exercise.displayName)")
+        }
+        // Repos par palier : vide, ou exactement un repos borne par palier.
+        if let rests = exercise.pyramidRestSeconds, !rests.isEmpty {
+            guard rests.count == exercise.pyramidReps.count,
+                  rests.allSatisfy({ Pyramid.allowedStepRest.contains($0) }) else {
+                throw ImportError.invalidData("repos de pyramide invalides pour \(exercise.displayName)")
+            }
         }
         for percent in [exercise.percentOneRepMax, exercise.percentMaxReps].compactMap({ $0 }) {
             guard percent.isFinite, (0...100).contains(percent) else { throw ImportError.invalidData("pourcentage hors limites") }

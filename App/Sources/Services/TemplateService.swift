@@ -62,6 +62,12 @@ struct TemplateExercise: Codable, Sendable {
     /// un modele anterieur ne les porte pas et reste lisible.
     var targetDurationSeconds: Int? = nil
     var targetDistanceMeters: Double? = nil
+    /// Repos d'une pyramide : bornes de l'adaptatif et repos par palier.
+    /// Facultatifs : un modele anterieur ne les porte pas (bornes par
+    /// defaut, repos adaptatif).
+    var pyramidMinRest: Int? = nil
+    var pyramidMaxRest: Int? = nil
+    var pyramidRestSeconds: [Int]? = nil
 }
 
 /// Modeles de seance et de programme : creation, application, duplication,
@@ -273,7 +279,10 @@ enum TemplateService {
                         : nil,
                     targetDistanceMeters: measure.measuresDistance
                         ? (exercise.targetDistanceMeters ?? SetMeasure.defaultTargetDistanceMeters)
-                        : nil
+                        : nil,
+                    pyramidMinRest: exercise.format == .pyramid ? exercise.pyramidMinRest : nil,
+                    pyramidMaxRest: exercise.format == .pyramid ? exercise.pyramidMaxRest : nil,
+                    pyramidRestSeconds: exercise.pyramidRestSeconds.isEmpty ? nil : exercise.pyramidRestSeconds
                 ))
                 order += 1
             }
@@ -429,7 +438,10 @@ enum TemplateService {
                     amrapSeconds: exercise.amrapSeconds,
                     forTimeCapSeconds: exercise.forTimeCapSeconds,
                     targetDurationSeconds: exercise.targetDurationSeconds > 0 ? exercise.targetDurationSeconds : nil,
-                    targetDistanceMeters: exercise.targetDistanceMeters > 0 ? exercise.targetDistanceMeters : nil
+                    targetDistanceMeters: exercise.targetDistanceMeters > 0 ? exercise.targetDistanceMeters : nil,
+                    pyramidMinRest: exercise.format == .pyramid ? exercise.pyramidMinRest : nil,
+                    pyramidMaxRest: exercise.format == .pyramid ? exercise.pyramidMaxRest : nil,
+                    pyramidRestSeconds: exercise.pyramidRestSeconds.isEmpty ? nil : exercise.pyramidRestSeconds
                 )
             }
         )
@@ -551,6 +563,15 @@ enum TemplateService {
                 exercise.forTimeCapSeconds = templateExercise.forTimeCapSeconds
                 exercise.targetDurationSeconds = max(0, templateExercise.targetDurationSeconds ?? 0)
                 exercise.targetDistanceMeters = max(0, templateExercise.targetDistanceMeters ?? 0)
+                // Un modele anterieur ne portait pas les bornes de repos de
+                // la pyramide : on laisse 0, que le moteur remplace par ses
+                // bornes par defaut (jamais un repos nul).
+                exercise.pyramidMinRest = Pyramid.clampedRest(templateExercise.pyramidMinRest ?? 0)
+                exercise.pyramidMaxRest = max(exercise.pyramidMinRest, Pyramid.clampedRest(templateExercise.pyramidMaxRest ?? 0))
+                exercise.pyramidRestSeconds = Pyramid.normalizedRests(
+                    templateExercise.pyramidRestSeconds ?? [],
+                    stepCount: templateExercise.pyramidReps.count
+                )
                 exercise.session = session
                 session.exercises.append(exercise)
                 if let groupIndex = templateExercise.groupIndex, groups.indices.contains(groupIndex) {

@@ -343,7 +343,8 @@ struct SessionEditorView: View {
             myoRepsMaxMiniSets: exercise.myoRepsMaxMiniSets,
             myoRepsRestSeconds: exercise.myoRepsRestSeconds,
             intervalCountdownSeconds: exercise.intervalCountdownSeconds,
-            forTimeCapSeconds: exercise.forTimeCapSeconds
+            forTimeCapSeconds: exercise.forTimeCapSeconds,
+            pyramidRestSeconds: exercise.pyramidRestSeconds
         )
         copy.session = session
         session.exercises.append(copy)

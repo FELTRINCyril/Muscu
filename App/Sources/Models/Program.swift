@@ -177,6 +177,14 @@ final class PrescribedExercise {
     /// For Time : plafond de temps en secondes. Zero = pas de plafond.
     var forTimeCapSeconds: Int = 0
 
+    // MARK: - Champ v8 (facultatif, migration legere)
+
+    /// Pyramide en mode « Par palier » : repos choisi apres chaque palier,
+    /// aligne sur `pyramidReps` (celui du dernier palier n'est jamais lance).
+    /// Vide = repos adaptatif entre `pyramidMinRest` et `pyramidMaxRest`,
+    /// ce qui est le cas de toute pyramide anterieure a la v8.
+    var pyramidRestSeconds: [Int] = []
+
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
     var deletedAt: Date?
@@ -227,6 +235,7 @@ final class PrescribedExercise {
         myoRepsRestSeconds: Int = 0,
         intervalCountdownSeconds: Int = 0,
         forTimeCapSeconds: Int = 0,
+        pyramidRestSeconds: [Int] = [],
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         deletedAt: Date? = nil
@@ -273,6 +282,7 @@ final class PrescribedExercise {
         self.myoRepsRestSeconds = myoRepsRestSeconds
         self.intervalCountdownSeconds = intervalCountdownSeconds
         self.forTimeCapSeconds = forTimeCapSeconds
+        self.pyramidRestSeconds = pyramidRestSeconds
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.deletedAt = deletedAt

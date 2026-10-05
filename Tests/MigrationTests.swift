@@ -531,6 +531,73 @@ final class MigrationTests: XCTestCase {
         XCTAssertEqual(reread.sets.first?.actualRestSeconds, 95)
     }
 
+    // MARK: - V7 -> V8
+
+    /// Écrit un store avec le schéma V7 FIGÉ (celui installé sur les
+    /// appareils), puis l'ouvre avec le schéma courant. Une pyramide v7 garde
+    /// ses paliers et ses bornes de repos et passe en mode adaptatif (aucun
+    /// repos par palier inventé).
+    func testV7StoreMigratesToV8WithoutLoss() throws {
+        let url = temporaryDirectory.appendingPathComponent("v7-written.store")
+        let exerciseId = UUID()
+
+        do {
+            let container = try ModelContainer(
+                for: Schema(versionedSchema: MuscuSchemaV7.self),
+                configurations: ModelConfiguration(url: url)
+            )
+            let context = ModelContext(container)
+            let program = MuscuSchemaV7.Program(name: "Programme v7", isActive: true)
+            let session = MuscuSchemaV7.ProgramSession(name: "Séance A", orderIndex: 0)
+            let pyramid = MuscuSchemaV7.PrescribedExercise(
+                id: exerciseId,
+                exerciseId: "Pullups",
+                displayName: "Tractions",
+                orderIndex: 0,
+                formatRaw: "pyramid",
+                pyramidReps: [1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1],
+                pyramidMinRest: 45,
+                pyramidMaxRest: 150
+            )
+            pyramid.session = session
+            session.exercises = [pyramid]
+            session.program = program
+            program.sessions = [session]
+            context.insert(program)
+            context.insert(MuscuSchemaV7.ActiveWorkout(programSessionId: UUID(), isFreeSession: true))
+            try context.save()
+        }
+
+        let container = try ModelContainer(
+            for: Schema(versionedSchema: MuscuCurrentSchema.self),
+            migrationPlan: MuscuMigrationPlan.self,
+            configurations: ModelConfiguration(url: url)
+        )
+        let context = ModelContext(container)
+
+        let program = try XCTUnwrap(try context.fetch(FetchDescriptor<Program>()).first)
+        XCTAssertEqual(program.name, "Programme v7")
+        XCTAssertTrue(program.isActive)
+        let pyramid = try XCTUnwrap(program.orderedSessions.first?.orderedExercises.first)
+        XCTAssertEqual(pyramid.id, exerciseId)
+        XCTAssertEqual(pyramid.format, .pyramid)
+        XCTAssertEqual(pyramid.pyramidReps, [1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1])
+        XCTAssertEqual(pyramid.pyramidMinRest, 45)
+        XCTAssertEqual(pyramid.pyramidMaxRest, 150)
+        XCTAssertEqual(pyramid.pyramidRestSeconds, [], "Une pyramide v7 reste en repos adaptatif")
+
+        // Les champs v7 survivent à l'étape suivante.
+        let active = try XCTUnwrap(try context.fetch(FetchDescriptor<ActiveWorkout>()).first)
+        XCTAssertTrue(active.isFreeSession)
+
+        // Le nouveau champ s'écrit puis se relit.
+        pyramid.pyramidRestSeconds = Pyramid.normalizedRests([60, 90], stepCount: pyramid.pyramidReps.count)
+        try context.save()
+        let reread = try XCTUnwrap(try ModelContext(container).fetch(FetchDescriptor<PrescribedExercise>()).first)
+        XCTAssertEqual(reread.pyramidRestSeconds.count, 11)
+        XCTAssertEqual(reread.pyramidRestSeconds.prefix(2), [60, 90])
+    }
+
     /// Un store corrompu ne doit pas faire disparaitre le fichier d'origine :
     /// l'ouverture echoue proprement et les octets restent sur disque.
     func testCorruptedStoreFailsWithoutDestroyingTheFile() throws {
