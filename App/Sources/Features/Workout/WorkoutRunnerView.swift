@@ -39,7 +39,7 @@ struct WorkoutRunnerView: View {
                 }
             )
         ) {
-            RestTimerView(timer: state.restTimer)
+            RestTimerView(timer: state.restTimer, upNext: restUpNext)
                 .overlay(alignment: .top) { LiveRecordBannerHost(state: state) }
         }
         // La Live Activity suit la seance : elle demarre avec le runner et
@@ -65,6 +65,11 @@ struct WorkoutRunnerView: View {
         .onChange(of: state.isSessionComplete) { _, _ in updateScreenAwake() }
         .onChange(of: scenePhase) { _, _ in updateScreenAwake() }
         .onDisappear { ScreenAwake.update(workoutIsOnScreen: false) }
+    }
+
+    private var restUpNext: Text? {
+        guard let next = state.pyramidUpNext else { return nil }
+        return Text("Ensuite : palier \(next.step) sur \(next.total) · \(next.reps) reps")
     }
 
     private func updateScreenAwake() {

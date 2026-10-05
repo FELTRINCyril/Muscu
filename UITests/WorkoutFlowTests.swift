@@ -52,7 +52,11 @@ final class WorkoutFlowTests: XCTestCase {
         // affiche ("N reps") ET l'ecran de repos est referme (sinon le tap
         // peut partir pendant l'animation de fermeture et se perdre).
         for target in [2, 4, 6, 4, 2] {
-            waitAndAssert(app.staticTexts["\(target) reps"], timeout: 15)
+            // Compteur du palier (identifiant stable) portant « N reps ».
+            let counter = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == 'pyramid.reps' AND label == %@", "\(target) reps"))
+                .firstMatch
+            waitAndAssert(counter, timeout: 15)
             waitForDisappearance(app.buttons["Passer"], timeout: 10)
             tapWhenReady(app.buttons["Valider"], timeout: 15)
         }

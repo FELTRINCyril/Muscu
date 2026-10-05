@@ -19,6 +19,8 @@ struct PrescriptionEditorView: View {
     @State private var repsMode: RepsMode
     @State private var chargeMode: ChargeMode
     @State private var pyramidMaxReps: Int = 10
+    /// Duree proposee pour « Appliquer à tous les paliers ».
+    @State private var pyramidBulkRest: Int = 90
 
     private enum RepsMode: String { case fixed, range }
     private enum ChargeMode: String { case free, percent, percentMaxReps }
@@ -301,16 +303,18 @@ struct PrescriptionEditorView: View {
     private var pyramidSection: some View {
         Group {
             Section {
+                // Ne sert qu'a dimensionner les modeles proposes : le repos
+                // adaptatif, lui, se cale sur le palier le plus haut de la
+                // pyramide (Pyramid.referenceMaxReps).
                 Stepper("Max de reps : \(pyramidMaxReps)", value: $pyramidMaxReps, in: 1...50)
 
                 ForEach(Pyramid.proposals(maxReps: pyramidMaxReps), id: \.name) { proposal in
                     Button {
-                        exercise.pyramidReps = proposal.reps
+                        editPyramid { $0.replaceSteps(proposal.reps, minRest: exercise.pyramidMinRest, maxRest: exercise.pyramidMaxRest) }
                     } label: {
                         PyramidProposalCard(
                             proposal: proposal,
                             isSelected: exercise.pyramidReps == proposal.reps,
-                            maxReps: pyramidMaxReps,
                             minRest: exercise.pyramidMinRest,
                             maxRest: exercise.pyramidMaxRest
                         )
@@ -323,41 +327,106 @@ struct PrescriptionEditorView: View {
                 Text("Les modèles sont un point de départ : chaque palier se modifie ci-dessous.")
             }
 
-            pyramidStepsSection
+            pyramidRestModeSection
 
-            Section {
+            pyramidStepsSection
+        }
+    }
+
+    /// Repos adaptatif (bornes mini/maxi) ou choisi palier par palier.
+    private var pyramidRestModeSection: some View {
+        Section {
+            Picker("Repos", selection: pyramidRestModeBinding) {
+                Text("Adaptatif").tag(false)
+                Text("Par palier").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("pyramid.restMode")
+
+            if exercise.pyramidRestSeconds.isEmpty {
                 Stepper("Repos mini : \(exercise.pyramidMinRest) s", value: $exercise.pyramidMinRest, in: 30...max(30, exercise.pyramidMaxRest), step: 15)
                 Stepper("Repos maxi : \(exercise.pyramidMaxRest) s", value: $exercise.pyramidMaxRest, in: max(30, exercise.pyramidMinRest)...300, step: 15)
-            } footer: {
-                Text("Le repos s’adapte à chaque palier : plus le palier est proche de votre maximum, plus il est long.")
+            } else if exercise.pyramidReps.count > 1 {
+                PyramidRestStepper(title: String(localized: "Durée commune"), seconds: $pyramidBulkRest)
+                Button("Appliquer à tous les paliers") {
+                    editPyramid { $0.setAllRests(pyramidBulkRest) }
+                }
+                .accessibilityIdentifier("pyramid.applyRestToAll")
+            }
+        } header: {
+            Text("Repos entre les paliers")
+        } footer: {
+            if exercise.pyramidRestSeconds.isEmpty {
+                Text("Le repos s’adapte à chaque palier : plus le palier est proche du plus haut palier de la pyramide, plus il est long. Pas de repos après le dernier palier.")
+            } else {
+                Text("Réglez le repos sous chaque palier, de 0 à 10 min (pas de 5 s sous la minute, de 15 s au-delà). Pas de repos après le dernier palier.")
             }
         }
+    }
+
+    private var pyramidRestModeBinding: Binding<Bool> {
+        Binding(
+            get: { !exercise.pyramidRestSeconds.isEmpty },
+            set: { perStep in
+                editPyramid { steps in
+                    if perStep {
+                        steps.usePerStepRest(minRest: exercise.pyramidMinRest, maxRest: exercise.pyramidMaxRest)
+                    } else {
+                        steps.useAdaptiveRest()
+                    }
+                }
+                if perStep, let first = exercise.pyramidRestSeconds.first {
+                    pyramidBulkRest = first
+                }
+            }
+        )
     }
 
     /// Pyramide libre : n'importe quelle suite de paliers, dans n'importe
     /// quel ordre. Le deroule n'a jamais suppose une forme particuliere — il
     /// lit les paliers un par un — seul l'editeur se limitait aux trois
-    /// propositions.
+    /// propositions. En mode « Par palier », chaque palier porte son repos
+    /// (sauf le dernier) et l'emporte quand on le deplace.
     private var pyramidStepsSection: some View {
         Section {
             ForEach(Array(exercise.pyramidReps.enumerated()), id: \.offset) { index, reps in
-                Stepper(
-                    "Palier \(index + 1) : \(reps) reps",
-                    value: pyramidStepBinding(at: index),
-                    in: Pyramid.allowedStepReps
-                )
-                .accessibilityIdentifier("pyramid.step.\(index)")
+                // Espacement genereux : deux steppers empiles se chevauchent
+                // sinon (leur controle est plus haut que leur libelle).
+                VStack(alignment: .leading, spacing: 14) {
+                    Stepper(
+                        "Palier \(index + 1) : \(reps) reps",
+                        value: pyramidStepBinding(at: index),
+                        in: Pyramid.allowedStepReps
+                    )
+                    .accessibilityIdentifier("pyramid.step.\(index)")
+
+                    if let rest = pyramidRestLabel(afterStep: index) {
+                        if !exercise.pyramidRestSeconds.isEmpty {
+                            PyramidRestStepper(
+                                title: String(localized: "Repos ensuite"),
+                                seconds: pyramidRestBinding(at: index)
+                            )
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("pyramid.rest.\(index)")
+                        } else {
+                            Text("Repos ensuite : \(rest)")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
             .onDelete { offsets in
-                exercise.pyramidReps.remove(atOffsets: offsets)
+                editPyramid { $0.removeSteps(atOffsets: offsets) }
             }
             .onMove { source, destination in
-                exercise.pyramidReps.move(fromOffsets: source, toOffset: destination)
+                editPyramid { $0.moveSteps(fromOffsets: source, toOffset: destination) }
             }
 
             if exercise.pyramidReps.count < Pyramid.maximumSteps {
                 Button {
-                    exercise.pyramidReps = Pyramid.appendingStep(to: exercise.pyramidReps, maxReps: pyramidMaxReps)
+                    editPyramid { $0.appendStep(maxReps: pyramidMaxReps, minRest: exercise.pyramidMinRest, maxRest: exercise.pyramidMaxRest) }
                 } label: {
                     Label("Ajouter un palier", systemImage: "plus.circle")
                 }
@@ -379,6 +448,36 @@ struct PrescriptionEditorView: View {
         }
     }
 
+    /// Repos prevu apres ce palier, s'il est realise tel que prescrit —
+    /// `nil` pour le dernier palier. Meme calcul que le deroule.
+    private func pyramidRestLabel(afterStep index: Int) -> String? {
+        guard exercise.pyramidReps.indices.contains(index) else { return nil }
+        let rest = Pyramid.restAfterStep(
+            at: index,
+            repsDone: exercise.pyramidReps[index],
+            steps: exercise.pyramidReps,
+            stepRests: exercise.pyramidRestSeconds,
+            minRest: exercise.pyramidMinRest,
+            maxRest: exercise.pyramidMaxRest
+        )
+        return rest.map(PyramidRestStepper.format)
+    }
+
+    /// Paliers et repos modifies ENSEMBLE, pour qu'ils restent alignes.
+    private func editPyramid(_ change: (inout PyramidSteps) -> Void) {
+        var steps = PyramidSteps(reps: exercise.pyramidReps, restSeconds: exercise.pyramidRestSeconds)
+        change(&steps)
+        if exercise.pyramidReps != steps.reps { exercise.pyramidReps = steps.reps }
+        if exercise.pyramidRestSeconds != steps.restSeconds { exercise.pyramidRestSeconds = steps.restSeconds }
+    }
+
+    private func pyramidRestBinding(at index: Int) -> Binding<Int> {
+        Binding(
+            get: { exercise.pyramidRestSeconds.indices.contains(index) ? exercise.pyramidRestSeconds[index] : 0 },
+            set: { newValue in editPyramid { $0.setRest(newValue, at: index) } }
+        )
+    }
+
     private var pyramidShapeLabel: String {
         if let proposal = Pyramid.matchingProposal(for: exercise.pyramidReps, maxReps: pyramidMaxReps) {
             return proposal.name
@@ -390,10 +489,7 @@ struct PrescriptionEditorView: View {
         Binding(
             get: { exercise.pyramidReps.indices.contains(index) ? exercise.pyramidReps[index] : 1 },
             set: { newValue in
-                guard exercise.pyramidReps.indices.contains(index) else { return }
-                var steps = exercise.pyramidReps
-                steps[index] = newValue
-                exercise.pyramidReps = Pyramid.normalizedSteps(steps)
+                editPyramid { $0.setReps(newValue, at: index) }
             }
         )
     }
@@ -745,7 +841,6 @@ struct PrescriptionEditorView: View {
 private struct PyramidProposalCard: View {
     let proposal: PyramidProposal
     let isSelected: Bool
-    let maxReps: Int
     let minRest: Int
     let maxRest: Int
 
@@ -776,10 +871,11 @@ private struct PyramidProposalCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
+    // Meme calcul que le deroule : ce qui est annonce ici est ce qui sera
+    // lance, palier tenu tel que prescrit.
     private var restsPreview: [String] {
-        proposal.reps.dropLast().map { repsDone in
-            "\(Pyramid.adaptiveRest(repsDone: repsDone, maxReps: maxReps, minRest: minRest, maxRest: maxRest)) s"
-        }
+        Pyramid.plannedRests(steps: proposal.reps, stepRests: [], minRest: minRest, maxRest: maxRest)
+            .map { "\($0) s" }
     }
 }
 
@@ -788,4 +884,26 @@ private struct PyramidProposalCard: View {
     return PrescriptionEditorView(exercise: exercise)
         .modelContainer(for: ExerciseRecord.self, inMemory: true)
         .preferredColorScheme(.dark)
+}
+
+/// Reglage d'un repos de pyramide, de 0 a 10 min : pas de 5 s sous la
+/// minute, de 15 s au-dela (Pyramid.increasedRest / decreasedRest).
+private struct PyramidRestStepper: View {
+    let title: String
+    @Binding var seconds: Int
+
+    var body: some View {
+        Stepper {
+            Text("\(title) : \(Self.format(seconds))")
+        } onIncrement: {
+            seconds = Pyramid.increasedRest(seconds)
+        } onDecrement: {
+            seconds = Pyramid.decreasedRest(seconds)
+        }
+    }
+
+    static func format(_ seconds: Int) -> String {
+        guard seconds > 0 else { return String(localized: "aucun") }
+        return Duration.seconds(seconds).formatted(.units(allowed: [.minutes, .seconds], width: .abbreviated))
+    }
 }

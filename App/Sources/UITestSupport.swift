@@ -175,14 +175,19 @@ enum UITestSupport {
         sessionA.exercises.append(classic)
         context.insert(classic)
 
+        // « --uitest-long-pyramid » : pyramide de 18 paliers en PREMIER
+        // exercice, repos reels, pour verifier a l'oeil la mise en page du
+        // deroule d'une longue pyramide (captures, Dynamic Type).
+        let longPyramid = ProcessInfo.processInfo.arguments.contains("--uitest-long-pyramid")
+        if longPyramid { classic.orderIndex = 1 }
         let pyramid = PrescribedExercise(
             exerciseId: pullupsId,
             displayName: pullupsName,
-            orderIndex: 1,
+            orderIndex: longPyramid ? 0 : 1,
             formatRaw: SetFormat.pyramid.rawValue,
-            pyramidReps: [2, 4, 6, 4, 2],
-            pyramidMinRest: 2,
-            pyramidMaxRest: 3
+            pyramidReps: longPyramid ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 9, 8, 7, 6, 5, 4, 3, 2] : [2, 4, 6, 4, 2],
+            pyramidMinRest: longPyramid ? 30 : 2,
+            pyramidMaxRest: longPyramid ? 180 : 3
         )
         pyramid.session = sessionA
         sessionA.exercises.append(pyramid)

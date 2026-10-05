@@ -799,15 +799,11 @@ final class WorkoutState: Identifiable {
         persistRuntimeState(action: "Progression du For Time")
     }
 
-    // 1RM maxReps connu pour cet exercice ; a defaut, une valeur plausible
-    // deduite de la pyramide elle-meme (jamais 0, sinon adaptiveRest
-    // retomberait a tort sur minRest a chaque palier).
-    func pyramidMaxReps(for exercise: WorkoutExercisePlan) -> Int {
-        if let maxReps = fetchRecord(exerciseId: exercise.exerciseId)?.maxReps, maxReps > 0 {
-            return maxReps
-        }
-        let fallback = (exercise.pyramidReps.max() ?? 1) * 2
-        return max(1, fallback)
+    /// Palier suivant d'une pyramide, annonce pendant le repos (la position
+    /// a deja avance sur lui). `nil` hors pyramide.
+    var pyramidUpNext: (step: Int, total: Int, reps: Int)? {
+        guard let target = currentTarget, target.exercise.format == .pyramid else { return nil }
+        return (target.setNumber, target.totalSets, target.targetRepsLower)
     }
 
     func skipExercise() {

@@ -4,6 +4,9 @@ import MuscuEngine
 // Ecran plein ecran du chrono de repos entre deux series.
 struct RestTimerView: View {
     let timer: RestTimer
+    /// Ce qui suit le repos, quand c'est utile de l'annoncer (palier suivant
+    /// d'une pyramide).
+    var upNext: Text? = nil
 
     var body: some View {
         ZStack {
@@ -38,6 +41,14 @@ struct RestTimerView: View {
                             .padding(24)
                     }
                     .frame(width: 260, height: 260)
+
+                    if let upNext {
+                        upNext
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .accessibilityIdentifier("rest.upNext")
+                    }
 
                     Spacer()
 

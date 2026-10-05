@@ -4,6 +4,14 @@
 
 ### Inspirations open source
 
+- Pyramide : le repos annoncé pendant la séance est exactement celui qui est
+  lancé (un seul calcul, référencé sur le plus haut palier ; plus de repos
+  après le dernier palier). Nouveau mode « Par palier » pour choisir chaque
+  repos (0 à 10 min, « appliquer à tous »). Déroulé lisible avec de longues
+  pyramides : pastilles défilantes centrées sur le palier courant,
+  « Palier 7 sur 18 », palier suivant annoncé pendant le repos. Modèle de
+  données v8 (migration légère depuis v7). Décision 0019.
+
 - Modèle de données v7 (migration légère depuis v6) : note d'effort, cardio et
   énergie d'une séance, date de correction, repos réel d'une série, lien de
   démonstration, redirection d'un exercice fusionné, identifiant d'échantillon

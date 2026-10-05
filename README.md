@@ -132,8 +132,10 @@ personnelles restent hors ligne ; seules les images d’exercices sont télécha
     cumulatifs et arrondis au palier de chargement réellement disponible.
   - **Rest-pause** et **myo-reps** : série principale puis mini-séries, avec
     seuil d'arrêt, maximum configurable et arrêt manuel.
-  - **Pyramide** : montée/descente de répétitions avec **repos adaptatif** calculé
-    selon l'intensité relative de la série qui vient d'être faite.
+  - **Pyramide** : paliers libres (jusqu'à 30), repos **adaptatif** calculé
+    selon l'intensité du palier fait par rapport au plus haut palier, ou
+    choisi **palier par palier** (0 à 10 min). Le repos annoncé pendant la
+    séance est exactement celui qui est lancé.
   - **Intervalles** et **EMOM** : blocs travail/repos chronométrés.
   - **AMRAP** : un maximum de répétitions dans un temps donné.
   - **For Time** : travail fixe, temps mesuré, plafond de temps facultatif.
