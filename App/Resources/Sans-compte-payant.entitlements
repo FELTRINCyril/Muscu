@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Entitlements VIDES, pour installer l'application sur un appareil personnel
+  avec un compte Apple gratuit (« Personal Team »).
+
+  Un compte gratuit ne donne droit ni aux groupes d'applications, ni a
+  HealthKit, ni a iCloud : signer avec le fichier habituel echouerait. Ce
+  fichier retire ces capacites pour la duree du test.
+
+  Ce qui CONTINUE de fonctionner : seances, historique, planning, rappels
+  locaux, coach IA, Live Activity, application Watch et transfert des seances
+  de la montre vers le telephone.
+
+  Ce qui est DESACTIVE : partage avec Sante (l'ecran l'annonce comme
+  indisponible) et widgets (ils affichent leur etat vide, faute de conteneur
+  partage).
+
+  Voir docs/configuration/appareils-sans-compte-payant.md.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>

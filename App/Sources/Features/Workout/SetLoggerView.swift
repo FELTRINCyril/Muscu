@@ -1,42 +1,106 @@
 import SwiftUI
+import MuscuEngine
 
 // Saisie d'une serie : poids et reps directement editables (TextField), avec
 // les steppers +/- gardes autour pour l'ajustement rapide. Vue "sans
 // memoire" : le parent doit lui donner une identite stable (.id(...)) qui
 // change a chaque nouvelle serie/exercice pour que les valeurs pre-remplies
 // soient reinitialisees correctement.
+//
+// L'effort ressenti, l'echec musculaire et le commentaire sont facultatifs
+// et replies par defaut : ils ne doivent pas ralentir la saisie courante.
+//
+// La charge est saisie dans l'unite du profil et rendue en kg : le stockage
+// ne change jamais d'unite. Le pas des boutons +/- vient du lieu ou du
+// profil (cf. `LoadStep`), jamais d'un 2,5 kg code en dur.
 struct SetLoggerView: View {
+    /// Ce que l'utilisateur a reellement fait sur cette serie.
+    struct Result: Equatable {
+        var weight: Double
+        var reps: Int
+        var effort: EffortRating?
+        var reachedFailure: Bool
+        var notes: String
+        /// Role de la serie. Une serie d'APPROCHE ou de BACK-OFF s'ajoute a
+        /// la prescription sans la consommer : elle ne fait pas avancer le
+        /// compteur de series prevues.
+        var role: SetRole = .working
+    }
+
     let initialWeight: Double
     let initialReps: Int
-    let onValidate: (Double, Int) -> Void
+    /// Pas des boutons +/-, en kg canonique.
+    let weightStepKilograms: Double
+    /// Meme serie lors de la derniere seance comparable : affichee, et un
+    /// tap la recopie dans la saisie. `nil` = rien de comparable.
+    let previous: HistoricalSet?
+    /// Exercice a la barre : propose le calculateur de disques.
+    let showsPlateCalculator: Bool
+    let onValidate: (Result) -> Void
 
+    @Environment(\.massUnit) private var massUnit
+
+    /// Charge en kg canonique. Le champ affiche sa conversion.
     @State private var weight: Double
     @State private var reps: Int
+    @State private var repsInReserve: Int?
+    @State private var reachedFailure = false
+    @State private var notes = ""
+    @State private var showingDetails = false
+    @State private var role: SetRole = .working
+    @State private var showingPlates = false
     @FocusState private var focusedField: Field?
 
     private enum Field {
-        case weight, reps
+        case weight, reps, notes
     }
 
-    init(initialWeight: Double, initialReps: Int, onValidate: @escaping (Double, Int) -> Void) {
+    init(
+        initialWeight: Double,
+        initialReps: Int,
+        weightStepKilograms: Double = MassUnit.kilograms.defaultIncrementKilograms,
+        previous: HistoricalSet? = nil,
+        showsPlateCalculator: Bool = false,
+        onValidate: @escaping (Result) -> Void
+    ) {
         self.initialWeight = initialWeight
         self.initialReps = initialReps
+        self.weightStepKilograms = weightStepKilograms
+        self.previous = previous
+        self.showsPlateCalculator = showsPlateCalculator
         self.onValidate = onValidate
         _weight = State(initialValue: initialWeight)
         _reps = State(initialValue: initialReps)
     }
 
+    /// Forme courte, pour les appelants qui n'ont besoin que du couple
+    /// poids/repetitions.
+    init(initialWeight: Double, initialReps: Int, onValidate: @escaping (Double, Int) -> Void) {
+        self.init(initialWeight: initialWeight, initialReps: initialReps) { result in
+            onValidate(result.weight, result.reps)
+        }
+    }
+
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 16) {
+            if previous != nil || showsPlateCalculator {
+                shortcutsRow
+            }
+
             editableValue(
                 label: "Poids",
-                suffix: "kg",
-                onDecrement: { weight = max(0, weight - 2.5) },
-                onIncrement: { weight += 2.5 }
+                suffix: massUnit.symbol,
+                decrementLabel: "Diminuer le poids",
+                incrementLabel: "Augmenter le poids",
+                onDecrement: { weight = LoadStep.stepped(weight, by: weightStepKilograms, up: false) },
+                onIncrement: { weight = LoadStep.stepped(weight, by: weightStepKilograms, up: true) }
             ) {
                 TextField(
                     "Poids",
-                    value: $weight,
+                    value: Binding(
+                        get: { massUnit.fromKilograms(weight) },
+                        set: { weight = massUnit.toKilograms($0) }
+                    ),
                     format: .number.precision(.fractionLength(0...1))
                 )
                 .keyboardType(.decimalPad)
@@ -46,6 +110,8 @@ struct SetLoggerView: View {
             editableValue(
                 label: "Répétitions",
                 suffix: nil,
+                decrementLabel: "Diminuer les répétitions",
+                incrementLabel: "Augmenter les répétitions",
                 onDecrement: { reps = max(0, reps - 1) },
                 onIncrement: { reps += 1 }
             ) {
@@ -54,11 +120,26 @@ struct SetLoggerView: View {
                     .focused($focusedField, equals: .reps)
             }
 
+            detailsSection
+
             Button {
                 focusedField = nil
-                onValidate(weight, reps)
+                onValidate(
+                    Result(
+                        weight: weight,
+                        reps: reps,
+                        effort: repsInReserve.map { EffortRating.rir($0) },
+                        reachedFailure: reachedFailure,
+                        notes: notes.trimmingCharacters(in: .whitespacesAndNewlines),
+                        role: role
+                    )
+                )
+                // Le role ne « colle » pas d'une serie a l'autre : une serie
+                // d'approche est ponctuelle, et la suivante est de travail
+                // sauf demande explicite.
+                role = .working
             } label: {
-                Text("Valider la série")
+                Text(validateTitle)
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
@@ -66,6 +147,12 @@ struct SetLoggerView: View {
             .buttonStyle(.borderedProminent)
             .tint(Theme.accent)
             .controlSize(.large)
+            .disabled(reps <= 0 || weight < 0 || !weight.isFinite)
+        }
+        .sheet(isPresented: $showingPlates) {
+            PlateCalculatorView(targetKilograms: weight) { chosen in
+                weight = chosen
+            }
         }
         .toolbar {
             // Les claviers decimalPad/numberPad n'ont pas de touche retour :
@@ -78,14 +165,143 @@ struct SetLoggerView: View {
         }
     }
 
+    /// Raccourcis au-dessus de la saisie : valeur precedente de cette serie
+    /// (un tap recopie charge et repetitions, sans valider) et calculateur
+    /// de disques pour la charge saisie.
+    private var shortcutsRow: some View {
+        HStack(spacing: 8) {
+            if let previous {
+                let label = LiveSessionText.set(weightKilograms: previous.weightKilograms, reps: previous.reps, unit: massUnit)
+                Button {
+                    weight = previous.weightKilograms
+                    reps = previous.reps
+                } label: {
+                    Label {
+                        Text("Préc. \(label)")
+                            .monospacedDigit()
+                    } icon: {
+                        Image(systemName: "clock.arrow.circlepath")
+                    }
+                    .font(.footnote)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityLabel(Text("Série précédente : \(label)"))
+                .accessibilityHint(Text("Recopie la charge et les répétitions dans la saisie."))
+                .accessibilityIdentifier("setLogger.previous")
+            }
+            Spacer(minLength: 0)
+            if showsPlateCalculator {
+                Button {
+                    focusedField = nil
+                    showingPlates = true
+                } label: {
+                    Label("Disques", systemImage: "circle.grid.cross")
+                        .font(.footnote)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("setLogger.plates")
+            }
+        }
+        .tint(Theme.accent)
+    }
+
+    // Section repliee : effort ressenti, echec et commentaire. Repliee par
+    // defaut pour garder l'ecran de saisie utilisable d'une main entre deux
+    // series, conformement a la roadmap (options avancees a part).
+    private var detailsSection: some View {
+        DisclosureGroup(isExpanded: $showingDetails) {
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle("Effort ressenti (RIR)", isOn: Binding(
+                    get: { repsInReserve != nil },
+                    set: { repsInReserve = $0 ? 2 : nil }
+                ))
+                .accessibilityIdentifier("setLogger.effortToggle")
+
+                if let value = repsInReserve {
+                    Stepper("RIR : \(value)", value: Binding(
+                        get: { value },
+                        set: { repsInReserve = $0 }
+                    ), in: 0...10)
+                }
+
+                Picker("Type de série", selection: $role) {
+                    ForEach(SetRole.allCases, id: \.self) { value in
+                        Text(Self.label(for: value)).tag(value)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("setLogger.rolePicker")
+
+                Text(Self.explanation(for: role))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("setLogger.roleExplanation")
+
+                Toggle("Échec musculaire atteint", isOn: $reachedFailure)
+                    .accessibilityIdentifier("setLogger.failureToggle")
+
+                TextField("Commentaire (optionnel)", text: $notes, axis: .vertical)
+                    .lineLimit(1...3)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($focusedField, equals: .notes)
+                    .accessibilityIdentifier("setLogger.notesField")
+            }
+            .padding(.top, 4)
+        } label: {
+            Text("Détails de la série")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .accessibilityIdentifier("setLogger.detailsDisclosure")
+    }
+
+    private var validateTitle: String {
+        switch role {
+        case .working: return String(localized: "Valider la série")
+        case .warmup: return String(localized: "Enregistrer l’échauffement")
+        case .approach: return String(localized: "Enregistrer l’approche")
+        case .backoff: return String(localized: "Enregistrer le back-off")
+        }
+    }
+
+    static func label(for role: SetRole) -> String {
+        switch role {
+        case .warmup: return "Échauff."
+        case .approach: return "Approche"
+        case .working: return "Travail"
+        case .backoff: return "Back-off"
+        }
+    }
+
+    static func explanation(for role: SetRole) -> String {
+        switch role {
+        case .working:
+            return "Série prescrite : elle compte dans le volume et fait avancer la séance."
+        case .warmup:
+            return "Montée en charge : ne compte pas dans le volume et ne consomme pas de série prévue."
+        case .approach:
+            return "Série d’approche entre l’échauffement et le travail : ne compte pas dans le volume et ne consomme pas de série prévue."
+        case .backoff:
+            return "Série allégée après le travail : elle compte dans le volume mais ne consomme pas de série prévue."
+        }
+    }
+
+    /// `label` est une `LocalizedStringKey` et non une `String` : `Text(uneString)`
+    /// affiche la chaîne telle quelle et ne serait jamais traduite.
+    ///
+    /// Les deux libellés d'accessibilité sont fournis par l'appelant plutôt
+    /// que fabriqués ici : « Augmenter le poids » se lit, « Augmenter Poids »
+    /// non. Sans eux, VoiceOver annonce le nom du symbole SF.
     private func editableValue(
-        label: String,
+        label: LocalizedStringKey,
         suffix: String?,
+        decrementLabel: LocalizedStringKey,
+        incrementLabel: LocalizedStringKey,
         onDecrement: @escaping () -> Void,
         onIncrement: @escaping () -> Void,
         @ViewBuilder field: () -> some View
     ) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             Text(label)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -93,18 +309,28 @@ struct SetLoggerView: View {
             HStack(spacing: 24) {
                 Button(action: onDecrement) {
                     Image(systemName: "minus.circle.fill")
-                        .font(.system(size: 36))
+                        .scaledSystemFont(size: 36, relativeTo: .title)
+                        // Le glyphe fait 36 pt : la zone touchable doit en
+                        // faire 44, minimum recommandé par Apple. Les
+                        // espacements ci-dessous sont resserrés d'autant,
+                        // sinon la carte grandit et le bouton de validation
+                        // — l'action principale de l'écran — sort de
+                        // l'écran. C'est un test d'exécution qui l'a montré.
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
+                .accessibilityLabel(decrementLabel)
 
                 HStack(spacing: 4) {
                     field()
-                        .font(.system(size: 34, weight: .bold))
+                        .scaledSystemFont(size: 34, weight: .bold, relativeTo: .title)
                         .monospacedDigit()
                         .multilineTextAlignment(.center)
                         .frame(minWidth: 80)
                     if let suffix {
-                        Text(suffix)
-                            .font(.system(size: 20, weight: .semibold))
+                        // Symbole d'unite : identique dans toutes les langues.
+                        Text(verbatim: suffix)
+                            .scaledSystemFont(size: 20, weight: .semibold, relativeTo: .body)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -112,8 +338,11 @@ struct SetLoggerView: View {
 
                 Button(action: onIncrement) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 36))
+                        .scaledSystemFont(size: 36, relativeTo: .title)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
+                .accessibilityLabel(incrementLabel)
             }
             .foregroundStyle(Theme.accent)
         }
@@ -121,7 +350,7 @@ struct SetLoggerView: View {
 }
 
 #Preview {
-    SetLoggerView(initialWeight: 75, initialReps: 10) { _, _ in }
+    SetLoggerView(initialWeight: 75, initialReps: 10) { (_: Double, _: Int) in }
         .padding()
         .background(Theme.background)
         .preferredColorScheme(.dark)

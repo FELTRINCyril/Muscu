@@ -1,9 +1,10 @@
 import SwiftUI
 import SwiftData
+import MuscuEngine
 
 // Historique des seances terminees, groupees par mois. Le detail d'une
-// seance liste chaque serie par exercice, dans l'ordre de la seance ; les
-// series d'echauffement sont marquees et attenuees.
+// seance (lecture, correction, « Refaire », partage) vit dans
+// `SessionDetailView`.
 struct HistoryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \CompletedSession.date, order: .reverse) private var sessions: [CompletedSession]
@@ -54,14 +55,22 @@ struct HistoryView: View {
         ) {
             Button("Supprimer", role: .destructive) {
                 if let session = sessionPendingDelete {
-                    modelContext.delete(session)
-                    try? modelContext.save()
+                    // Les records issus de la seance sont recalcules dans la
+                    // meme sauvegarde ; widgets et Sante suivent.
+                    if PastSessionEditor.delete(session, in: modelContext) {
+                        WidgetSnapshotService.refresh(in: modelContext)
+                        Task {
+                            await HealthSyncService.synchronize(in: modelContext, store: AppServices.healthStore)
+                        }
+                    }
                 }
                 sessionPendingDelete = nil
             }
             Button("Annuler", role: .cancel) {
                 sessionPendingDelete = nil
             }
+        } message: {
+            Text("Les records issus de cette séance seront recalculés depuis le reste de l’historique.")
         }
     }
 
@@ -87,6 +96,7 @@ struct HistoryView: View {
 
 private struct SessionRow: View {
     let session: CompletedSession
+    @Environment(\.massUnit) private var massUnit
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -101,7 +111,11 @@ private struct SessionRow: View {
             HStack(spacing: 12) {
                 Text(durationLabel)
                 Text("\(workingSetsCount) séries")
-                Text("\(WorkoutState.formatWeight(tonnage)) kg")
+                Text(WeightFormatter.string(kilograms: tonnage, unit: massUnit))
+                if let rating = session.effortRating {
+                    Text("Effort \(rating)/10")
+                        .foregroundStyle(SessionEffortPresentation.color(for: rating))
+                }
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -109,64 +123,21 @@ private struct SessionRow: View {
     }
 
     private var workingSets: [CompletedSet] {
-        session.sets.filter { !$0.isWarmup }
+        session.workingSets
     }
 
     private var workingSetsCount: Int {
         workingSets.count
     }
 
+    // Tonnage calcule par le moteur : l'accueil, l'historique et les
+    // graphiques doivent afficher exactement la meme valeur.
     private var tonnage: Double {
-        workingSets.reduce(0) { $0 + $1.weight * Double($1.reps) }
+        CompletedSetPresentation.tonnage(for: session).total
     }
 
     private var durationLabel: String {
-        "\(session.durationSeconds / 60) min"
-    }
-}
-
-private struct SessionDetailView: View {
-    let session: CompletedSession
-
-    var body: some View {
-        List {
-            ForEach(groupedSets, id: \.orderIndex) { group in
-                Section(group.displayName) {
-                    ForEach(group.sets) { set in
-                        HStack {
-                            Text(set.isWarmup ? "Échauffement" : "Série \(set.setIndex + 1)")
-                            Spacer()
-                            Text("\(set.reps) reps @ \(WorkoutState.formatWeight(set.weight)) kg")
-                        }
-                        .font(.subheadline)
-                        .foregroundStyle(set.isWarmup ? .secondary : .primary)
-                    }
-                }
-            }
-        }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
-        .background(Theme.background)
-        .navigationTitle(session.sessionName.isEmpty ? "Séance" : session.sessionName)
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private struct ExerciseGroup {
-        let orderIndex: Int
-        let displayName: String
-        let sets: [CompletedSet]
-    }
-
-    private var groupedSets: [ExerciseGroup] {
-        let grouped = Dictionary(grouping: session.sets, by: \.orderIndex)
-        return grouped.keys.sorted().compactMap { orderIndex in
-            guard let sets = grouped[orderIndex], let displayName = sets.first?.displayName else { return nil }
-            return ExerciseGroup(
-                orderIndex: orderIndex,
-                displayName: displayName,
-                sets: sets.sorted { $0.setIndex < $1.setIndex }
-            )
-        }
+        String(localized: "\(session.durationSeconds / 60) min")
     }
 }
 

@@ -11,6 +11,7 @@ import MuscuEngine
 struct ExercisePickerView: View {
     @Environment(CatalogStore.self) private var catalogStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \CustomExercise.name) private var customExercises: [CustomExercise]
 
     let onPick: (_ id: String, _ displayName: String) -> Void
@@ -18,6 +19,7 @@ struct ExercisePickerView: View {
 
     @State private var searchText = ""
     @State private var filterMuscle: String?
+    @State private var habitualIds: [String] = []
 
     init(initialMuscleFilter: String? = nil, onPick: @escaping (_ id: String, _ displayName: String) -> Void) {
         self.onPick = onPick
@@ -28,6 +30,25 @@ struct ExercisePickerView: View {
     var body: some View {
         NavigationStack {
             List {
+                // Exercices habituels en tete (frequence x recence) ; la
+                // liste complete reste inchangee en dessous.
+                if !habitualRows.isEmpty {
+                    Section("Habituels") {
+                        ForEach(habitualRows, id: \.id) { row in
+                            Button {
+                                onPick(row.id, row.name)
+                                dismiss()
+                            } label: {
+                                if let exercise = row.catalog {
+                                    ExercisePickerRow(exercise: exercise)
+                                } else if let custom = row.custom {
+                                    CustomExercisePickerRow(exercise: custom)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if !filteredCustomExercises.isEmpty {
                     Section("Perso") {
                         ForEach(filteredCustomExercises) { custom in
@@ -58,6 +79,7 @@ struct ExercisePickerView: View {
             .navigationTitle("Choisir un exercice")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $searchText, prompt: "Rechercher un exercice")
+            .onAppear(perform: refreshHabitual)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     muscleFilterMenu
@@ -89,9 +111,46 @@ struct ExercisePickerView: View {
 
     private var filteredCustomExercises: [CustomExercise] {
         let needle = Self.normalize(searchText)
-        return customExercises
+        return activeCustomExercises
             .filter { needle.isEmpty || Self.normalize($0.name).contains(needle) }
             .filter { filterMuscle == nil || $0.primaryMuscles.contains(filterMuscle!) }
+    }
+
+    /// Un exercice fusionne est redirige vers celui qu'il a rejoint : il
+    /// ne se choisit plus.
+    private var activeCustomExercises: [CustomExercise] {
+        customExercises.filter { $0.deletedAt == nil && $0.mergedIntoExerciseId == nil }
+    }
+
+    private struct HabitualRow {
+        let id: String
+        let name: String
+        let catalog: CatalogExercise?
+        let custom: CustomExercise?
+    }
+
+    /// Habituels affiches : uniquement sans recherche, et dans le filtre de
+    /// muscle s'il y en a un.
+    private var habitualRows: [HabitualRow] {
+        guard searchText.isEmpty else { return [] }
+        return habitualIds.compactMap { id -> HabitualRow? in
+            if let exercise = catalogStore.exercise(id: id) {
+                guard filterMuscle == nil || exercise.primaryMuscles.contains(filterMuscle!) else { return nil }
+                return HabitualRow(id: id, name: exercise.nameFr, catalog: exercise, custom: nil)
+            }
+            if let custom = activeCustomExercises.first(where: { $0.id.uuidString == id }) {
+                guard filterMuscle == nil || custom.primaryMuscles.contains(filterMuscle!) else { return nil }
+                return HabitualRow(id: id, name: custom.name, catalog: nil, custom: custom)
+            }
+            return nil
+        }
+    }
+
+    private func refreshHabitual() {
+        var names: [String: String] = [:]
+        for exercise in catalogStore.all { names[exercise.id] = exercise.nameFr }
+        for exercise in activeCustomExercises { names[exercise.id.uuidString] = exercise.name }
+        habitualIds = HabitualExercises.identifiers(in: modelContext, among: Set(names.keys), names: names)
     }
 
     private static func normalize(_ text: String) -> String {

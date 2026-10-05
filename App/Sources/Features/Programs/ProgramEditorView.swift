@@ -68,7 +68,7 @@ struct ProgramEditorView: View {
             }
         }
         .onDisappear {
-            try? modelContext.save()
+            _ = PersistenceSupport.save(modelContext, action: "Modification du programme")
         }
     }
 
@@ -77,7 +77,7 @@ struct ProgramEditorView: View {
         session.program = program
         program.sessions.append(session)
         modelContext.insert(session)
-        try? modelContext.save()
+        _ = PersistenceSupport.save(modelContext, action: "Ajout de la séance")
     }
 
     private func duplicate(_ session: ProgramSession) {
@@ -97,7 +97,7 @@ struct ProgramEditorView: View {
             copy.exercises.append(exerciseCopy)
         }
 
-        try? modelContext.save()
+        _ = PersistenceSupport.save(modelContext, action: "Duplication de la séance")
     }
 
     private func moveSessions(from source: IndexSet, to destination: Int) {
@@ -106,7 +106,7 @@ struct ProgramEditorView: View {
         for (index, session) in ordered.enumerated() {
             session.orderIndex = index
         }
-        try? modelContext.save()
+        _ = PersistenceSupport.save(modelContext, action: "Réorganisation des séances")
     }
 
     private func deleteSessions(at offsets: IndexSet) {
@@ -115,13 +115,13 @@ struct ProgramEditorView: View {
             modelContext.delete(ordered[index])
         }
         reindexSessions()
-        try? modelContext.save()
+        _ = PersistenceSupport.save(modelContext, action: "Suppression de la séance")
     }
 
     private func delete(_ session: ProgramSession) {
         modelContext.delete(session)
         reindexSessions()
-        try? modelContext.save()
+        _ = PersistenceSupport.save(modelContext, action: "Suppression de la séance")
     }
 
     private func reindexSessions() {
@@ -149,7 +149,7 @@ private struct SessionRow: View {
 
     private var exerciseCountLabel: String {
         let count = session.exercises.count
-        return count > 1 ? "\(count) exercices" : "\(count) exercice"
+        return count > 1 ? String(localized: "\(count) exercices") : String(localized: "\(count) exercice")
     }
 }
 
@@ -176,7 +176,8 @@ extension PrescribedExercise {
             intervalRest: intervalRest,
             intervalRounds: intervalRounds,
             amrapSeconds: amrapSeconds,
-            notes: notes
+            notes: notes,
+            pyramidRestSeconds: pyramidRestSeconds
         )
     }
 }

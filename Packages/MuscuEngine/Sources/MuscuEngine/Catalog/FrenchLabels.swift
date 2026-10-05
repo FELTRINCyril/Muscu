@@ -19,6 +19,16 @@ public enum FrenchLabels {
         label(for: key, in: levels)
     }
 
+    /// Type d'effort du catalogue (`push`, `pull`, `static`).
+    public static func force(_ key: String) -> String {
+        label(for: key, in: forces)
+    }
+
+    /// Type de mecanique du catalogue (`compound`, `isolation`).
+    public static func mechanic(_ key: String) -> String {
+        label(for: key, in: mechanics)
+    }
+
     private static func label(for key: String, in table: [String: String]) -> String {
         table[key] ?? capitalizedFirstLetterOnly(key)
     }
@@ -77,5 +87,16 @@ public enum FrenchLabels {
         "beginner": "Débutant",
         "expert": "Expert",
         "intermediate": "Intermédiaire",
+    ]
+
+    private static let forces: [String: String] = [
+        "push": "Poussée",
+        "pull": "Tirage",
+        "static": "Gainage",
+    ]
+
+    private static let mechanics: [String: String] = [
+        "compound": "Polyarticulaire",
+        "isolation": "Isolation",
     ]
 }

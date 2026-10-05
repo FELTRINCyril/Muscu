@@ -5,6 +5,8 @@ import SwiftData
 struct ProgramsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Program.name) private var programs: [Program]
+    @Query(filter: #Predicate<TrainingPlan> { $0.deletedAt == nil }, sort: \TrainingPlan.startDate, order: .reverse)
+    private var plans: [TrainingPlan]
 
     @State private var path = NavigationPath()
     @State private var showingAddChoice = false
@@ -12,9 +14,48 @@ struct ProgramsView: View {
     @State private var showingGeneratorWizard = false
     @State private var programPendingDelete: Program?
 
+    /// Ouvre le programme demande par un raccourci Siri, une seule fois.
+    private func openRequestedProgram() {
+        guard case .program(let id)? = IntentRouter.shared.pending else { return }
+        _ = IntentRouter.shared.consume()
+        guard let program = programs.first(where: { $0.id == id && $0.deletedAt == nil }) else { return }
+        path.append(program)
+    }
+
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                Section {
+                    NavigationLink {
+                        PlanningView()
+                    } label: {
+                        Label("Planning", systemImage: "calendar")
+                    }
+                    .accessibilityIdentifier("programs.planning")
+
+                    NavigationLink {
+                        TemplatesView()
+                    } label: {
+                        Label("Modèles", systemImage: "square.on.square")
+                    }
+                    .accessibilityIdentifier("programs.templates")
+                }
+
+                if !plans.isEmpty {
+                    Section("Plans") {
+                        ForEach(plans) { plan in
+                            NavigationLink(value: plan) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(plan.name.isEmpty ? "Plan" : plan.name)
+                                    Text("\(plan.allWeeks.count) semaines")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 ForEach(programs) { program in
                     NavigationLink(value: program) {
                         ProgramRow(program: program)
@@ -65,8 +106,15 @@ struct ProgramsView: View {
             .scrollContentBackground(.hidden)
             .background(Theme.background)
             .navigationTitle("Programmes")
+            .onAppear(perform: openRequestedProgram)
+            // Un raccourci peut arriver alors que l'onglet est deja affiche :
+            // `onAppear` ne serait alors pas rappele.
+            .onChange(of: IntentRouter.shared.pending) { _, _ in openRequestedProgram() }
             .navigationDestination(for: Program.self) { program in
                 ProgramEditorView(program: program)
+            }
+            .navigationDestination(for: TrainingPlan.self) { plan in
+                TrainingPlanView(plan: plan)
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -126,15 +174,16 @@ struct ProgramsView: View {
     private func createFromScratch() {
         let program = Program(name: "Nouveau programme")
         modelContext.insert(program)
-        try? modelContext.save()
-        path.append(program)
+        if PersistenceSupport.save(modelContext, action: "Création du programme") {
+            path.append(program)
+        }
     }
 
     private func activate(_ program: Program) {
         for existing in programs {
             existing.isActive = existing.id == program.id
         }
-        try? modelContext.save()
+        _ = PersistenceSupport.save(modelContext, action: "Activation du programme")
     }
 
     private func duplicate(_ program: Program) {
@@ -155,12 +204,16 @@ struct ProgramsView: View {
             }
         }
 
-        try? modelContext.save()
+        _ = PersistenceSupport.save(modelContext, action: "Duplication du programme")
     }
 
     private func delete(_ program: Program) {
+        let wasActive = program.isActive
         modelContext.delete(program)
-        try? modelContext.save()
+        if wasActive, let replacement = programs.first(where: { $0.id != program.id }) {
+            replacement.isActive = true
+        }
+        _ = PersistenceSupport.save(modelContext, action: "Suppression du programme")
     }
 }
 
@@ -186,7 +239,7 @@ private struct ProgramRow: View {
 
     private var sessionCountLabel: String {
         let count = program.sessions.count
-        return count > 1 ? "\(count) séances" : "\(count) séance"
+        return count > 1 ? String(localized: "\(count) séances") : String(localized: "\(count) séance")
     }
 }
 

@@ -1,5 +1,6 @@
 import XCTest
 
+@MainActor
 final class ExercisesFlowTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -8,8 +9,7 @@ final class ExercisesFlowTests: XCTestCase {
     func testSearchOpenDetail() {
         let app = XCUIApplication()
         app.launchEmpty()
-        tapWhenReady(app.tabBars.buttons["Exercices"])
-        waitAndAssert(app.navigationBars["Exercices"])
+        selectTab(app, "Exercices", showing: "Exercices")
 
         let searchField = app.searchFields.firstMatch
         waitAndAssert(searchField)
@@ -28,8 +28,7 @@ final class ExercisesFlowTests: XCTestCase {
     func testCreateAndDeleteCustomExercise() {
         let app = XCUIApplication()
         app.launchEmpty()
-        tapWhenReady(app.tabBars.buttons["Exercices"])
-        waitAndAssert(app.navigationBars["Exercices"])
+        selectTab(app, "Exercices", showing: "Exercices")
 
         tapWhenReady(app.buttons["exercises.addButton"])
         waitAndAssert(app.navigationBars["Nouvel exercice"])
@@ -62,6 +61,7 @@ final class ExercisesFlowTests: XCTestCase {
         // "Supprimer" en français), d'où l'acceptation des deux.
         let deleteButton = app.buttons.matching(NSPredicate(format: "label == 'Supprimer' OR label == 'Delete'")).firstMatch
         tapWhenReady(deleteButton)
+        tapWhenReady(app.buttons["Supprimer"])
 
         let stillThere = app.firstDescendant(labelContains: "Exo Test UI").waitForExistence(timeout: 3)
         XCTAssertFalse(stillThere, "L'exercice perso devrait avoir disparu après suppression")

@@ -1,8 +1,12 @@
 import SwiftUI
+import MuscuEngine
 
 // Ecran plein ecran du chrono de repos entre deux series.
 struct RestTimerView: View {
     let timer: RestTimer
+    /// Ce qui suit le repos, quand c'est utile de l'annoncer (palier suivant
+    /// d'une pyramide).
+    var upNext: Text? = nil
 
     var body: some View {
         ZStack {
@@ -25,8 +29,10 @@ struct RestTimerView: View {
                             .rotationEffect(.degrees(-90))
                             .animation(.linear(duration: 0.5), value: timer.progress)
 
-                        Text(formattedTime(timer.remaining))
-                            .font(Theme.timerFont)
+                        // Decompte seul : a zero, le repos se termine et cet
+                        // ecran disparait (pas de depassement affiche).
+                        Text(verbatim: RestCountdown.clock(timer.remaining))
+                            .timerFont()
                             .foregroundStyle(.white)
                             .monospacedDigit()
                             .lineLimit(1)
@@ -36,14 +42,36 @@ struct RestTimerView: View {
                     }
                     .frame(width: 260, height: 260)
 
+                    if let upNext {
+                        upNext
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .accessibilityIdentifier("rest.upNext")
+                    }
+
                     Spacer()
 
+                    // Memes reglages que la Live Activity et la montre :
+                    // −15 s jusqu'a zero (le repos se termine), +15 s borne.
                     HStack(spacing: 16) {
-                        Button("+30 s") {
-                            timer.addThirtySeconds()
+                        Button("−15 s") {
+                            timer.adjust(by: -RestAdjustment.stepSeconds)
                         }
                         .buttonStyle(.bordered)
                         .tint(Theme.accent)
+                        .monospacedDigit()
+                        .accessibilityLabel(Text("Retirer 15 secondes au repos"))
+                        .accessibilityIdentifier("rest.minus15")
+
+                        Button("+15 s") {
+                            timer.adjust(by: RestAdjustment.stepSeconds)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(Theme.accent)
+                        .monospacedDigit()
+                        .accessibilityLabel(Text("Ajouter 15 secondes au repos"))
+                        .accessibilityIdentifier("rest.plus15")
 
                         Button("Passer") {
                             timer.skip()
@@ -59,11 +87,6 @@ struct RestTimerView: View {
         }
     }
 
-    private func formattedTime(_ seconds: Int) -> String {
-        let minutes = seconds / 60
-        let secs = seconds % 60
-        return String(format: "%d:%02d", minutes, secs)
-    }
 }
 
 #Preview {

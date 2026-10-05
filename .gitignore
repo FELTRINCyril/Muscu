@@ -2,7 +2,16 @@
 xcuserdata/
 *.xcodeproj
 .build/
+# Journaux produits par Scripts/ci.sh
+.ci-*.log
 DerivedData/
+# Produits de `xcodebuild -target ... -sdk ...`, qui ecrit dans ./build
+# faute de dossier de derivation explicite.
+build/
 .swiftpm/
 Scripts/exercises_source.json
 .superpowers/
+
+# Fichiers annexes SQLite des fixtures de migration : seul le .store fige est versionne.
+Tests/Fixtures/*.store-shm
+Tests/Fixtures/*.store-wal

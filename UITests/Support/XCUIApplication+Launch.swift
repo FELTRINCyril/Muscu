@@ -4,10 +4,47 @@ import XCTest
 // l'app avec un etat SwiftData connu (vide ou seede), jamais avec l'etat
 // laisse par une execution precedente. Voir App/Sources/UITestSupport.swift
 // (cote app, #if DEBUG) pour le detail du seed.
+@MainActor
 extension XCUIApplication {
+    /// Langue forcee pour toute la suite. Les tests verifient des libelles
+    /// francais : sans ce forcage, la suite passerait ou echouerait selon la
+    /// langue de la machine, ce qui n'est pas un test.
+    private static let frenchArguments = [
+        "-AppleLanguages", "(fr)",
+        "-AppleLocale", "fr_FR",
+    ]
+
     /// Store SwiftData entierement vide (aucun programme, aucun historique).
     func launchEmpty() {
-        launchArguments = ["--uitest-reset"]
+        launchArguments = ["--uitest-reset"] + Self.frenchArguments
+        launch()
+    }
+
+    /// Meme chose, a une taille de texte donnee. Sert a verifier que les
+    /// ecrans restent utilisables pour qui a agrandi le texte de son iPhone.
+    /// `category` est un nom de `UIContentSizeCategory`, par exemple
+    /// `UICTContentSizeCategoryAccessibilityXXXL` (la plus grande, AX5).
+    func launchEmpty(contentSizeCategory category: String) {
+        launchArguments = ["--uitest-reset"] + Self.frenchArguments
+            + ["-UIPreferredContentSizeCategoryName", category]
+        launch()
+    }
+
+    /// Store seede, a une taille de texte donnee.
+    func launchSeeded(contentSizeCategory category: String) {
+        launchArguments = ["--uitest-reset", "--uitest-seed"] + Self.frenchArguments
+            + ["-UIPreferredContentSizeCategoryName", category]
+        launch()
+    }
+
+    /// Meme chose, dans la langue demandee. Sert a verifier que l'anglais
+    /// est reellement livre, et pas seulement traduit dans le catalogue.
+    func launchEmpty(language: String, locale: String) {
+        launchArguments = [
+            "--uitest-reset",
+            "-AppleLanguages", "(\(language))",
+            "-AppleLocale", locale,
+        ]
         launch()
     }
 
@@ -15,11 +52,12 @@ extension XCUIApplication {
     /// pyramide, Séance B intervalles + AMRAP), 1 séance dans l'historique,
     /// 2 records, 1 exercice perso. Cf. UITestSupport.seed pour le detail.
     func launchSeeded() {
-        launchArguments = ["--uitest-reset", "--uitest-seed"]
+        launchArguments = ["--uitest-reset", "--uitest-seed"] + Self.frenchArguments
         launch()
     }
 }
 
+@MainActor
 extension XCUIApplication {
     /// Cherche un element (peu importe son type - certaines lignes de liste
     /// composees de plusieurs Text dans un Button/NavigationLink sont
@@ -101,6 +139,7 @@ extension XCUIApplication {
     }
 }
 
+@MainActor
 extension XCUIElement {
     /// Tape un texte dans un champ de recherche puis laisse le temps à la
     /// liste filtrée (potentiellement volumineuse - le catalogue complet
@@ -110,11 +149,20 @@ extension XCUIElement {
     /// caractère précédent) et taper sur un élément qui a depuis bougé.
     func typeAndSettle(_ text: String, settleSeconds: UInt32 = 1) {
         tap()
-        typeText(text)
+        let app = XCUIApplication()
+        if !app.keyboards.firstMatch.waitForExistence(timeout: 2) {
+            coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+            _ = app.keyboards.firstMatch.waitForExistence(timeout: 2)
+        }
+        // Envoyer le texte a l'application active evite que XCUITest
+        // revalide un ancien snapshot du SearchField pendant que SwiftUI le
+        // reconstruit apres la prise de focus (regression observee iOS 26).
+        app.typeText(text)
         sleep(settleSeconds)
     }
 }
 
+@MainActor
 extension XCTestCase {
     /// Attend qu'un element existe, avec un message d'echec explicite (plus
     /// lisible qu'un simple booleen dans les rapports de test).
@@ -191,6 +239,66 @@ extension XCTestCase {
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
         XCTAssertEqual(result, .completed, "Élément toujours présent après \(timeout) s : \(element)", file: file, line: line)
+    }
+
+    /// Valide l'écran de préparation (check-in et propositions de
+    /// progression) pour entrer dans la séance. Cet écran est facultatif :
+    /// on le traverse sans rien renseigner.
+    func startFromPreparation(
+        _ app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        tapUntilReveals(
+            app.buttons["prep.start"],
+            reveals: app.buttons["Commencer directement la séance"],
+            file: file,
+            line: line
+        )
+    }
+
+    /// Attend que le runner affiche l'exercice attendu.
+    ///
+    /// Vise l'identifiant du titre plutot qu'une recherche sur tout l'arbre
+    /// d'accessibilite : `descendants(matching: .any)` est lent et devient
+    /// peu fiable quand la suite complete tourne depuis longtemps.
+    func waitForRunnerExercise(
+        _ app: XCUIApplication,
+        nameContains text: String,
+        timeout: TimeInterval = 20,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let title = app.staticTexts["workout.exerciseName"]
+        let predicate = NSPredicate(format: "label CONTAINS[c] %@", text)
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: title)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [expectation], timeout: timeout),
+            .completed,
+            "Le runner devrait afficher « \(text) », affiché : « \(title.exists ? title.label : "aucun titre")»",
+            file: file,
+            line: line
+        )
+    }
+
+    /// Bascule d'onglet fiable. Un tap synthetise sur la tab bar peut se
+    /// perdre quand l'app est encore en train de se stabiliser apres le
+    /// lancement (reset/seed du store) : XCUITest ne signale alors aucune
+    /// erreur, mais l'ecran attendu n'apparait jamais. On re-tape tant que
+    /// la barre de navigation cible n'est pas affichee.
+    func selectTab(
+        _ app: XCUIApplication,
+        _ tabName: String,
+        showing navigationTitle: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        tapUntilReveals(
+            app.tabBars.buttons[tabName],
+            reveals: app.navigationBars[navigationTitle],
+            file: file,
+            line: line
+        )
     }
 
     /// Tap defensif : attend l'existence puis la "hittability" avant de taper,

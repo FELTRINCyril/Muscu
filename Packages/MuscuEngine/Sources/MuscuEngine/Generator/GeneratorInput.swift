@@ -16,7 +16,7 @@ public enum SplitPreference: String, Codable, CaseIterable, Sendable {
     case auto, fullBody, upperLower, ppl, pplul, ulppl, arnold, pushPullUpperLower
 }
 
-public struct GeneratorInput: Codable, Sendable {
+public struct GeneratorInput: Codable, Equatable, Sendable {
     public var goal: Goal
     public var experience: Experience
     public var daysPerWeek: Int          // 2...6
@@ -25,6 +25,13 @@ public struct GeneratorInput: Codable, Sendable {
     public var splitPreference: SplitPreference
     public var priorityMuscles: [String] // cles EN du catalogue
     public var avoidAreas: [String]      // ex: ["lower back", "knees"]
+    /// Exercices explicitement refuses par l'athlete. Le generateur ne les
+    /// propose jamais, et le validateur refuse tout programme qui en contient.
+    public var excludedExerciseIds: [String]
+    /// Inventaire du lieu ou la seance aura lieu. `nil` ou inventaire vide =
+    /// aucune contrainte supplementaire : on ne masque jamais d'exercice tant
+    /// que rien n'a ete declare.
+    public var inventory: EquipmentInventory?
 
     public init(
         goal: Goal,
@@ -34,7 +41,9 @@ public struct GeneratorInput: Codable, Sendable {
         equipment: TrainingEquipment,
         splitPreference: SplitPreference,
         priorityMuscles: [String],
-        avoidAreas: [String]
+        avoidAreas: [String],
+        excludedExerciseIds: [String] = [],
+        inventory: EquipmentInventory? = nil
     ) {
         self.goal = goal
         self.experience = experience
@@ -44,5 +53,7 @@ public struct GeneratorInput: Codable, Sendable {
         self.splitPreference = splitPreference
         self.priorityMuscles = priorityMuscles
         self.avoidAreas = avoidAreas
+        self.excludedExerciseIds = excludedExerciseIds
+        self.inventory = inventory
     }
 }

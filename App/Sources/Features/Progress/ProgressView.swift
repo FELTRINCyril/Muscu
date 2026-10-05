@@ -8,6 +8,7 @@ struct ProgressTabView: View {
         case records = "Records"
         case history = "Historique"
         case charts = "Graphiques"
+        case measurements = "Mesures"
 
         var id: String { rawValue }
     }
@@ -32,11 +33,38 @@ struct ProgressTabView: View {
                     HistoryView()
                 case .charts:
                     ChartsView()
+                case .measurements:
+                    MeasurementsView()
                 }
             }
             .background(Theme.background)
             .navigationTitle("Progression")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        NavigationLink {
+                            GoalsView()
+                        } label: {
+                            Label("Objectifs", systemImage: "target")
+                        }
+                        NavigationLink {
+                            AdaptationJournalView()
+                        } label: {
+                            Label("Adaptations", systemImage: "arrow.triangle.branch")
+                        }
+                        NavigationLink {
+                            PlateauView()
+                        } label: {
+                            Label("Plateaux", systemImage: "chart.line.flattrend.xyaxis")
+                        }
+                        .accessibilityIdentifier("progress.plateaus")
+                    } label: {
+                        Label("Plus", systemImage: "ellipsis.circle")
+                    }
+                    .accessibilityIdentifier("progress.moreMenu")
+                }
+            }
         }
     }
 }

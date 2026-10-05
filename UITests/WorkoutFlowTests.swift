@@ -4,6 +4,7 @@ import XCTest
 // Les valeurs de repos/intervalles/AMRAP sont volontairement tres courtes
 // (2-15 s) pour que ces tests restent rapides tout en exercant reellement
 // les chronos (pas seulement "Passer" immediatement).
+@MainActor
 final class WorkoutFlowTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -19,6 +20,7 @@ final class WorkoutFlowTests: XCTestCase {
         app.launchSeeded()
 
         tapWhenReady(app.buttons["Lancer la séance"])
+        startFromPreparation(app)
 
         // Echauffement systematique : la seance demarre toujours sur
         // WarmupView. On exerce ici le flux "Echauffement libre" complet
@@ -50,7 +52,11 @@ final class WorkoutFlowTests: XCTestCase {
         // affiche ("N reps") ET l'ecran de repos est referme (sinon le tap
         // peut partir pendant l'animation de fermeture et se perdre).
         for target in [2, 4, 6, 4, 2] {
-            waitAndAssert(app.staticTexts["\(target) reps"], timeout: 15)
+            // Compteur du palier (identifiant stable) portant « N reps ».
+            let counter = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == 'pyramid.reps' AND label == %@", "\(target) reps"))
+                .firstMatch
+            waitAndAssert(counter, timeout: 15)
             waitForDisappearance(app.buttons["Passer"], timeout: 10)
             tapWhenReady(app.buttons["Valider"], timeout: 15)
         }
@@ -59,12 +65,13 @@ final class WorkoutFlowTests: XCTestCase {
         waitAndAssert(app.staticTexts["Séance terminée"], timeout: 10)
         tapWhenReady(app.buttons["Terminer"])
         dismissAnyRecordSuggestions(app)
-        waitAndAssert(app.buttons["Fermer"])
-        tapWhenReady(app.buttons["Fermer"])
+        waitAndAssert(app.buttons["workout.closeSummaryButton"])
+        tapWhenReady(app.buttons["workout.closeSummaryButton"])
 
         // De retour à l'Accueil : le programme tourne vers la Séance B.
         waitAndAssert(app.buttons["Lancer la séance"], timeout: 10)
         tapWhenReady(app.buttons["Lancer la séance"])
+        startFromPreparation(app)
         tapWhenReady(app.buttons["Commencer directement la séance"], timeout: 15)
 
         // --- Séance B : intervalles (3 s / 2 s x 2), déroule automatique ---
@@ -86,14 +93,13 @@ final class WorkoutFlowTests: XCTestCase {
         waitAndAssert(app.staticTexts["Séance terminée"], timeout: 10)
         tapWhenReady(app.buttons["Terminer"])
         dismissAnyRecordSuggestions(app)
-        waitAndAssert(app.buttons["Fermer"])
-        tapWhenReady(app.buttons["Fermer"])
+        waitAndAssert(app.buttons["workout.closeSummaryButton"])
+        tapWhenReady(app.buttons["workout.closeSummaryButton"])
 
         waitAndAssert(app.buttons["Lancer la séance"], timeout: 10)
 
         // Progression > Historique doit maintenant montrer les séances.
-        tapWhenReady(app.tabBars.buttons["Progression"])
-        waitAndAssert(app.navigationBars["Progression"])
+        selectTab(app, "Progression", showing: "Progression")
         tapWhenReady(app.buttons["Historique"])
         waitAndAssert(app.firstDescendant(labelContains: "Séance A"), timeout: 8, "L'historique devrait contenir la séance A tout juste terminée")
     }
@@ -105,6 +111,7 @@ final class WorkoutFlowTests: XCTestCase {
         app.launchSeeded()
 
         tapWhenReady(app.buttons["Lancer la séance"])
+        startFromPreparation(app)
         tapWhenReady(app.buttons["Commencer directement la séance"], timeout: 15)
 
         // Log une série pour qu'une ActiveWorkout existe réellement à
@@ -114,8 +121,12 @@ final class WorkoutFlowTests: XCTestCase {
         tapWhenReady(app.buttons["Valider la série"], timeout: 45)
         tapWhenReady(app.buttons["Passer"], timeout: 10)
 
-        tapWhenReady(app.buttons["workout.exitButton"])
-        waitAndAssert(app.buttons["Reprendre plus tard"])
+        // Le tap sur la sortie peut se perdre : on re-tape jusqu'à voir la
+        // confirmation, au lieu de supposer qu'elle est affichée.
+        tapUntilReveals(
+            app.buttons["workout.exitButton"],
+            reveals: app.buttons["Reprendre plus tard"]
+        )
         tapWhenReady(app.buttons["Reprendre plus tard"])
 
         waitAndAssert(app.buttons["Reprendre la séance"], timeout: 10)

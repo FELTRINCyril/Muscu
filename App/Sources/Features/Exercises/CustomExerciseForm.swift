@@ -91,7 +91,9 @@ struct CustomExerciseForm: View {
             notes: notes.trimmingCharacters(in: .whitespacesAndNewlines)
         )
         modelContext.insert(exercise)
-        dismiss()
+        if PersistenceSupport.save(modelContext, action: "Création de l’exercice personnalisé") {
+            dismiss()
+        }
     }
 }
 

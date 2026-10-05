@@ -1,5 +1,6 @@
 import XCTest
 
+@MainActor
 final class ProgramsFlowTests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -10,16 +11,16 @@ final class ProgramsFlowTests: XCTestCase {
     func testCreateFromScratchEditSessionAndPrescription() {
         let app = XCUIApplication()
         app.launchEmpty()
-        tapWhenReady(app.tabBars.buttons["Programmes"])
-        waitAndAssert(app.navigationBars["Programmes"])
+        selectTab(app, "Programmes", showing: "Programmes")
 
-        tapWhenReady(app.buttons["programs.addButton"])
-        waitAndAssert(app.buttons["De zéro"])
-        tapWhenReady(app.buttons["De zéro"])
+        // Un tap synthetise sur un bouton de barre d'outils peut se perdre
+        // pendant que la navigation se stabilise : la confirmationDialog ne
+        // s'ouvre alors jamais. tapUntilReveals re-tape jusqu'a la voir.
+        tapUntilReveals(app.buttons["programs.addButton"], reveals: app.buttons["De zéro"])
 
         // Editeur de programme.
         let nameField = app.textFields["Nom du programme"]
-        waitAndAssert(nameField)
+        tapUntilReveals(app.buttons["De zéro"], reveals: nameField)
         nameField.tap()
         // Selectionne tout le texte existant puis remplace.
         if let currentValue = nameField.value as? String, !currentValue.isEmpty {
@@ -34,10 +35,10 @@ final class ProgramsFlowTests: XCTestCase {
         let sessionRow = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@", "Séance 1")).firstMatch
         waitAndAssert(sessionRow, "Une séance par défaut devrait être créée")
         tapWhenReady(sessionRow)
-        waitAndAssert(app.navigationBars["Séance 1"])
+        waitAndAssert(app.buttons["Ajouter un exercice"], "L’éditeur de séance devrait être ouvert")
 
-        tapWhenReady(app.buttons["Ajouter un exercice"])
-        waitAndAssert(app.navigationBars["Choisir un exercice"])
+        let pickerNavigationBar = app.navigationBars["Choisir un exercice"]
+        tapUntilReveals(app.buttons["Ajouter un exercice"], reveals: pickerNavigationBar)
 
         let searchField = app.searchFields.firstMatch
         waitAndAssert(searchField)
@@ -55,38 +56,80 @@ final class ProgramsFlowTests: XCTestCase {
         exerciseRow.tap()
 
         // Editeur de prescription : parcourir tous les formats.
-        waitAndAssert(app.segmentedControls.firstMatch, "Le sélecteur de format devrait être présent")
-        tapWhenReady(app.buttons["Pyramide"])
-        waitAndAssert(app.staticTexts["Pyramide"])
-        tapWhenReady(app.buttons["Intervalles"])
-        waitAndAssert(app.staticTexts["Intervalles"])
-        tapWhenReady(app.buttons["AMRAP"])
-        waitAndAssert(app.staticTexts["AMRAP"])
-        tapWhenReady(app.buttons["Classique"])
-        waitAndAssert(app.staticTexts["Séries classiques"])
+        // Le sélecteur de format est un menu (9 formats, un segment par
+        // format ne tiendrait pas) : on l'ouvre puis on choisit l'option.
+        waitAndAssert(app.buttons["prescription.formatPicker"], "Le sélecteur de format devrait être présent")
+        selectFormat(app, "Pyramide", showing: app.staticTexts["Pyramide"])
+        selectFormat(app, "Dropset", showing: app.staticTexts["Dropset"])
+        selectFormat(app, "Rest-pause", showing: app.staticTexts["Rest-pause"])
+        selectFormat(app, "Myo-reps", showing: app.staticTexts["Myo-reps"])
+        selectFormat(app, "Intervalles", showing: app.staticTexts["Intervalles"])
+        selectFormat(app, "EMOM", showing: app.staticTexts["EMOM"])
+        selectFormat(app, "AMRAP", showing: app.staticTexts["AMRAP"])
+        selectFormat(app, "For Time", showing: app.staticTexts["For Time"])
+        selectFormat(app, "Classique", showing: app.staticTexts["Séries classiques"])
 
         tapWhenReady(app.buttons["Terminé"])
         waitAndAssert(app.navigationBars["Séance 1"])
+    }
+
+    /// Choisit un format : ouvre la liste poussée du sélecteur, tape
+    /// l'option, puis attend que la section correspondante s'affiche.
+    ///
+    /// La liste est un écran à part entière : l'option y est toujours
+    /// atteignable, au besoin en faisant défiler.
+    private func selectFormat(
+        _ app: XCUIApplication,
+        _ name: String,
+        showing revealed: XCUIElement,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let picker = app.buttons["prescription.formatPicker"]
+        for _ in 0..<3 {
+            guard picker.waitForExistence(timeout: 15) else { break }
+            if picker.isHittable { picker.tap() }
+
+            let option = app.buttons[name]
+            for _ in 0..<6 {
+                if option.exists, option.isHittable { break }
+                app.swipeUp()
+                usleep(300_000)
+            }
+            if option.exists, option.isHittable { option.tap() }
+
+            if revealed.waitForExistence(timeout: 8) { return }
+            usleep(400_000)
+        }
+        XCTFail("Le format \(name) n'a jamais été appliqué", file: file, line: line)
     }
 
     // Dupliquer (menu contextuel, long press) -> activer -> supprimer (avec confirmation).
     func testDuplicateActivateAndDeleteProgram() {
         let app = XCUIApplication()
         app.launchSeeded()
-        tapWhenReady(app.tabBars.buttons["Programmes"])
-        waitAndAssert(app.navigationBars["Programmes"])
+        selectTab(app, "Programmes", showing: "Programmes")
+        waitAndAssert(app.buttons["programs.addButton"], "La liste des programmes devrait être réaffichée")
 
         // Le row de programme (NavigationLink) agrège nom + badge + nb de
         // séances dans un seul élément d'accessibilité : CONTAINS plutôt
         // qu'un match exact.
+        //
+        // On interroge `buttons` et non tout l'arbre : une requête
+        // `descendants(matching: .any)` est lente et devient peu fiable quand
+        // la suite complète tourne depuis longtemps.
         func row(containing text: String) -> XCUIElement {
-            app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@", text)).firstMatch
+            app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", text)).firstMatch
         }
 
         let originalRow = row(containing: "Programme Test")
         waitAndAssert(originalRow)
 
-        originalRow.press(forDuration: 1.0)
+        // Un appui long peut se perdre pendant une transition : on insiste
+        // jusqu'à voir le menu plutôt que de supposer qu'il est arrivé.
+        for _ in 0..<3 where !app.buttons["Dupliquer"].waitForExistence(timeout: 6) {
+            originalRow.press(forDuration: 1.0)
+        }
         waitAndAssert(app.buttons["Dupliquer"], "Le menu contextuel devrait proposer Dupliquer")
         tapWhenReady(app.buttons["Dupliquer"])
 
@@ -114,12 +157,10 @@ final class ProgramsFlowTests: XCTestCase {
     func testCreateFromTemplate() {
         let app = XCUIApplication()
         app.launchEmpty()
-        tapWhenReady(app.tabBars.buttons["Programmes"])
-        waitAndAssert(app.navigationBars["Programmes"])
+        selectTab(app, "Programmes", showing: "Programmes")
 
-        tapWhenReady(app.buttons["programs.addButton"])
-        tapWhenReady(app.buttons["Depuis un modèle"])
-        waitAndAssert(app.navigationBars["Depuis un modèle"])
+        tapUntilReveals(app.buttons["programs.addButton"], reveals: app.buttons["Depuis un modèle"])
+        tapUntilReveals(app.buttons["Depuis un modèle"], reveals: app.navigationBars["Depuis un modèle"])
 
         // 3 séances/semaine est la valeur par défaut du stepper. La carte est
         // un Button englobant plusieurs Text (nom + liste de séances) : son
@@ -155,12 +196,10 @@ final class ProgramsFlowTests: XCTestCase {
     func testGeneratorWizardAllSteps() {
         let app = XCUIApplication()
         app.launchEmpty()
-        tapWhenReady(app.tabBars.buttons["Programmes"])
-        waitAndAssert(app.navigationBars["Programmes"])
+        selectTab(app, "Programmes", showing: "Programmes")
 
-        tapWhenReady(app.buttons["programs.addButton"])
-        tapWhenReady(app.buttons["Générateur"])
-        waitAndAssert(app.navigationBars["Générateur"])
+        tapUntilReveals(app.buttons["programs.addButton"], reveals: app.buttons["Générateur"])
+        tapUntilReveals(app.buttons["Générateur"], reveals: app.navigationBars["Générateur"])
 
         tapWhenReady(app.buttons["Prise de masse"]) // 1. objectif
         tapWhenReady(app.buttons["Débutant (moins d'un an)"]) // 2. niveau
@@ -169,7 +208,9 @@ final class ProgramsFlowTests: XCTestCase {
         tapWhenReady(app.buttons["Salle complète"]) // 5. matériel
         tapWhenReady(app.buttons["Choisis pour moi"]) // 6. split
         tapWhenReady(app.buttons["Suivant"]) // 7. points faibles (optionnel)
-        tapWhenReady(app.buttons["Générer"]) // 8. zones à ménager (optionnel) -> génère
+        tapWhenReady(app.buttons["Suivant"]) // 8. zones à ménager (optionnel)
+        tapWhenReady(app.buttons["Plan de 8 semaines"]) // 9. structure du plan
+        tapWhenReady(app.buttons["Générer"])
 
         waitAndAssert(app.navigationBars["Aperçu"], timeout: 10)
         tapWhenReady(app.buttons["Enregistrer"])

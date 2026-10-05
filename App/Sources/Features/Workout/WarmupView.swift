@@ -7,6 +7,7 @@ import MuscuEngine
 // plusieurs blocs avant de demarrer reellement la seance. Toujours sortie
 // via `state.finishWarmup()`, quel que soit le chemin pris.
 struct WarmupView: View {
+    @Environment(\.massUnit) private var massUnit
     let state: WorkoutState
 
     private enum Step: Equatable {
@@ -19,7 +20,13 @@ struct WarmupView: View {
 
     @State private var step: Step = .choice
     @State private var cardioMinutesChoice: Int = Warmup.cardioMinutes
-    @State private var checkedRamps: Set<Int> = []
+
+    init(state: WorkoutState) {
+        self.state = state
+        let runtime = state.runtimeState.warmup
+        _step = State(initialValue: Self.step(from: runtime))
+        _cardioMinutesChoice = State(initialValue: runtime.cardioMinutes)
+    }
 
     private var rampSets: [WarmupSet] {
         state.warmupRampSets()
@@ -49,7 +56,10 @@ struct WarmupView: View {
                 }
             }
         }
-        .onAppear { restoreCheckedRamps() }
+        .onAppear {
+            persistStep()
+        }
+        .onChange(of: cardioMinutesChoice) { _, _ in persistStep() }
     }
 
     // MARK: - Ecran de choix initial
@@ -60,10 +70,10 @@ struct WarmupView: View {
 
             VStack(spacing: 16) {
                 WarmupOptionCard(title: "Cardio", subtitle: "Chrono minute", systemImage: "figure.run") {
-                    step = .cardioDuration
+                    transition(to: .cardioDuration)
                 }
                 WarmupOptionCard(title: "Échauffement libre", subtitle: "Chrono libre + montée en charge", systemImage: "figure.flexibility") {
-                    step = .free(startedAt: .now)
+                    transition(to: .free(startedAt: .now))
                 }
             }
             .padding(.horizontal)
@@ -110,7 +120,7 @@ struct WarmupView: View {
             Spacer()
 
             Button {
-                step = .cardioCountdown(endDate: Date.now.addingTimeInterval(Double(cardioMinutesChoice * 60)), minutes: cardioMinutesChoice)
+                transition(to: .cardioCountdown(endDate: Date.now.addingTimeInterval(Double(cardioMinutesChoice * 60)), minutes: cardioMinutesChoice))
             } label: {
                 Text("Démarrer le cardio")
                     .font(.headline)
@@ -142,7 +152,7 @@ struct WarmupView: View {
                         .animation(.linear(duration: 0.5), value: remaining)
 
                     Text(Self.formatSeconds(remaining))
-                        .font(Theme.timerFont)
+                        .timerFont()
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.4)
@@ -153,7 +163,7 @@ struct WarmupView: View {
                 .frame(width: 260, height: 260)
                 .onChange(of: remaining) { _, newValue in
                     if newValue == 0 {
-                        step = .continueChoice
+                        transition(to: .continueChoice)
                     }
                 }
             }
@@ -161,7 +171,7 @@ struct WarmupView: View {
             Spacer()
 
             Button("Terminer le cardio") {
-                step = .continueChoice
+                transition(to: .continueChoice)
             }
             .buttonStyle(.bordered)
             .tint(Theme.accent)
@@ -184,7 +194,7 @@ struct WarmupView: View {
             VStack(spacing: 24) {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(Self.formatSeconds(Int(context.date.timeIntervalSince(startedAt).rounded(.down))))
-                        .font(Theme.timerFont)
+                        .timerFont()
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.4)
@@ -199,7 +209,7 @@ struct WarmupView: View {
                 Spacer(minLength: 12)
 
                 Button {
-                    step = .continueChoice
+                    transition(to: .continueChoice)
                 } label: {
                     Text("Terminer")
                         .font(.headline)
@@ -221,14 +231,17 @@ struct WarmupView: View {
                     .font(.headline)
             }
 
+            // Paliers coches = paliers enregistres : lus dans la seance, ils
+            // restent justes apres une reprise ET quand un palier est valide
+            // depuis la Live Activity.
+            let checkedRamps = state.loggedWarmupRampIndexes()
             ForEach(Array(rampSets.enumerated()), id: \.offset) { index, ramp in
                 HStack {
-                    Text("\(WorkoutState.formatWeight(ramp.weight)) kg x \(ramp.reps)")
+                    Text("\(WeightFormatter.string(kilograms: ramp.weight, unit: massUnit)) x \(ramp.reps)")
                         .font(.body.monospacedDigit())
                     Spacer()
                     Button {
                         state.logWarmupSet(ramp, rampIndex: index)
-                        checkedRamps.insert(index)
                     } label: {
                         Image(systemName: checkedRamps.contains(index) ? "checkmark.circle.fill" : "circle")
                             .font(.title2)
@@ -255,10 +268,10 @@ struct WarmupView: View {
 
             VStack(spacing: 16) {
                 WarmupOptionCard(title: "Refaire du cardio", subtitle: nil, systemImage: "figure.run") {
-                    step = .cardioDuration
+                    transition(to: .cardioDuration)
                 }
                 WarmupOptionCard(title: "Échauffement libre", subtitle: nil, systemImage: "figure.flexibility") {
-                    step = .free(startedAt: .now)
+                    transition(to: .free(startedAt: .now))
                 }
             }
             .padding(.horizontal)
@@ -280,20 +293,41 @@ struct WarmupView: View {
         }
     }
 
-    // MARK: - Reprise apres kill+resume
+    private func transition(to newStep: Step) {
+        step = newStep
+        persistStep()
+    }
 
-    // Reconstruit checkedRamps depuis les series deja persistees : necessaire
-    // apres un kill+resume en pleine echauffement, sinon ce @State frais
-    // repart a vide (toutes les cases redeviennent decochees) alors que
-    // logWarmupSet a deja loggee ces paliers - source de doublons a la
-    // reprise si on retapait sur une case deja validee.
-    private func restoreCheckedRamps() {
-        guard let target = state.warmupTargetExercise(),
-              let targetIndex = state.exercises.firstIndex(where: { $0.id == target.id }) else { return }
-        let loggedRampIndexes = state.loggedSets
-            .filter { $0.isWarmup && $0.orderIndex == targetIndex }
-            .map(\.setIndex)
-        checkedRamps = Set(loggedRampIndexes)
+    private func persistStep() {
+        var runtime = WarmupRuntimeState(cardioMinutes: cardioMinutesChoice)
+        switch step {
+        case .choice:
+            runtime.stepRaw = "choice"
+        case .cardioDuration:
+            runtime.stepRaw = "cardioDuration"
+        case .cardioCountdown(let endDate, let minutes):
+            runtime.stepRaw = "cardioCountdown"
+            runtime.endDate = endDate
+            runtime.cardioMinutes = minutes
+        case .free(let startedAt):
+            runtime.stepRaw = "free"
+            runtime.startedAt = startedAt
+        case .continueChoice:
+            runtime.stepRaw = "continueChoice"
+        }
+        state.updateWarmupRuntime(runtime)
+    }
+
+    private static func step(from runtime: WarmupRuntimeState) -> Step {
+        switch runtime.stepRaw {
+        case "cardioDuration": return .cardioDuration
+        case "cardioCountdown":
+            guard let endDate = runtime.endDate else { return .cardioDuration }
+            return .cardioCountdown(endDate: endDate, minutes: runtime.cardioMinutes)
+        case "free": return .free(startedAt: runtime.startedAt ?? .now)
+        case "continueChoice": return .continueChoice
+        default: return .choice
+        }
     }
 
     private static func formatSeconds(_ seconds: Int) -> String {

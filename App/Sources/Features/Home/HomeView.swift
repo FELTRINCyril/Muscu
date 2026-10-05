@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MuscuEngine
 
 // Onglet Accueil : ecran d'accueil de l'app, pense comme un vrai tableau de
 // bord fitness (pas juste une carte de lancement). De haut en bas :
@@ -16,6 +17,7 @@ import SwiftData
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(CatalogStore.self) private var catalogStore
+    @Environment(\.massUnit) private var massUnit
 
     @Query(sort: \Program.name) private var programs: [Program]
     @Query(sort: \CompletedSession.date, order: .reverse) private var completedSessions: [CompletedSession]
@@ -28,9 +30,15 @@ struct HomeView: View {
 
     @State private var restTimer = RestTimer()
     @State private var workoutState: WorkoutState?
+    @State private var sessionToPrepare: ProgramSession?
 
     @State private var pendingActiveWorkout: ActiveWorkout?
     @State private var showingResumeAlert = false
+
+    /// Seance de l'historique a refaire, demandee par le widget « Dernière
+    /// séance ». Toujours confirmee : un lien ne demarre rien seul.
+    @State private var sessionToReplay: CompletedSession?
+    @State private var showingActiveWorkoutAlert = false
 
     var body: some View {
         ZStack {
@@ -52,10 +60,46 @@ struct HomeView: View {
         .task {
             checkForResumableWorkout()
         }
+        // Liens directs (widgets, Live Activity), consommes une fois.
+        .onAppear { handleLinkRequest() }
+        .onChange(of: IntentRouter.shared.pending) { _, _ in handleLinkRequest() }
+        .confirmationDialog(
+            "Refaire cette séance ?",
+            isPresented: Binding(
+                get: { sessionToReplay != nil },
+                set: { if !$0 { sessionToReplay = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: sessionToReplay
+        ) { session in
+            Button("Refaire") { replay(session, mode: .withTargets) }
+                .accessibilityIdentifier("home.replay")
+            Button("Refaire à vide") { replay(session, mode: .empty) }
+                .accessibilityIdentifier("home.replayEmpty")
+            Button("Annuler", role: .cancel) {}
+        } message: { session in
+            Text("« \(session.sessionName.isEmpty ? String(localized: "Séance") : session.sessionName) » du \(session.date.formatted(date: .abbreviated, time: .omitted))")
+        }
+        .alert("Une séance est déjà en cours", isPresented: $showingActiveWorkoutAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Terminez ou abandonnez la séance en cours avant d’en refaire une.")
+        }
         .alert("Reprendre la séance en cours ?", isPresented: $showingResumeAlert) {
             Button("Reprendre") { resumeWorkout() }
             Button("Abandonner", role: .destructive) { abandonPendingWorkout() }
             Button("Annuler", role: .cancel) {}
+        }
+        .sheet(item: $sessionToPrepare) { session in
+            SessionPrepView(session: session) { readinessScaling in
+                sessionToPrepare = nil
+                // La preparation a pu modifier la prescription (progression
+                // acceptee) : la seance est construite APRES sa fermeture,
+                // pour partir des valeurs a jour.
+                PresentationSync.afterCurrentPresentationDismissed {
+                    startSession(session, readinessScaling: readinessScaling)
+                }
+            }
         }
         .fullScreenCover(item: $workoutState) { state in
             WorkoutRunnerView(state: state)
@@ -150,6 +194,27 @@ struct HomeView: View {
                 .tint(Theme.accent)
                 .controlSize(.large)
                 .disabled(session == nil)
+
+                // La rotation propose la seance suivante, mais l'utilisateur
+                // doit pouvoir en choisir une autre sans passer par
+                // l'editeur de programme (jour deplace, salle differente...).
+                if currentActiveWorkout == nil, program.sessions.count > 1 {
+                    Menu {
+                        ForEach(program.orderedSessions) { candidate in
+                            Button {
+                                sessionToPrepare = candidate
+                            } label: {
+                                Text(candidate.name)
+                            }
+                        }
+                    } label: {
+                        Label("Choisir une autre séance", systemImage: "arrow.triangle.swap")
+                            .font(.footnote)
+                    }
+                    .accessibilityIdentifier("home.chooseSessionMenu")
+                }
+
+                freeSessionButton
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Aucun programme actif")
@@ -160,15 +225,34 @@ struct HomeView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Button {
-                    selectedTab = 1
-                } label: {
-                    Text("Créer un programme")
-                        .frame(maxWidth: .infinity)
+                // Une seance en cours (libre, ou d'un programme desactive
+                // depuis) doit rester reprenable sans programme actif.
+                if currentActiveWorkout != nil {
+                    Button {
+                        resumeCurrentWorkout()
+                    } label: {
+                        Text("Reprendre la séance")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.accent)
+                    .controlSize(.large)
+                    .accessibilityIdentifier("home.resumeWorkout")
+                } else {
+                    Button {
+                        selectedTab = 1
+                    } label: {
+                        Text("Créer un programme")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.accent)
+                    .controlSize(.large)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
-                .controlSize(.large)
+
+                freeSessionButton
             }
         }
         .padding(20)
@@ -178,6 +262,31 @@ struct HomeView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(activeProgram != nil ? Theme.accent.opacity(0.35) : Color.clear, lineWidth: 1.5)
+        )
+    }
+
+    /// Seance libre : demarree sans programme, les exercices s'ajoutent au
+    /// fil de l'eau. Proposee seulement quand aucune seance n'est en cours :
+    /// une seule seance active a la fois.
+    @ViewBuilder
+    private var freeSessionButton: some View {
+        if currentActiveWorkout == nil {
+            Button {
+                startFreeSession()
+            } label: {
+                Label("Séance libre", systemImage: "plus.circle")
+                    .font(.footnote)
+            }
+            .accessibilityIdentifier("home.freeSession")
+        }
+    }
+
+    private func startFreeSession() {
+        guard currentActiveWorkout == nil else { return }
+        workoutState = WorkoutState(
+            freeSessionWith: modelContext,
+            catalogStore: catalogStore,
+            restTimer: restTimer
         )
     }
 
@@ -195,13 +304,21 @@ struct HomeView: View {
         guard !sessions.isEmpty else { return nil }
 
         guard let lastCompleted = completedSessions.first(where: { completed in
-            completed.programName == program.name
+            if let completedProgramId = completed.programId {
+                return completedProgramId == program.id
+            }
+            return completed.programName == program.name
                 && sessions.contains { $0.name == completed.sessionName }
         }) else {
             return sessions.first
         }
 
-        guard let lastIndex = sessions.firstIndex(where: { $0.name == lastCompleted.sessionName }) else {
+        guard let lastIndex = sessions.firstIndex(where: { session in
+            if let completedSessionId = lastCompleted.programSessionId {
+                return session.id == completedSessionId
+            }
+            return session.name == lastCompleted.sessionName
+        }) else {
             return sessions.first
         }
 
@@ -209,33 +326,38 @@ struct HomeView: View {
         return sessions[nextIndex]
     }
 
-    // Duree estimee de la seance : somme, par exercice, de (nb de series) x
-    // (45 s de travail estime + repos configure), arrondie au multiple de 5
-    // minutes le plus proche (minimum 5). `sets` vaut 0 pour les formats
-    // speciaux (pyramide/intervalles/AMRAP, cf. PrescribedExercise) : on
-    // compte alors au moins 1 pour ne pas les ignorer dans l'estimation.
+    // Duree estimee de la seance. Le calcul vit dans MuscuEngine
+    // (SessionDuration) pour que l'accueil, l'editeur et le generateur
+    // affichent tous la meme estimation.
     private static func estimatedMinutes(for session: ProgramSession) -> Int {
-        let totalSeconds = session.exercises.reduce(0) { partial, exercise in
-            partial + max(1, exercise.sets) * (45 + exercise.restSeconds)
-        }
-        let minutes = Double(totalSeconds) / 60.0
-        let rounded = Int((minutes / 5.0).rounded()) * 5
-        return max(5, rounded)
+        SessionDuration.estimatedMinutes(for: WorkoutPlanBuilder.plan(for: session))
     }
 
     private func startSession(program: Program) {
         guard let session = nextSession(for: program) else { return }
+        // Passage par l'ecran de preparation : check-in facultatif et
+        // propositions de progression, que l'utilisateur peut ignorer.
+        sessionToPrepare = session
+    }
+
+    private func startSession(_ session: ProgramSession, readinessScaling: WeekScaling? = nil) {
+        // Une semaine de decharge ET un check-in prudent se CUMULENT : ils
+        // repondent a deux raisons differentes d'alleger.
+        let weekScaling = WeekScalingResolver.scaling(for: session, context: modelContext)
+        let combined = readinessScaling.map { weekScaling.combined(with: $0) } ?? weekScaling
+
         workoutState = WorkoutState(
             programSession: session,
             modelContext: modelContext,
             catalogStore: catalogStore,
-            restTimer: restTimer
+            restTimer: restTimer,
+            weekScaling: combined
         )
     }
 
     private func resumeCurrentWorkout() {
         guard let workout = currentActiveWorkout,
-              let state = WorkoutState.resume(
+              let state = WorkoutState.resumeOrAdopt(
                 from: workout,
                 modelContext: modelContext,
                 catalogStore: catalogStore,
@@ -247,6 +369,9 @@ struct HomeView: View {
     // MARK: - Alerte de reprise (identique a la Task 18)
 
     private func checkForResumableWorkout() {
+        // Seance deja affichee (lien direct traite avant cette tache) : rien
+        // a proposer.
+        guard workoutState == nil, !LiveWorkoutRegistry.shared.isRunnerVisible else { return }
         guard let workout = WorkoutState.pendingActiveWorkout(modelContext: modelContext) else { return }
         pendingActiveWorkout = workout
         showingResumeAlert = true
@@ -264,7 +389,7 @@ struct HomeView: View {
     // presenter le runner.
     private func resumeWorkout() {
         guard let workout = pendingActiveWorkout,
-              let state = WorkoutState.resume(
+              let state = WorkoutState.resumeOrAdopt(
                 from: workout,
                 modelContext: modelContext,
                 catalogStore: catalogStore,
@@ -275,10 +400,86 @@ struct HomeView: View {
         }
     }
 
+    // MARK: - Liens directs
+
+    /// Applique la demande deposee par un lien (widget, Live Activity) :
+    /// exactement ce que feraient les boutons de cet ecran.
+    private func handleLinkRequest() {
+        guard let pending = IntentRouter.shared.pending, pending.isHandledByHome else { return }
+        _ = IntentRouter.shared.consume()
+        // Une seance deja a l'ecran reste a l'ecran : un lien ne la remplace
+        // jamais.
+        guard workoutState == nil, !LiveWorkoutRegistry.shared.isRunnerVisible else { return }
+
+        switch pending {
+        case .resumeWorkout:
+            presentPendingWorkout()
+        case .startNextSession:
+            // Meme bouton que la carte « Séance du jour » : reprendre la
+            // seance en cours, sinon preparer la suivante.
+            if WorkoutState.pendingActiveWorkout(modelContext: modelContext) != nil {
+                presentPendingWorkout()
+            } else if let program = activeProgram {
+                startSession(program: program)
+            }
+        case .replaySession(let id):
+            let descriptor = FetchDescriptor<CompletedSession>(predicate: #Predicate { $0.id == id })
+            guard let session = (try? modelContext.fetch(descriptor))?.first, session.deletedAt == nil else { return }
+            sessionToReplay = session
+        case .home, .program, .exercise, .weeklySummary:
+            break
+        }
+    }
+
+    /// Reprend la seance en cours sans passer par l'alerte de reprise : le
+    /// lien est deja une demande explicite.
+    private func presentPendingWorkout() {
+        showingResumeAlert = false
+        guard let workout = WorkoutState.pendingActiveWorkout(modelContext: modelContext),
+              let state = WorkoutState.resumeOrAdopt(
+                from: workout,
+                modelContext: modelContext,
+                catalogStore: catalogStore,
+                restTimer: restTimer
+              ) else { return }
+        PresentationSync.afterCurrentPresentationDismissed {
+            workoutState = state
+        }
+    }
+
+    /// Meme regle que « Refaire » dans l'historique : une seule seance active.
+    private func replay(_ session: CompletedSession, mode: SessionReplay.Mode) {
+        guard WorkoutState.pendingActiveWorkout(modelContext: modelContext) == nil else {
+            showingActiveWorkoutAlert = true
+            return
+        }
+        let state = WorkoutState.replaying(
+            session,
+            mode: mode,
+            modelContext: modelContext,
+            catalogStore: catalogStore,
+            restTimer: restTimer
+        )
+        PresentationSync.afterCurrentPresentationDismissed {
+            workoutState = state
+        }
+    }
+
     private func abandonPendingWorkout() {
         guard let workout = pendingActiveWorkout else { return }
+        // Seance deja reprise en memoire (bouton de la Live Activity) : on
+        // l'abandonne par son coordinateur, qui ferme aussi l'activite.
+        if let live = LiveWorkoutRegistry.shared.state(for: workout, in: modelContext) {
+            live.discard()
+            return
+        }
         modelContext.delete(workout)
-        try? modelContext.save()
+        if PersistenceSupport.save(modelContext, action: "Activation du programme") {
+            // Seance Sante rattachee apres un arret brutal : abandonnee avec
+            // la seance, rien n'est enregistre.
+            Task { await LiveHealthWorkoutController.shared.discard() }
+            WatchMirrorPublisher.publishIdle()
+        }
     }
 
     // MARK: - Statistiques
@@ -301,6 +502,10 @@ struct HomeView: View {
     private var weekStreak: Int {
         let calendar = Self.mondayFirstCalendar
         guard var weekStart = calendar.dateInterval(of: .weekOfYear, for: .now)?.start else { return 0 }
+        if sessionsThisWeek.isEmpty,
+           let previous = calendar.date(byAdding: .weekOfYear, value: -1, to: weekStart) {
+            weekStart = previous
+        }
         var streak = 0
         while let interval = calendar.dateInterval(of: .weekOfYear, for: weekStart) {
             let hasSession = completedSessions.contains { $0.date >= interval.start && $0.date < interval.end }
@@ -324,9 +529,12 @@ struct HomeView: View {
     }
 
     // "850 kg" sous 1000 kg, "12,4 t" au-dela (plus lisible qu'un nombre a
-    // 5 chiffres pour une stat compacte).
-    private static func formattedTonnage(_ value: Double) -> String {
-        guard value >= 1000 else { return "\(Int(value.rounded())) kg" }
+    // 5 chiffres pour une stat compacte). En livres, la tonne n'a pas de
+    // sens : la valeur reste en livres.
+    private static func formattedTonnage(_ value: Double, unit: MassUnit) -> String {
+        guard unit == .kilograms, value >= 1000 else {
+            return "\(Int(unit.fromKilograms(value).rounded())) \(unit.symbol)"
+        }
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "fr_FR")
         formatter.numberStyle = .decimal
@@ -350,7 +558,7 @@ struct HomeView: View {
             )
             StatTile(
                 systemImage: "scalemass.fill",
-                value: Self.formattedTonnage(tonnageLast7Days),
+                value: Self.formattedTonnage(tonnageLast7Days, unit: massUnit),
                 label: "Tonnage\n7 jours"
             )
         }
@@ -448,13 +656,12 @@ struct HomeView: View {
     }
 
     private func recordLabel(for record: ExerciseRecord) -> String {
+        var values: [String] = []
         if let oneRepMax = record.oneRepMax {
-            return "1RM \(WorkoutState.formatWeight(oneRepMax)) kg"
+            values.append("1RM \(WeightFormatter.string(kilograms: oneRepMax, unit: massUnit))")
         }
-        if let maxReps = record.maxReps {
-            return "Max \(maxReps) reps"
-        }
-        return ""
+        if let maxReps = record.maxReps { values.append("Max \(maxReps) reps") }
+        return values.joined(separator: " · ")
     }
 
     // RelativeDateTimeFormatter arrondit les ecarts de quelques secondes de

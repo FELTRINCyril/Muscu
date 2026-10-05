@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MuscuEngine
 
 // Recap de fin de seance : duree, tonnage, nb de series, detail par exercice.
 // Au moment de "Terminer", la seance est basculee dans l'historique puis les
@@ -8,6 +9,7 @@ import SwiftData
 struct WorkoutSummaryView: View {
     let state: WorkoutState
     let onFinish: () -> Void
+    @Environment(\.massUnit) private var massUnit
 
     @State private var hasFinished = false
     @State private var pendingSuggestions: [RecordDetection.RecordSuggestion] = []
@@ -15,6 +17,20 @@ struct WorkoutSummaryView: View {
     // est supprimee, cf. WorkoutState.finish) : on garde les series de la
     // CompletedSession fraichement creee pour continuer a afficher le recap.
     @State private var finishedSets: [CompletedSet]?
+    /// Seance enregistree : son cardio arrive apres coup (fin de la seance
+    /// Sante en direct, ou lecture dans Sante), la vue l'observe.
+    @State private var finishedSession: CompletedSession?
+    @State private var isFinishing = false
+    /// Note d'effort facultative, choisie avant « Terminer » : elle part
+    /// avec la seance. Ensuite elle est figee — une seance terminee est
+    /// immuable (cf. decision 0011, synchronisation).
+    @State private var effortRating: Int?
+    /// Duree figee a « Terminer » : apres, le recapitulatif ne doit plus
+    /// compter le temps passe a le lire.
+    @State private var finishedDurationSeconds: Int?
+    /// Ecarts de structure avec la seance du programme, releves a la fin.
+    @State private var structureChanges: [SessionStructureChange] = []
+    @State private var programUpdateMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,15 +39,55 @@ struct WorkoutSummaryView: View {
                     VStack(spacing: 4) {
                         Text("Séance terminée")
                             .font(.title2.weight(.bold))
-                        Text(state.programSession.name)
+                        Text(state.sessionTitle)
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
 
                     HStack(spacing: 12) {
                         StatCard(title: "Durée", value: formattedDuration)
-                        StatCard(title: "Tonnage", value: "\(WorkoutState.formatWeight(totalTonnage)) kg")
+                        StatCard(
+                            title: "Tonnage",
+                            value: WeightFormatter.string(kilograms: totalTonnage, unit: massUnit),
+                            // Une seance dont le poids de corps est inconnu
+                            // a un tonnage PARTIEL. L'afficher comme un
+                            // total serait mentir sur une valeur ronde.
+                            note: tonnage.unknownSets > 0
+                                ? String(localized: "\(tonnage.unknownSets) série(s) non mesurables")
+                                : nil
+                        )
                         StatCard(title: "Séries", value: "\(workingSets.count)")
+                    }
+
+                    if let breakdown = timeBreakdown {
+                        SessionTimeBreakdownRow(breakdown: breakdown)
+                            .padding()
+                            .background(Theme.card)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+
+                    if let finishedSession, finishedSession.hasCardio {
+                        SessionCardioView(session: finishedSession)
+                            .padding()
+                            .background(Theme.card)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+
+                    EffortRatingView(rating: $effortRating, isEditable: !hasFinished && !isFinishing)
+
+                    if hasFinished && !structureChanges.isEmpty {
+                        ProgramUpdateCard(
+                            changes: structureChanges,
+                            onUpdateProgram: updateProgram,
+                            onKeepProgram: { resolveProgramUpdate(message: nil) },
+                            onSaveTemplate: saveAsTemplate
+                        )
+                    }
+                    if let programUpdateMessage {
+                        Label(programUpdateMessage, systemImage: "checkmark.circle")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("programUpdate.result")
                     }
 
                     if hasFinished && !pendingSuggestions.isEmpty {
@@ -70,7 +126,23 @@ struct WorkoutSummaryView: View {
             .buttonStyle(.borderedProminent)
             .tint(Theme.accent)
             .controlSize(.large)
-            .padding()
+            .disabled(isFinishing)
+            .accessibilityIdentifier(hasFinished ? "workout.closeSummaryButton" : "workout.finishSummaryButton")
+            .padding(.horizontal)
+            .padding(.top)
+            .padding(.bottom, state.isFreeSession && !hasFinished ? 4 : 16)
+
+            // Seance libre : la fin a ete demandee, elle peut encore etre
+            // reprise tant que rien n'est enregistre.
+            if state.isFreeSession && !hasFinished {
+                Button("Continuer la séance") {
+                    state.cancelEndRequest()
+                }
+                .font(.footnote)
+                .disabled(isFinishing)
+                .padding(.bottom)
+                .accessibilityIdentifier("workout.continueFreeSession")
+            }
         }
         .background(Theme.background)
     }
@@ -78,11 +150,52 @@ struct WorkoutSummaryView: View {
     // MARK: - Records
 
     private func finishSession() {
-        let completedSession = state.finish()
-        finishedSets = completedSession.sets
-        let records = (try? state.modelContext.fetch(FetchDescriptor<ExerciseRecord>())) ?? []
-        pendingSuggestions = RecordDetection.check(session: completedSession, records: records)
+        isFinishing = true
+        // Meme chemin que la fin demandee a Siri : historique, widgets,
+        // Sante et records types (cf. `WorkoutState.complete`).
+        guard let completion = state.complete(effortRating: effortRating) else {
+            isFinishing = false
+            return
+        }
+        finishedSets = completion.session.sets
+        finishedSession = completion.session
+        finishedDurationSeconds = completion.session.durationSeconds
+        structureChanges = completion.structureChanges
+        pendingSuggestions = completion.recordSuggestions
         hasFinished = true
+        isFinishing = false
+    }
+
+    // MARK: - Programme
+
+    private func updateProgram() {
+        guard let programSession = state.programSession, let baseline = state.structureBaseline else { return }
+        if ProgramEditing.applyStructure(of: state.plan, baseline: baseline, to: programSession, in: state.modelContext) {
+            resolveProgramUpdate(message: String(localized: "Séance du programme mise à jour."))
+        }
+    }
+
+    private func saveAsTemplate() {
+        guard let programSession = state.programSession, let baseline = state.structureBaseline else { return }
+        let template = TemplateService.makeTemplate(
+            fromPlan: state.plan,
+            baseline: baseline,
+            programSession: programSession,
+            in: state.modelContext
+        )
+        resolveProgramUpdate(message: String(localized: "Modèle « \(template.name) » enregistré. Le programme est inchangé."))
+    }
+
+    private func resolveProgramUpdate(message: String?) {
+        structureChanges = []
+        programUpdateMessage = message
+    }
+
+    /// Temps actif / repos : seulement si le repos a ete mesure pour chaque
+    /// serie (cf. `SessionTimeBreakdown`).
+    private var timeBreakdown: SessionTimeBreakdown? {
+        let total = finishedDurationSeconds ?? max(0, Int(Date.now.timeIntervalSince(state.startedAt)))
+        return SessionReplayBuilder.timeBreakdown(totalSeconds: total, sets: finishedSets ?? state.loggedSets)
     }
 
     private func save(_ suggestion: RecordDetection.RecordSuggestion) {
@@ -100,8 +213,9 @@ struct WorkoutSummaryView: View {
         if record.modelContext == nil {
             state.modelContext.insert(record)
         }
-        try? state.modelContext.save()
-        discard(suggestion)
+        if PersistenceSupport.save(state.modelContext, action: "Enregistrement du record") {
+            discard(suggestion)
+        }
     }
 
     private func discard(_ suggestion: RecordDetection.RecordSuggestion) {
@@ -120,12 +234,24 @@ struct WorkoutSummaryView: View {
         (finishedSets ?? state.loggedSets).filter { !$0.isWarmup }
     }
 
-    private var totalTonnage: Double {
-        workingSets.reduce(0) { $0 + $1.weight * Double($1.reps) }
+    /// Tonnage calcule par le MOTEUR, comme l'historique et les graphiques.
+    ///
+    /// Le calcul maison `poids x reps` qui vivait ici etait faux des que la
+    /// serie n'etait pas une charge externe : une traction au poids du corps
+    /// comptait pour zero, une traction assistee comptait son aide comme du
+    /// travail. Deux ecrans affichaient deux tonnages differents pour la
+    /// meme seance.
+    private var tonnage: (total: Double, unknownSets: Int) {
+        let bodyweight = ProfileStore.latestBodyweightKilograms(in: state.modelContext)
+        let inputs = (finishedSets ?? state.loggedSets)
+            .map { $0.metricsInput(bodyweightKilograms: bodyweight) }
+        return SetMetrics.totalTonnage(inputs)
     }
 
+    private var totalTonnage: Double { tonnage.total }
+
     private var formattedDuration: String {
-        let seconds = max(0, Int(Date.now.timeIntervalSince(state.startedAt)))
+        let seconds = finishedDurationSeconds ?? max(0, Int(Date.now.timeIntervalSince(state.startedAt)))
         let minutes = seconds / 60
         let remainder = seconds % 60
         return String(format: "%d:%02d", minutes, remainder)
@@ -151,8 +277,11 @@ struct WorkoutSummaryView: View {
 }
 
 private struct StatCard: View {
-    let title: String
+    let title: LocalizedStringKey
     let value: String
+    /// Precision facultative : sert a dire qu'une valeur est PARTIELLE
+    /// plutot qu'a la laisser passer pour un total.
+    var note: String? = nil
 
     var body: some View {
         VStack(spacing: 4) {
@@ -161,6 +290,12 @@ private struct StatCard: View {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if let note {
+                Text(note)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -172,16 +307,26 @@ private struct StatCard: View {
 private struct ExerciseSummaryCard: View {
     let displayName: String
     let sets: [CompletedSet]
+    @Environment(\.massUnit) private var massUnit
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(displayName)
                 .font(.subheadline.weight(.semibold))
 
+            // Meme mise en forme que l'historique : dans un superset les
+            // tours doivent se lire « Tour 2 », et les trois paliers d'un
+            // dropset ne peuvent pas s'afficher tous « Série 1 ».
             ForEach(sets) { set in
-                Text("Série \(set.setIndex + 1) : \(set.reps) reps @ \(WorkoutState.formatWeight(set.weight)) kg")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(CompletedSetPresentation.label(for: set, inGroup: set.groupId != nil))
+                    Spacer(minLength: 8)
+                    Text(CompletedSetPresentation.performance(for: set, unit: massUnit))
+                        .multilineTextAlignment(.trailing)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .accessibilityElement(children: .combine)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -193,6 +338,7 @@ private struct ExerciseSummaryCard: View {
 
 private struct RecordSuggestionCard: View {
     let suggestion: RecordDetection.RecordSuggestion
+    @Environment(\.massUnit) private var massUnit
     let onSave: () -> Void
     let onDismiss: () -> Void
 
@@ -227,14 +373,14 @@ private struct RecordSuggestionCard: View {
         switch suggestion.kind {
         case .oneRepMax(let new, let old):
             if let old {
-                return "\(WorkoutState.formatWeight(old)) kg -> \(WorkoutState.formatWeight(new)) kg"
+                return String(localized: "\(WeightFormatter.string(kilograms: old, unit: massUnit)) -> \(WeightFormatter.string(kilograms: new, unit: massUnit))")
             }
-            return "1RM estimé : \(WorkoutState.formatWeight(new)) kg"
+            return String(localized: "1RM estimé : \(WeightFormatter.string(kilograms: new, unit: massUnit))")
         case .maxReps(let new, let old):
             if let old {
-                return "\(old) -> \(new) répétitions"
+                return String(localized: "\(old) -> \(new) répétitions")
             }
-            return "\(new) répétitions"
+            return String(localized: "\(new) répétitions")
         }
     }
 }

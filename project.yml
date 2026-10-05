@@ -1,8 +1,18 @@
 name: Muscu
 options:
   bundleIdPrefix: com.cyril
+  # Le francais est la langue SOURCE : les litteraux ecrits dans le code
+  # sont deja en francais, l'anglais est une traduction du catalogue.
+  developmentLanguage: fr
+  knownRegions: [fr, en, Base]
   deploymentTarget:
     iOS: "18.0"
+# Equipe de signature (equipe personnelle de Cyril Feltrin). Commune a
+# toutes les cibles : sans elle, chaque `xcodegen generate` oblige a
+# reselectionner l'equipe dans Xcode pour l'app, les widgets et la montre.
+settings:
+  base:
+    DEVELOPMENT_TEAM: G46ZU254KU
 packages:
   MuscuEngine:
     path: Packages/MuscuEngine
@@ -10,24 +20,173 @@ targets:
   Muscu:
     type: application
     platform: iOS
-    sources: [App/Sources, App/Resources]
+    sources: [App/Sources, App/Resources, Shared]
+    # Info.plist complementaire, fusionne avec celui que genere Xcode
+    # (GENERATE_INFOPLIST_FILE) : il ne porte que ce que les reglages
+    # INFOPLIST_KEY_* ne savent pas exprimer. Ici, le schema d'URL `muscu://`
+    # des liens directs des widgets et de la Live Activity. Un lien ne fait
+    # que naviguer : rien n'est ecrit sans confirmation dans l'application.
+    info:
+      path: App/Info.plist
+      properties:
+        # Versions reprises des reglages, sinon le fichier imposerait les
+        # valeurs par defaut de XcodeGen (1.0 / 1).
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleURLTypes:
+          - CFBundleURLName: com.cyril.Muscu
+            CFBundleURLSchemes: [muscu]
+        # Dossier Documents visible dans l'app Fichiers : c'est la que les
+        # sauvegardes automatiques (desactivees par defaut) sont ecrites.
+        # Rien d'autre n'y est stocke — base, photos et cache d'images vivent
+        # dans Application Support, hors de portee de Fichiers.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
     dependencies:
       - package: MuscuEngine
+      # `platformFilter: iOS` exclut ces deux dependances de la variante
+      # Mac Catalyst : macOS refuse d'embarquer un binaire iOS ou watchOS.
+      # Sur Mac, l'application tourne donc sans widget ni app Watch, ce qui
+      # est exactement ce que le systeme permet.
+      - target: MuscuWidgets
+        platformFilter: iOS
+      # L'application Watch est embarquee dans l'app iOS : elle s'installe
+      # avec elle, comme n'importe quelle app Watch a cible unique.
+      - target: MuscuWatch
+        embed: true
+        platformFilter: iOS
+        copy:
+          destination: productsDirectory
+          subpath: $(CONTENTS_FOLDER_PATH)/Watch
     settings:
       base:
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+        # Acces Calendrier : FACULTATIF. L'application fonctionne entierement
+        # sans cette permission ; elle n'est demandee qu'au moment ou
+        # l'utilisateur exporte lui-meme une seance vers son calendrier.
+        INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: >-
+          Muscu ajoute vos séances planifiées au calendrier que vous choisissez,
+          et ne modifie que les événements qu’il a lui-même créés.
         CODE_SIGN_STYLE: Automatic
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: "6.0"
         PRODUCT_NAME: Muscu
+        # 1 = iPhone, 2 = iPad. L'application est universelle depuis la
+        # phase 5 ; la navigation s'adapte a la largeur (onglets / barre
+        # laterale) sans dupliquer la moindre regle metier.
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: YES
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: App/Resources/Muscu.entitlements
+        # HealthKit : les deux descriptions sont OBLIGATOIRES des que
+        # l'application lit ou ecrit une donnee de sante. Elles sont
+        # affichees telles quelles dans la demande systeme.
+        INFOPLIST_KEY_NSHealthShareUsageDescription: >-
+          Muscu lit votre poids corporel pour rendre ses calculs de charge
+          justes, votre masse grasse et votre tour de taille si vous les
+          importez, et la fréquence cardiaque et l'énergie active mesurées
+          pendant vos séances. Uniquement si vous l'autorisez.
+        INFOPLIST_KEY_NSHealthUpdateUsageDescription: >-
+          Muscu enregistre vos séances terminées, leur note d'effort et votre
+          poids dans l'app Santé, ainsi que la fréquence cardiaque et
+          l'énergie mesurées pendant une séance suivie en direct. Uniquement
+          si vous l'autorisez.
+        # Live Activity de seance en cours. Sans cette cle, ActivityKit
+        # refuse de demarrer l'activite.
+        INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        # Extraction automatique des litteraux SwiftUI vers le catalogue de
+        # chaines : sans elle, `Localizable.xcstrings` resterait vide et la
+        # traduction anglaise ne s'appliquerait jamais.
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
       configs:
         Debug:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
           ONLY_ACTIVE_ARCH: YES
+  # Extension WidgetKit : widgets d'ecran d'accueil et interface de la Live
+  # Activity. Elle ne lit QUE l'instantane depose dans le groupe
+  # d'applications, jamais la base de l'application.
+  MuscuWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [Widgets, Shared]
+    settings:
+      base:
+        # Info.plist ECRIT A LA MAIN : l'extension WidgetKit a besoin d'un
+        # dictionnaire NSExtension, que la generation automatique ne sait pas
+        # produire.
+        INFOPLIST_FILE: Widgets/Info.plist
+        PRODUCT_NAME: MuscuWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.cyril.Muscu.Widgets
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: Widgets/MuscuWidgets.entitlements
+        SWIFT_VERSION: "6.0"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+
+  # Application Watch a cible unique (watchOS 7+). Elle n'a pas de base :
+  # elle affiche l'instantane recu du telephone et lui renvoie les seances.
+  # Lot 7 : seance en miroir, seance Sante au poignet (HealthKit, mode
+  # d'arriere-plan « workout-processing » dans Watch/Info.plist).
+  MuscuWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources:
+      - path: Watch
+        excludes: ["*.entitlements"]
+      - Shared
+    settings:
+      base:
+        INFOPLIST_FILE: Watch/Info.plist
+        PRODUCT_NAME: MuscuWatch
+        PRODUCT_BUNDLE_IDENTIFIER: com.cyril.Muscu.watchkitapp
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: Watch/MuscuWatch.entitlements
+        SWIFT_VERSION: "6.0"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "4"
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    dependencies:
+      # Complication (WidgetKit) embarquee dans l'application Watch.
+      - target: MuscuWatchWidgets
+
+  # Complication de la montre (lot 7) : seance en cours ou prochaine seance.
+  # Comme les widgets iPhone, elle ne lit qu'un instantane depose par
+  # l'application de la montre dans son groupe d'applications.
+  MuscuWatchWidgets:
+    type: app-extension
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources:
+      - path: WatchWidgets
+        excludes: ["*.entitlements"]
+      - Shared
+    settings:
+      base:
+        INFOPLIST_FILE: WatchWidgets/Info.plist
+        PRODUCT_NAME: MuscuWatchWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.cyril.Muscu.watchkitapp.widgets
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: WatchWidgets/MuscuWatchWidgets.entitlements
+        SWIFT_VERSION: "6.0"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "4"
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+
   MuscuUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -41,13 +200,34 @@ targets:
         SWIFT_VERSION: "6.0"
         PRODUCT_NAME: MuscuUITests
         TEST_TARGET_NAME: Muscu
+  MuscuTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: Muscu
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "6.0"
+        PRODUCT_NAME: MuscuTests
 schemes:
+  # Schema dedie a l'application Watch : la construire avec une DESTINATION
+  # plutot qu'un SDK evite l'avertissement « no active architecture could be
+  # computed » du reglage ONLY_ACTIVE_ARCH.
+  MuscuWatch:
+    build:
+      targets:
+        MuscuWatch: all
+
   Muscu:
     build:
       targets:
         Muscu: all
+        MuscuTests: [test]
         MuscuUITests: [test]
     test:
       targets:
+        - MuscuTests
         - MuscuUITests
-

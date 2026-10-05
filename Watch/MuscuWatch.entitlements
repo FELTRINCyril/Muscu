@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- HealthKit (lot 7) : seance Sante au poignet, uniquement si
+	     l'utilisateur a active Sante dans Muscu sur l'iPhone. -->
+	<key>com.apple.developer.healthkit</key>
+	<true/>
+
+	<!-- Groupe d'applications de la montre : la complication y lit le
+	     resume que l'application y depose (prochaine seance ou seance en
+	     cours), rien d'autre. -->
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.cyril.Muscu</string>
+	</array>
+</dict>
+</plist>

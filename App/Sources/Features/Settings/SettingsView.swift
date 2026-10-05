@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MuscuEngine
 import UniformTypeIdentifiers
 
 // Onglet Reglages : chrono, cache d'images, export/import des donnees,
@@ -11,17 +12,28 @@ struct SettingsView: View {
     @AppStorage("soundEnabled") private var soundEnabled = true
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("defaultRestSeconds") private var defaultRestSeconds = 90
+    /// Sans valeur enregistree, le repos « barre » suit celui des autres
+    /// exercices (voir `WorkoutSettings.restDefaults`) : un defaut statique
+    /// d'`@AppStorage` afficherait 90 s alors que le deroule utiliserait
+    /// autre chose. D'ou une lecture par `WorkoutSettings`.
+    @AppStorage(WorkoutSettings.barbellRestKey) private var storedBarbellRestSeconds: Int?
+    @AppStorage(WorkoutSettings.keepsScreenAwakeKey) private var keepsScreenAwake = true
+    @AppStorage(WorkoutSettings.oneRepMaxMaximumRepsKey) private var oneRepMaxMaximumReps = OneRepMaxEstimation.defaultMaximumReps
+    @AppStorage(AutoBackupService.enabledKey) private var autoBackupEnabled = false
 
     @State private var cacheSizeBytes: Int64 = 0
     @State private var isDownloadingImages = false
     @State private var downloadDone = 0
     @State private var downloadTotal = 0
     @State private var downloadResultMessage: String?
+    @State private var showingClearCacheConfirmation = false
+    @State private var reminderMessage: String?
 
     @State private var exportDocument: ExportDocument?
     @State private var isExporting = false
     @State private var isImporting = false
     @State private var importAlert: ImportAlert?
+    @State private var pendingImport: PendingImport?
 
     private struct ImportAlert: Identifiable {
         let id = UUID()
@@ -29,13 +41,78 @@ struct SettingsView: View {
         let message: String
     }
 
+    private struct PendingImport {
+        let data: Data
+        let summary: ExportImport.ImportSummary
+    }
+
     var body: some View {
         NavigationStack {
             Form {
+            Section {
+                NavigationLink {
+                    ProfileView()
+                } label: {
+                    Label("Profil", systemImage: "person.crop.circle")
+                }
+                .accessibilityIdentifier("settings.profile")
+
+                NavigationLink {
+                    DataManagementView()
+                } label: {
+                    Label("Mes données", systemImage: "externaldrive")
+                }
+                .accessibilityIdentifier("settings.data")
+
+                NavigationLink {
+                    SyncStatusView()
+                } label: {
+                    Label("Synchronisation", systemImage: "icloud")
+                }
+                .accessibilityIdentifier("settings.sync")
+
+                NavigationLink {
+                    PlacesView()
+                } label: {
+                    Label("Lieux et matériel", systemImage: "mappin.and.ellipse")
+                }
+                .accessibilityIdentifier("settings.places")
+
+                NavigationLink {
+                    CSVImportView()
+                } label: {
+                    Label("Importer un CSV", systemImage: "square.and.arrow.down")
+                }
+                .accessibilityIdentifier("settings.csvImport")
+
+                NavigationLink {
+                    HealthSettingsView()
+                } label: {
+                    Label("Santé", systemImage: "heart")
+                }
+                .accessibilityIdentifier("settings.health")
+
+                NavigationLink {
+                    AICoachView()
+                } label: {
+                    Label("Coach IA", systemImage: "sparkles")
+                }
+                .accessibilityIdentifier("settings.aiCoach")
+
+                NavigationLink {
+                    DiagnosticsView()
+                } label: {
+                    Label("Diagnostic", systemImage: "stethoscope")
+                }
+                .accessibilityIdentifier("settings.diagnostics")
+            } footer: {
+                Text("Objectif, niveau, matériel, jours disponibles et charges réellement disponibles. Facultatif.")
+            }
+
+                remindersSection
                 chronoSection
                 imagesSection
                 dataSection
-                aiSection
                 aboutSection
             }
             .scrollContentBackground(.hidden)
@@ -59,22 +136,113 @@ struct SettingsView: View {
             .alert(item: $importAlert) { alert in
                 Alert(title: Text(alert.title), message: Text(alert.message), dismissButton: .default(Text("OK")))
             }
+            .confirmationDialog("Vider toutes les images hors ligne ?", isPresented: $showingClearCacheConfirmation) {
+                Button("Vider le cache", role: .destructive) { clearImageCache() }
+                Button("Annuler", role: .cancel) {}
+            }
+            .confirmationDialog(
+                "Confirmer l’import ?",
+                isPresented: Binding(
+                    get: { pendingImport != nil },
+                    set: { if !$0 { pendingImport = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                // Deux modes explicites : ajouter, ou remplacer. Le second
+                // efface des donnees, il est donc marque comme destructif et
+                // precede d'une sauvegarde de securite automatique.
+                Button("Fusionner") { confirmImport(mode: .merge) }
+                Button("Remplacer tout", role: .destructive) { confirmImport(mode: .replace) }
+                Button("Annuler", role: .cancel) { pendingImport = nil }
+            } message: {
+                if let summary = pendingImport?.summary {
+                    Text(
+                        importSummaryMessage(summary, suffix: summary.hasActiveWorkout ? " Une séance en cours est aussi incluse." : "")
+                            + "\n\nFusionner : " + ExportImport.ImportMode.merge.explanation
+                            + "\nRemplacer : " + ExportImport.ImportMode.replace.explanation
+                    )
+                }
+            }
         }
     }
 
     // MARK: - Chrono
 
+    /// Interrupteur global des rappels de séance : un seul geste pour tout
+    /// couper, sans parcourir chaque récurrence.
+    private var remindersSection: some View {
+        Section {
+            Toggle("Rappels de séance", isOn: Binding(
+                get: { ReminderService.hasEnabledReminders(in: modelContext) },
+                set: { isOn in
+                    guard !isOn else { return }
+                    Task {
+                        let outcome = await ReminderService.disableAllReminders(
+                            in: modelContext,
+                            scheduler: AppServices.notificationScheduler
+                        )
+                        reminderMessage = "\(outcome.cancelled) rappel(s) annulé(s)."
+                    }
+                }
+            ))
+            .disabled(!ReminderService.hasEnabledReminders(in: modelContext))
+            .accessibilityIdentifier("settings.remindersGlobal")
+
+            if let reminderMessage {
+                Text(reminderMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Rappels")
+        } footer: {
+            Text("Les rappels s’activent récurrence par récurrence, dans Programmes → Planning → Récurrences. Cet interrupteur les coupe tous d’un coup ; Muscu fonctionne entièrement sans notifications.")
+        }
+    }
+
     private var chronoSection: some View {
-        Section("Chrono") {
+        Section {
             Toggle("Sons", isOn: $soundEnabled)
             Toggle("Vibrations", isOn: $hapticsEnabled)
             Stepper(
-                "Repos par défaut : \(Self.formatDuration(defaultRestSeconds))",
+                "Repos haltères et machines : \(Self.formatDuration(defaultRestSeconds))",
                 value: $defaultRestSeconds,
                 in: 15...300,
                 step: 15
             )
+            Stepper(
+                "Repos à la barre : \(Self.formatDuration(barbellRestSeconds.wrappedValue))",
+                value: barbellRestSeconds,
+                in: 15...300,
+                step: 15
+            )
+            .accessibilityIdentifier("settings.barbellRest")
+            Toggle("Écran allumé pendant la séance", isOn: $keepsScreenAwake)
+                .accessibilityIdentifier("settings.keepScreenAwake")
+            Stepper(
+                "1RM estimé jusqu’à \(oneRepMaxMaximumReps) répétitions",
+                value: $oneRepMaxMaximumReps,
+                in: OneRepMaxEstimation.allowedMaximumReps
+            )
+            .accessibilityIdentifier("settings.oneRepMaxReps")
+            NavigationLink {
+                PlateInventoryView()
+            } label: {
+                Text("Disques et barre")
+            }
+            .accessibilityIdentifier("settings.plates")
+        } header: {
+            Text("Chrono")
+        } footer: {
+            Text("Le repos par défaut s’applique quand l’exercice n’en prescrit pas. Au-delà du plafond de répétitions, une série n’estime plus de 1RM : la formule devient trop imprécise.")
         }
+    }
+
+    private var barbellRestSeconds: Binding<Int> {
+        Binding(
+            get: { storedBarbellRestSeconds ?? defaultRestSeconds },
+            set: { storedBarbellRestSeconds = $0 }
+        )
     }
 
     // MARK: - Images
@@ -97,6 +265,11 @@ struct SettingsView: View {
             }
             .disabled(isDownloadingImages)
 
+            Button("Vider le cache", role: .destructive) {
+                showingClearCacheConfirmation = true
+            }
+            .disabled(isDownloadingImages || cacheSizeBytes == 0)
+
             if let downloadResultMessage {
                 Text(downloadResultMessage)
                     .font(.caption)
@@ -117,21 +290,16 @@ struct SettingsView: View {
                 exportData()
             }
 
+            NavigationLink {
+                BackupsView()
+            } label: {
+                LabeledContent("Sauvegardes automatiques", value: autoBackupEnabled ? String(localized: "Activées") : String(localized: "Désactivées"))
+            }
+            .accessibilityIdentifier("settings.backups")
+
             Button("Importer des données") {
                 isImporting = true
             }
-        }
-    }
-
-    // MARK: - IA
-
-    private var aiSection: some View {
-        Section {
-            NavigationLink("Génération IA (avancé)") {
-                AIProviderConfigView()
-            }
-        } footer: {
-            Text("Fonctionnalité optionnelle et non utilisée pour l'instant : permettra dans une future version de générer des programmes via un service IA externe.")
         }
     }
 
@@ -166,7 +334,7 @@ struct SettingsView: View {
         downloadTotal = paths.count
         downloadResultMessage = nil
 
-        await ImageStore.shared.prefetchAll(paths: paths) { done, total in
+        let result = await ImageStore.shared.prefetchAll(paths: paths) { done, total in
             Task { @MainActor in
                 downloadDone = done
                 downloadTotal = total
@@ -174,8 +342,24 @@ struct SettingsView: View {
         }
 
         isDownloadingImages = false
-        downloadResultMessage = "\(downloadDone) image(s) sur \(downloadTotal) disponible(s) hors-ligne."
+        downloadResultMessage = result.failed == 0
+            ? "\(result.available) image(s) disponible(s) hors-ligne."
+            : "\(result.available)/\(result.total) disponible(s), \(result.failed) échec(s). Réessayez lorsque la connexion est stable."
         refreshCacheSize()
+    }
+
+    private func clearImageCache() {
+        Task {
+            do {
+                try await ImageStore.shared.clearCache()
+                downloadDone = 0
+                downloadTotal = 0
+                downloadResultMessage = "Cache d’images vidé."
+                refreshCacheSize()
+            } catch {
+                importAlert = ImportAlert(title: "Échec", message: error.localizedDescription)
+            }
+        }
     }
 
     private func exportData() {
@@ -201,15 +385,50 @@ struct SettingsView: View {
 
             do {
                 let data = try Data(contentsOf: url)
-                let summary = try ExportImport.importAll(data: data, context: modelContext)
-                importAlert = ImportAlert(
-                    title: "Import réussi",
-                    message: "\(summary.programsCount) programme(s), \(summary.sessionsCount) séance(s), \(summary.recordsCount) record(s), \(summary.customExercisesCount) exercice(s) personnalisé(s) importés."
-                )
+                pendingImport = PendingImport(data: data, summary: try ExportImport.preview(data: data))
             } catch {
                 importAlert = ImportAlert(title: "Échec de l'import", message: error.localizedDescription)
             }
         }
+    }
+
+    private func confirmImport(mode: ExportImport.ImportMode) {
+        guard let pendingImport else { return }
+        self.pendingImport = nil
+        do {
+            let result = try ExportImport.importAll(data: pendingImport.data, context: modelContext, mode: mode)
+            var suffix = result.summary.hasActiveWorkout ? " La séance en cours a été restaurée." : ""
+            if result.safetyBackup != nil {
+                suffix += " Une sauvegarde de sécurité de vos données précédentes a été créée sur cet appareil."
+            }
+            importAlert = ImportAlert(
+                title: "Import réussi",
+                message: importSummaryMessage(result.summary, suffix: suffix)
+            )
+        } catch {
+            importAlert = ImportAlert(title: "Échec de l'import", message: error.localizedDescription)
+        }
+    }
+
+    // Resume lisible d'une archive : seuls les types reellement presents sont
+    // listes, pour que l'apercu reste court sur une sauvegarde v1/v2.
+    private func importSummaryMessage(_ summary: ExportImport.ImportSummary, suffix: String) -> String {
+        var parts = [
+            "\(summary.programsCount) programme(s)",
+            "\(summary.sessionsCount) séance(s)",
+            "\(summary.recordsCount) record(s)",
+            "\(summary.customExercisesCount) exercice(s) personnalisé(s)",
+        ]
+        if summary.hasProfile { parts.append("1 profil") }
+        if summary.measurementsCount > 0 { parts.append("\(summary.measurementsCount) mesure(s)") }
+        if summary.readinessEntriesCount > 0 { parts.append("\(summary.readinessEntriesCount) check-in") }
+        if summary.personalBestsCount > 0 { parts.append("\(summary.personalBestsCount) record(s) typé(s)") }
+        if summary.trainingPlansCount > 0 { parts.append("\(summary.trainingPlansCount) plan(s)") }
+
+        let version = summary.sourceVersion < ExportImport.currentVersion
+            ? " Sauvegarde au format v\(summary.sourceVersion), convertie au format actuel."
+            : ""
+        return parts.joined(separator: ", ") + "." + version + suffix
     }
 
     private var exportFilename: String {
@@ -253,41 +472,6 @@ struct ExportDocument: FileDocument {
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         FileWrapper(regularFileWithContents: data)
-    }
-}
-
-// Configuration (avancee, cachee) du futur provider IA.
-private struct AIProviderConfigView: View {
-    @State private var baseURL = AIProviderConfig.baseURL
-    @State private var apiKey = AIProviderConfig.apiKey
-    @State private var model = AIProviderConfig.model
-
-    var body: some View {
-        Form {
-            Section {
-                TextField("URL de base", text: $baseURL)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.URL)
-                SecureField("Clé API", text: $apiKey)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-                TextField("Modèle", text: $model)
-                    .autocorrectionDisabled()
-                    .textInputAutocapitalization(.never)
-            } header: {
-                Text("Provider")
-            } footer: {
-                Text("Optionnel : cette configuration n'est utilisée par aucune fonctionnalité pour l'instant. Elle prépare une future génération de programmes assistée par IA. La clé API est stockée de façon chiffrée dans le trousseau de l'appareil.")
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .background(Theme.background)
-        .navigationTitle("Génération IA")
-        .navigationBarTitleDisplayMode(.inline)
-        .onChange(of: baseURL) { _, newValue in AIProviderConfig.baseURL = newValue }
-        .onChange(of: apiKey) { _, newValue in AIProviderConfig.apiKey = newValue }
-        .onChange(of: model) { _, newValue in AIProviderConfig.model = newValue }
     }
 }
 
