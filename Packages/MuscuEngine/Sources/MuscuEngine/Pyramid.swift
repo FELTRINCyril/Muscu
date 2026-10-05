@@ -27,6 +27,38 @@ public enum Pyramid {
         ]
     }
 
+    // MARK: - Pyramide libre
+
+    /// Bornes d'un palier saisi a la main.
+    public static let allowedStepReps = 1...100
+    /// Au-dela, la seance devient un circuit plus qu'une pyramide, et
+    /// l'estimation de duree perd son sens.
+    public static let maximumSteps = 30
+
+    /// Paliers d'une pyramide libre, rendus valides : chaque palier borne,
+    /// liste tronquee a `maximumSteps`. Une liste vide reste vide — c'est a
+    /// l'editeur de refuser l'enregistrement, pas d'inventer un palier.
+    public static func normalizedSteps(_ reps: [Int]) -> [Int] {
+        reps.prefix(maximumSteps).map {
+            min(max($0, allowedStepReps.lowerBound), allowedStepReps.upperBound)
+        }
+    }
+
+    /// Proposition correspondant exactement a ces paliers, ou `nil` pour une
+    /// pyramide libre. Sert a afficher « Personnalisee » sans mentir sur la
+    /// forme choisie.
+    public static func matchingProposal(for reps: [Int], maxReps: Int) -> PyramidProposal? {
+        proposals(maxReps: maxReps).first { $0.reps == reps }
+    }
+
+    /// Palier ajoute en fin de liste : on reprend le dernier, l'utilisateur
+    /// l'ajuste ensuite. Sans palier, on part du max de reps.
+    public static func appendingStep(to reps: [Int], maxReps: Int) -> [Int] {
+        guard reps.count < maximumSteps else { return reps }
+        let next = reps.last ?? max(allowedStepReps.lowerBound, maxReps)
+        return normalizedSteps(reps + [next])
+    }
+
     /// Repos apres une serie, base sur l'intensite relative (reps faites / max).
     /// Formule de la spec : repos = min + intensite^1.5 * (max - min), arrondi a 5 s.
     public static func adaptiveRest(repsDone: Int, maxReps: Int,

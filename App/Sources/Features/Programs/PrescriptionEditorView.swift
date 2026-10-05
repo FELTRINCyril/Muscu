@@ -98,6 +98,9 @@ struct PrescriptionEditorView: View {
                         _ = PersistenceSupport.save(modelContext, action: "Modification de la prescription")
                         dismiss()
                     }
+                    // Une pyramide sans palier ne se deroulerait pas : on
+                    // refuse de la valider plutot que d'inventer un palier.
+                    .disabled(exercise.format == .pyramid && exercise.pyramidReps.isEmpty)
                 }
             }
             .task {
@@ -296,27 +299,103 @@ struct PrescriptionEditorView: View {
     // MARK: - Pyramide
 
     private var pyramidSection: some View {
-        Section("Pyramide") {
-            Stepper("Max de reps : \(pyramidMaxReps)", value: $pyramidMaxReps, in: 1...50)
+        Group {
+            Section {
+                Stepper("Max de reps : \(pyramidMaxReps)", value: $pyramidMaxReps, in: 1...50)
 
-            ForEach(Pyramid.proposals(maxReps: pyramidMaxReps), id: \.name) { proposal in
-                Button {
-                    exercise.pyramidReps = proposal.reps
-                } label: {
-                    PyramidProposalCard(
-                        proposal: proposal,
-                        isSelected: exercise.pyramidReps == proposal.reps,
-                        maxReps: pyramidMaxReps,
-                        minRest: exercise.pyramidMinRest,
-                        maxRest: exercise.pyramidMaxRest
-                    )
+                ForEach(Pyramid.proposals(maxReps: pyramidMaxReps), id: \.name) { proposal in
+                    Button {
+                        exercise.pyramidReps = proposal.reps
+                    } label: {
+                        PyramidProposalCard(
+                            proposal: proposal,
+                            isSelected: exercise.pyramidReps == proposal.reps,
+                            maxReps: pyramidMaxReps,
+                            minRest: exercise.pyramidMinRest,
+                            maxRest: exercise.pyramidMaxRest
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+            } header: {
+                Text("Pyramide")
+            } footer: {
+                Text("Les modèles sont un point de départ : chaque palier se modifie ci-dessous.")
             }
 
-            Stepper("Repos mini : \(exercise.pyramidMinRest) s", value: $exercise.pyramidMinRest, in: 30...max(30, exercise.pyramidMaxRest), step: 15)
-            Stepper("Repos maxi : \(exercise.pyramidMaxRest) s", value: $exercise.pyramidMaxRest, in: max(30, exercise.pyramidMinRest)...300, step: 15)
+            pyramidStepsSection
+
+            Section {
+                Stepper("Repos mini : \(exercise.pyramidMinRest) s", value: $exercise.pyramidMinRest, in: 30...max(30, exercise.pyramidMaxRest), step: 15)
+                Stepper("Repos maxi : \(exercise.pyramidMaxRest) s", value: $exercise.pyramidMaxRest, in: max(30, exercise.pyramidMinRest)...300, step: 15)
+            } footer: {
+                Text("Le repos s’adapte à chaque palier : plus le palier est proche de votre maximum, plus il est long.")
+            }
         }
+    }
+
+    /// Pyramide libre : n'importe quelle suite de paliers, dans n'importe
+    /// quel ordre. Le deroule n'a jamais suppose une forme particuliere — il
+    /// lit les paliers un par un — seul l'editeur se limitait aux trois
+    /// propositions.
+    private var pyramidStepsSection: some View {
+        Section {
+            ForEach(Array(exercise.pyramidReps.enumerated()), id: \.offset) { index, reps in
+                Stepper(
+                    "Palier \(index + 1) : \(reps) reps",
+                    value: pyramidStepBinding(at: index),
+                    in: Pyramid.allowedStepReps
+                )
+                .accessibilityIdentifier("pyramid.step.\(index)")
+            }
+            .onDelete { offsets in
+                exercise.pyramidReps.remove(atOffsets: offsets)
+            }
+            .onMove { source, destination in
+                exercise.pyramidReps.move(fromOffsets: source, toOffset: destination)
+            }
+
+            if exercise.pyramidReps.count < Pyramid.maximumSteps {
+                Button {
+                    exercise.pyramidReps = Pyramid.appendingStep(to: exercise.pyramidReps, maxReps: pyramidMaxReps)
+                } label: {
+                    Label("Ajouter un palier", systemImage: "plus.circle")
+                }
+                .accessibilityIdentifier("pyramid.addStep")
+            }
+        } header: {
+            HStack {
+                Text("Paliers")
+                Spacer()
+                Text(pyramidShapeLabel)
+            }
+        } footer: {
+            if exercise.pyramidReps.isEmpty {
+                Text("Ajoutez au moins un palier.")
+                    .foregroundStyle(.red)
+            } else {
+                Text("\(exercise.pyramidReps.count) séries · \(exercise.pyramidReps.reduce(0, +)) reps au total. Glissez pour supprimer, maintenez pour déplacer.")
+            }
+        }
+    }
+
+    private var pyramidShapeLabel: String {
+        if let proposal = Pyramid.matchingProposal(for: exercise.pyramidReps, maxReps: pyramidMaxReps) {
+            return proposal.name
+        }
+        return String(localized: "Personnalisée")
+    }
+
+    private func pyramidStepBinding(at index: Int) -> Binding<Int> {
+        Binding(
+            get: { exercise.pyramidReps.indices.contains(index) ? exercise.pyramidReps[index] : 1 },
+            set: { newValue in
+                guard exercise.pyramidReps.indices.contains(index) else { return }
+                var steps = exercise.pyramidReps
+                steps[index] = newValue
+                exercise.pyramidReps = Pyramid.normalizedSteps(steps)
+            }
+        )
     }
 
     // MARK: - Intervalles

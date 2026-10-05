@@ -1242,6 +1242,22 @@
         }
       }
     },
+    "%lld séries · %lld reps au total. Glissez pour supprimer, maintenez pour déplacer.": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld séries · %2$lld reps au total. Glissez pour supprimer, maintenez pour déplacer."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sets · %lld reps in total. Swipe to delete, hold to move."
+          }
+        }
+      }
+    },
     "%lld tours": {
       "localizations": {
         "en": {
@@ -2042,6 +2058,16 @@
         }
       }
     },
+    "Ajouter un palier": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a step"
+          }
+        }
+      }
+    },
     "Ajouter un tour": {
       "localizations": {
         "en": {
@@ -2078,6 +2104,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add a set"
+          }
+        }
+      }
+    },
+    "Ajoutez au moins un palier.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add at least one step."
           }
         }
       }
@@ -6874,6 +6910,16 @@
         }
       }
     },
+    "Le repos s’adapte à chaque palier : plus le palier est proche de votre maximum, plus il est long.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rest adapts to each step: the closer the step is to your maximum, the longer it is."
+          }
+        }
+      }
+    },
     "Le repos va d’une validation à la suivante : il inclut l’exécution des séries en répétitions.": {
       "localizations": {
         "en": {
@@ -7007,6 +7053,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The rows kept here could not be interpreted. They are kept as they are so that you can correct the file."
+          }
+        }
+      }
+    },
+    "Les modèles sont un point de départ : chaque palier se modifie ci-dessous.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Templates are a starting point: each step can be edited below."
           }
         }
       }
@@ -8577,6 +8633,22 @@
         }
       }
     },
+    "Palier %lld : %lld reps": {
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Palier %1$lld : %2$lld reps"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Step %lld: %lld reps"
+          }
+        }
+      }
+    },
     "Palier %lld : -%@": {
       "localizations": {
         "en": {
@@ -8627,6 +8699,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Step of %@ kg"
+          }
+        }
+      }
+    },
+    "Paliers": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steps"
           }
         }
       }
@@ -8832,6 +8914,16 @@
       }
     },
     "Personnalisé": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom"
+          }
+        }
+      }
+    },
+    "Personnalisée": {
       "localizations": {
         "en": {
           "stringUnit": {

@@ -37,4 +37,30 @@ struct PyramidTests {
     func testInvalidMaxGivesEmpty() {
         #expect(Pyramid.proposals(maxReps: 0).isEmpty)
     }
+
+    // MARK: - Pyramide libre
+
+    @Test
+    func testFreeStepsAreClampedAndTruncated() {
+        #expect(Pyramid.normalizedSteps([0, 5, 250]) == [1, 5, 100])
+        #expect(Pyramid.normalizedSteps(Array(repeating: 8, count: 40)).count == Pyramid.maximumSteps)
+        #expect(Pyramid.normalizedSteps([]).isEmpty)
+    }
+
+    @Test
+    func testAnyShapeIsKept() {
+        // Forme qu'aucune proposition ne produit : elle doit survivre telle quelle.
+        let custom = [12, 10, 8, 8, 6, 15]
+        #expect(Pyramid.normalizedSteps(custom) == custom)
+        #expect(Pyramid.matchingProposal(for: custom, maxReps: 10) == nil)
+        #expect(Pyramid.matchingProposal(for: [2, 4, 6, 4, 2], maxReps: 10)?.name == "Montante-descendante")
+    }
+
+    @Test
+    func testAppendingStepRepeatsTheLastOne() {
+        #expect(Pyramid.appendingStep(to: [10, 8], maxReps: 12) == [10, 8, 8])
+        #expect(Pyramid.appendingStep(to: [], maxReps: 12) == [12])
+        let full = Array(repeating: 5, count: Pyramid.maximumSteps)
+        #expect(Pyramid.appendingStep(to: full, maxReps: 12) == full)
+    }
 }
